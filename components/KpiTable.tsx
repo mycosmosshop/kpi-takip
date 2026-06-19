@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Kpi, ModalType, TooltipSettings, Status, Dof, AppearanceSettings } from '../types';
 import { AYLAR, THEMES } from '../constants';
 import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../utils/calculations';
-import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon } from './icons';
+import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon } from './icons';
 import Trendline from './Trendline';
 
 interface KpiTableProps {
@@ -329,6 +329,7 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                 </td>
             )}
             <td className={`sticky-col-right p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>
+                <button onClick={() => onOpenModal('kpi-source', kpi)} title={kpi.kaynak ? `Bağlı kaynak: CMMS ${kpi.kaynak.metric.toUpperCase()}` : 'Bakım sisteminden veri çek (MTBF/MTTR)'} className={`p-1 ${kpi.kaynak ? 'text-green-600 hover:text-green-800' : 'text-gray-400 hover:text-gray-600'}`}><ExternalLinkIcon className="w-5 h-5"/></button>
                 <button onClick={() => onOpenModal('kpi', kpi)} className="p-1 text-blue-600 hover:text-blue-800"><EditIcon className="w-5 h-5"/></button>
                 <button onClick={onDelete} className="p-1 text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5"/></button>
             </td>

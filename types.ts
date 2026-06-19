@@ -142,10 +142,18 @@ export interface Risk {
     riskSeviyesi: RiskLevel;
 }
 
+export interface KpiSource {
+    type: 'cmms';
+    metric: 'mtbf' | 'mttr' | 'availability';
+    location?: string;   // CMMS lokasyonu (boşsa app lokasyon adı kullanılır)
+    formula?: string;    // opsiyonel; 'x' = kaynaktan çekilen değer (ör. x/60)
+}
+
 export interface Kpi {
     id: string;
     proses: string;
     kpi_adi: string;
+    kaynak?: KpiSource;
     sorumlu?: string;
     gozdenGecirmePeriyodu?: ReviewPeriod;
     pasifAylar?: string[];
@@ -206,7 +214,7 @@ export interface ActionYearData {
     nextMeeting: string;  // Next Meeting (tarih/saat metni)
 }
 
-export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | 'process-order' | null;
+export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | 'process-order' | 'kpi-source' | null;
 
 export interface ModalState {
     type: ModalType;

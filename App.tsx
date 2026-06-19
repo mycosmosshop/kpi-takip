@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation } from './types';
+import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation, KpiSource } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS } from './constants';
 import { calculateAverage, determineStatus } from './utils/calculations';
@@ -13,6 +13,8 @@ import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
+import KpiSourceModal from './components/KpiSourceModal';
+import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -370,6 +372,47 @@ const App: React.FC = () => {
             kpis: prevData.kpis.map(kpi => kpi.id === kpiId
                 ? { ...kpi, onceki_yil_gerceklesen: value, son_guncelleme: new Date().toLocaleString('tr-TR') }
                 : kpi),
+        }));
+    };
+
+    // CMMS kaynağından (cmms_metrics) bu yıl için aylık değerleri çek ve KPI hücrelerine yaz
+    const handlePullFromSource = useCallback(async (kpiId: string, source: KpiSource) => {
+        const kpi = kpiData.kpis.find(k => k.id === kpiId);
+        if (!kpi) return;
+        const loc = (source.location && source.location.trim()) ? source.location.trim() : currentLocObj.name;
+        try {
+            const map = await fetchCmmsMetrics(loc, currentYear);
+            const newAylik: { [k: string]: number | null } = { ...kpi.aylik };
+            let filled = 0, na = 0;
+            AYLAR.forEach((ay, i) => {
+                const rec = map[i + 1];
+                const raw = rec ? (rec as any)[source.metric] : null;
+                if (raw !== null && raw !== undefined) {
+                    newAylik[ay] = applySourceFormula(source.formula, Number(raw));
+                    if (newAylik[ay] !== null) filled++;
+                } else {
+                    newAylik[ay] = null; // veri yoksa NA
+                    na++;
+                }
+            });
+            updateCurrentYearData(prev => ({
+                ...prev,
+                kpis: prev.kpis.map(k => k.id === kpiId
+                    ? { ...k, aylik: newAylik, kaynak: source, son_guncelleme: new Date().toLocaleString('tr-TR') }
+                    : k),
+            }));
+            setNotification({ message: `CMMS'ten çekildi: ${source.metric.toUpperCase()} · ${loc} · ${currentYear} → ${filled} ay dolu, ${na} ay veri yok (NA).`, type: 'success' });
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'bilinmeyen hata';
+            setNotification({ message: `CMMS verisi çekilemedi: ${msg}`, type: 'error' });
+        }
+    }, [kpiData.kpis, currentYear, currentLocObj]);
+
+    // KPI kaynak bağlantısını kaldır (aylık değerlere dokunmaz)
+    const handleClearSource = (kpiId: string) => {
+        updateCurrentYearData(prev => ({
+            ...prev,
+            kpis: prev.kpis.map(k => k.id === kpiId ? { ...k, kaynak: undefined } : k),
         }));
     };
 
@@ -1334,6 +1377,17 @@ const App: React.FC = () => {
                     onClose={handleCloseModal}
                     processes={uniqueProcesses}
                     onReorder={handleReorderProcess}
+                />
+            )}
+            {modal.type === 'kpi-source' && (
+                <KpiSourceModal
+                    isOpen={modal.type === 'kpi-source'}
+                    onClose={handleCloseModal}
+                    kpi={processedKpis.find(k => k.id === modal.data?.id) || modal.data}
+                    defaultLocation={currentLocObj.name}
+                    year={kpiData.yil}
+                    onPull={handlePullFromSource}
+                    onClear={handleClearSource}
                 />
             )}
         </div>

@@ -1,0 +1,76 @@
+===== calcFleetKPIs =====
+function calcFleetKPIs(forLoc){
+  const loc = forLoc !== undefined ? forLoc : gLocFilter;
+  const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
+  const _ml = _mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines;
+  const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
+  const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
+  let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0;
+  _ml.forEach(m=>{
+    const mx = machMetrics(m.id);
+    sumAvail += parseFloat(mx.avail);
+    const mFails = db.failures.filter(f=>f.machineId===m.id && _dfFilter(f));
+    if(mFails.length>0){
+      sumMtbf += parseFloat(mx.mtbf);
+      sumMttr += parseFloat(mx.mttr);
+      // MTTF: install date → first failure
+      const first = mFails.sort((a,b)=>new Date(a.startTime)-new Date(b.startTime))[0];
+      if(first && m.installDate){
+        const mttf = Math.max(0,(new Date(first.startTime)-new Date(m.installDate))/3600000);
+        sumMttf += mttf;
+      }
+      cntF++;
+    }
+  });
+  const n = _ml.length||1;
+
+  // Eğer lokasyonda hiç makine/veri yoksa anlamsız değerler gösterme
+  const hasData = _ml.length > 0;
+
+  // PMR — Planned Maintenance Ratio (by hours, fallback to count)
+  const plannedH = _lm
+    .filter(p=>p.type==='preventive'||p.type==='predictive')
+    .reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
+  const correctiveH = _lm
+    .filter(p=>p.type==='corrective'||p.type==='overhaul')
+    .reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
+  const failDownH = _lf.reduce((s,f)=>s+downtimeH(f),0);
+  const totalMaintH = plannedH + correctiveH + failDownH;
+  const pmrVal       = totalMaintH>0 ? plannedH/totalMaintH*100 : (_lm.filter(p=>p.type==='preventive'||p.type==='predictive').length/(_lm.length||1)*100);
+  const unplannedVal = totalMaintH>0 ? (correctiveH+failDownH)/totalMaintH*100 : 100-pmrVal;
+
+  // PMC — Preventive Maintenance Compliance
+  const schedPlan = _lm.filter(p=>p.type==='preventive'||p.type==='predictive');
+  const compPlan  = schedPlan.filter(p=>p.status==='completed').length;
+  const pmcVal    = schedPlan.length>0 ? compPlan/schedPlan.length*100 : null;
+
+  return {
+    mtbf:         cntF>0 ? +(sumMtbf/cntF).toFixed(0)   : null,
+    mttr:         cntF>0 ? +(sumMttr/cntF).toFixed(1)   : null,
+    mttf:         cntF>0 ? +(sumMttf/cntF).toFixed(0)   : null,
+    availability: hasData ? +(sumAvail/n).toFixed(1)     : null,
+    pmr:          hasData && _lm.length>0 ? +pmrVal.toFixed(1)       : null,
+    unplanned:  
+
+
+--- _dashRangeActive (23) ---
+arih aralığı tek bir takvim yılını kapsıyorsa o yılı döndür (hedef yıl-bazlı çözülsün) function _activeKpiYear(){   if(!_dashRangeActive) return '';   const f=_dashRange.from, t=_dashRange.to;   if(f&&t) return f.getFullYear()===t.getFullYear() ? String(f.getFullYear()) : '';   i
+─ Dashboard tarih aralığı (yalnızca dashboard render'ı sırasında aktif) ── let _dashRange = { from:null, to:null }; let _dashRangeActive = false; function _dfFilter(f){   if(!_dashRangeActive || (!_dashRange.from && !_dashRange.to)) return true;   const t = new Date(f.startTime);
+
+--- _dashRange (70) ---
+arih aralığı tek bir takvim yılını kapsıyorsa o yılı döndür (hedef yıl-bazlı çözülsün) function _activeKpiYear(){   if(!_dashRangeActive) return '';   const f=_dashRange.from, t=_dashRange.to;   if(f&&t) return f.getFullYear()===t.getFullYear() ? String(f.getFullYear()) : '';   i
+ıyorsa o yılı döndür (hedef yıl-bazlı çözülsün) function _activeKpiYear(){   if(!_dashRangeActive) return '';   const f=_dashRange.from, t=_dashRange.to;   if(f&&t) return f.getFullYear()===t.getFullYear() ? String(f.getFullYear()) : '';   if(f) return String(f.getFullYear());   
+
+--- locFilter (1) ---
+önce hâlâ açık)     const midsA=locVal?new Set(db.machines.filter(m=>m.location===locVal).map(m=>m.id)):null;     const locFilter9=loc=>(midsA?midsA.has(loc.machineId):true);     const openFails=(midsA?db.failures.filter(f=>midsA.has(f.machineId)):db.failures)       .filter(f=>f.
+
+--- _loc (21) ---
+ue="kpiTrend" checked onchange="renderReports()"> 📈 KPI Aylık Trend</label>       <label class="rpt-toggle-btn" id="rtgl_locCompare"><input type="checkbox" value="locCompare" checked onchange="renderReports()"> 🏭 Lokasyon Karşılaştırma</label>       <label class="rpt-toggle-btn" 
+ defaultTarget:90,   desc:'Planlı Bakım Uyumu — Tamamlanan / planlanan bakım sayısı' }, };  // kpiConfig yapısı: { 'YYYY_loc': { kpiKey: {enabled, target} } } // 'örn: '2025_', '2026_Çerkezköy', '' = eski global (migration uyumluluğu) let kpiConfig = {};  const STORAGE_KEY     = 
+
+--- .location=== (32) ---
+forLoc){   const loc = forLoc !== undefined ? forLoc : gLocFilter;   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;   const _ml = _mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines;   const _lf = (_mids ? db.failures.filter(f=>
+e) badge.remove();     }   }); } function locMids(){ if(!gLocFilter) return null; return new Set(db.machines.filter(m=>m.location===gLocFilter).map(m=>m.id)); } function locMachines(){ return gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines; } function lo
+
+--- _lm  (1) ---
+achines;   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=
