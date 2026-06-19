@@ -1,6 +1,11 @@
 # Logs
 logs
 *.log
+
+# Kaynak logo (public/ultech-logo.png kullanılır)
+ultech logo.png
+_*.mjs
+_*.xlsx
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

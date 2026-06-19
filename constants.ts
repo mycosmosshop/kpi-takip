@@ -1,8 +1,26 @@
-import { KpiData, AppearanceTheme } from './types';
+import { KpiData, AppearanceTheme, Company, KpiLocation } from './types';
 
 export const AYLAR = [
-    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+];
+
+// Marka/şirket → doküman no, logo dosyası ve antet metni
+export const BRANDS: Record<Company, { docNo: string; fileTag: string; logo: string; name: string }> = {
+    sanifoam: { docNo: 'FR 100', fileTag: 'FR100', logo: 'SanifoamLogo-Transparent.png', name: 'SANİFOAM' },
+    ultech:   { docNo: 'FR 001', fileTag: 'FR001', logo: 'ultech-logo.png',              name: 'ULTECH' },
+};
+
+// Varsayılan lokasyonlar (kullanıcı ekleyebilir/silebilir)
+export const DEFAULT_LOCATIONS: KpiLocation[] = [
+    { id: 'cerkezkoy', name: 'Çerkezköy', company: 'sanifoam' },
+    { id: 'velikoy',   name: 'Veliköy',   company: 'sanifoam' },
+    { id: 'eskisehir', name: 'Eskişehir', company: 'sanifoam' },
+    { id: 'adana',     name: 'Adana',     company: 'sanifoam' },
+    { id: 'bursa',     name: 'Bursa',     company: 'sanifoam' },
+    { id: 'adapazari', name: 'Adapazarı', company: 'sanifoam' },
+    { id: 'ultech1',   name: 'Ultech1',   company: 'ultech' },
+    { id: 'ultech2',   name: 'Ultech2',   company: 'ultech' },
 ];
 
 export const THEMES: Record<AppearanceTheme, Record<string, string>> = {

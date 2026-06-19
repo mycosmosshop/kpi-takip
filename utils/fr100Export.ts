@@ -45,7 +45,9 @@ const toBase64 = (ab: ArrayBuffer): string => {
     return typeof btoa !== 'undefined' ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
 };
 
-export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoBuffer: ArrayBuffer | null): Promise<Blob> => {
+export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoBuffer: ArrayBuffer | null, brand?: { docNo?: string; companyName?: string; locationName?: string }): Promise<Blob> => {
+    const docNo = brand?.docNo || 'FR 100';
+    const companyName = brand?.companyName || 'SANİFOAM';
     const wb = new ExcelJS.Workbook();
     wb.creator = 'KPI Takip Tablosu';
 
@@ -88,12 +90,12 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
     title.alignment = { vertical: 'middle', horizontal: 'center' };
 
     const subtitle = ws.getCell('C3');
-    subtitle.value = `${year} YILI ANAHTAR PERFORMANS GÖSTERGELERİ (KPI) İZLEME TABLOSU`;
+    subtitle.value = `${year} YILI ANAHTAR PERFORMANS GÖSTERGELERİ (KPI) İZLEME TABLOSU${brand?.locationName ? ' — ' + brand.locationName : ''}`;
     subtitle.font = { bold: true, size: 11, name: 'Calibri', color: { argb: 'FF333333' } };
     subtitle.alignment = { vertical: 'middle', horizontal: 'center' };
 
     const docBox: [string, string, string][] = [
-        ['S1', 'DOK. NO', 'FR 100'],
+        ['S1', 'DOK. NO', docNo],
         ['S2', 'Y. TRH.', '01.11.2003'],
         ['S3', 'REV. NO', '07'],
         ['S4', 'SAYFA', '1 / 1'],
@@ -119,7 +121,7 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
         } catch { /* logo eklenemezse atla */ }
     } else {
         const lg = ws.getCell('A1');
-        lg.value = 'SANİFOAM';
+        lg.value = companyName;
         lg.font = { bold: true, size: 16, color: { argb: 'FF0288D1' } };
         lg.alignment = { vertical: 'middle', horizontal: 'center' };
     }

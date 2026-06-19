@@ -174,6 +174,14 @@ export type MultiYearKpiData = {
     [year: number]: KpiData;
 };
 
+export type Company = 'sanifoam' | 'ultech';
+
+export interface KpiLocation {
+    id: string;
+    name: string;
+    company: Company;
+}
+
 export type ActionPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface ActionItem {
@@ -198,7 +206,7 @@ export interface ActionYearData {
     nextMeeting: string;  // Next Meeting (tarih/saat metni)
 }
 
-export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | null;
+export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | null;
 
 export interface ModalState {
     type: ModalType;

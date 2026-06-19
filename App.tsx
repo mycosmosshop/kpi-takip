@@ -1,15 +1,16 @@
 
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData } from './types';
+import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { initialData, AYLAR } from './constants';
+import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS } from './constants';
 import { calculateAverage, determineStatus } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
 import { exportFr100 } from './utils/fr100Export';
 import { exportFr216 } from './utils/fr216Export';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
+import LocationsModal from './components/LocationsModal';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -47,34 +48,60 @@ const defaultAppearanceSettings: AppearanceSettings = {
 
 
 const App: React.FC = () => {
-    const [allKpiData, setAllKpiData] = useLocalStorage<MultiYearKpiData>('kpiData_multi_v2', {});
-    const [actionDataByYear, setActionDataByYear] = useLocalStorage<{ [year: number]: ActionYearData }>('kpiActionItems_v1', {});
+    // ── Lokasyon bazlı veri katmanı ──
+    const [locations, setLocations] = useLocalStorage<KpiLocation[]>('kpi_locations_v1', DEFAULT_LOCATIONS);
+    const [currentLocation, setCurrentLocation] = useLocalStorage<string>('kpi_currentLocation_v1', DEFAULT_LOCATIONS[0].id);
+    const [dataByLocation, setDataByLocation] = useLocalStorage<{ [loc: string]: MultiYearKpiData }>('kpiData_byLocation_v1', {});
+    const [actionDataByLocation, setActionDataByLocation] = useLocalStorage<{ [loc: string]: { [year: number]: ActionYearData } }>('kpiActionItems_byLoc_v1', {});
+
+    // Mevcut kodla uyum için (lokasyona göre) türetilmiş allKpiData / actionDataByYear + setter "shim"leri
+    const allKpiData = useMemo<MultiYearKpiData>(() => dataByLocation[currentLocation] || {}, [dataByLocation, currentLocation]);
+    const setAllKpiData = useCallback((value: React.SetStateAction<MultiYearKpiData>) => {
+        setDataByLocation(prev => {
+            const cur = prev[currentLocation] || {};
+            const next = typeof value === 'function' ? (value as (p: MultiYearKpiData) => MultiYearKpiData)(cur) : value;
+            return { ...prev, [currentLocation]: next };
+        });
+    }, [currentLocation, setDataByLocation]);
+
+    const actionDataByYear = useMemo<{ [year: number]: ActionYearData }>(() => actionDataByLocation[currentLocation] || {}, [actionDataByLocation, currentLocation]);
+    const setActionDataByYear = useCallback((value: React.SetStateAction<{ [year: number]: ActionYearData }>) => {
+        setActionDataByLocation(prev => {
+            const cur = prev[currentLocation] || {};
+            const next = typeof value === 'function' ? (value as (p: { [year: number]: ActionYearData }) => { [year: number]: ActionYearData })(cur) : value;
+            return { ...prev, [currentLocation]: next };
+        });
+    }, [currentLocation, setActionDataByLocation]);
+
     const [currentYear, setCurrentYear] = useState<number>(() => {
-        const storedData = localStorage.getItem('kpiData_multi_v2');
-        if (storedData && storedData.trim()) {
-            try {
-                const parsed = JSON.parse(storedData);
-                if (parsed && typeof parsed === 'object') {
-                    const years = Object.keys(parsed).map(Number).filter(y => !isNaN(y) && y > 0);
-                    if (years.length > 0) return Math.max(...years);
-                }
-            } catch (e) {
-                console.error("Error parsing 'kpiData_multi_v2'. Data might be corrupted or empty.", e);
+        try {
+            const loc = JSON.parse(localStorage.getItem('kpi_currentLocation_v1') || 'null') || DEFAULT_LOCATIONS[0].id;
+            const byLoc = JSON.parse(localStorage.getItem('kpiData_byLocation_v1') || 'null');
+            const src = (byLoc && byLoc[loc]) || JSON.parse(localStorage.getItem('kpiData_multi_v2') || 'null'); // migrasyon öncesi yedek
+            if (src && typeof src === 'object') {
+                const years = Object.keys(src).map(Number).filter(y => !isNaN(y) && y > 0);
+                if (years.length > 0) return Math.max(...years);
             }
-        }
-        const oldStoredData = localStorage.getItem('kpiData_v1');
-        if (oldStoredData && oldStoredData.trim()) {
-            try {
-                const parsedOld = JSON.parse(oldStoredData);
-                if (parsedOld && parsedOld.yil) {
-                    return parsedOld.yil;
-                }
-            } catch (e) {
-                console.error("Error parsing legacy 'kpiData_v1'. Data might be corrupted or empty.", e);
-            }
-        }
+        } catch (e) { /* yok say */ }
         return initialData.yil;
     });
+
+    // Tek seferlik: eski (lokasyonsuz) veriyi varsayılan lokasyona taşı
+    useEffect(() => {
+        if (localStorage.getItem('kpi_locmigrate_v1')) return;
+        try {
+            const oldKpi = JSON.parse(localStorage.getItem('kpiData_multi_v2') || 'null');
+            if (oldKpi && Object.keys(oldKpi).length) {
+                setDataByLocation(prev => (prev[currentLocation] && Object.keys(prev[currentLocation]).length) ? prev : { ...prev, [currentLocation]: oldKpi });
+            }
+            const oldAct = JSON.parse(localStorage.getItem('kpiActionItems_v1') || 'null');
+            if (oldAct && Object.keys(oldAct).length) {
+                setActionDataByLocation(prev => prev[currentLocation] ? prev : { ...prev, [currentLocation]: oldAct });
+            }
+        } catch (e) { /* yok say */ }
+        localStorage.setItem('kpi_locmigrate_v1', '1');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const [filteredData, setFilteredData] = useState<Kpi[]>([]);
     const [filters, setFilters] = useState({ process: [] as string[], status: [] as string[], risk: [] as string[] });
@@ -172,6 +199,9 @@ const App: React.FC = () => {
     const kpiData = useMemo(() => {
         return allKpiData[currentYear] || { yil: currentYear, kpis: [] };
     }, [allKpiData, currentYear]);
+
+    const currentLocObj = useMemo(() => locations.find(l => l.id === currentLocation) || locations[0] || DEFAULT_LOCATIONS[0], [locations, currentLocation]);
+    const currentBrand = useMemo(() => BRANDS[currentLocObj?.company || 'sanifoam'], [currentLocObj]);
 
 
     const processedKpis = useMemo(() => {
@@ -510,27 +540,27 @@ const App: React.FC = () => {
                 setNotification({ message: 'Dışa aktarılacak KPI bulunamadı.', type: 'error' });
                 return;
             }
-            // Sanifoam logosunu (public/) getir; başarısız olursa metin antetle devam et
+            // Lokasyonun markasına göre logo (public/) getir; başarısız olursa metin antetle devam et
             let logoBuffer: ArrayBuffer | null = null;
             try {
-                const res = await fetch('SanifoamLogo-Transparent.png');
+                const res = await fetch(currentBrand.logo);
                 if (res.ok) logoBuffer = await res.arrayBuffer();
             } catch { /* logo opsiyonel */ }
 
-            const blob = await exportFr100(window.ExcelJS, filteredData, kpiData.yil, logoBuffer);
+            const blob = await exportFr100(window.ExcelJS, filteredData, kpiData.yil, logoBuffer, { docNo: currentBrand.docNo, companyName: currentBrand.name, locationName: currentLocObj.name });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `FR100_KPI_${kpiData.yil}.xlsx`;
+            link.download = `${currentBrand.fileTag}_KPI_${currentLocObj.name}_${kpiData.yil}.xlsx`;
             link.click();
             URL.revokeObjectURL(url);
 
-            setNotification({ message: 'FR100 Excel raporu başarıyla oluşturuldu.', type: 'success' });
+            setNotification({ message: `${currentBrand.docNo} Excel raporu başarıyla oluşturuldu.`, type: 'success' });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen Excel oluşturma hatası';
             setNotification({ message: `Excel oluşturulamadı: ${errorMessage}`, type: 'error' });
         }
-    }, [filteredData, kpiData.yil]);
+    }, [filteredData, kpiData.yil, currentBrand, currentLocObj]);
 
     // ── Aksiyon Maddeleri (FR216) ──
     const currentActionData: ActionYearData = useMemo(
@@ -552,18 +582,18 @@ const App: React.FC = () => {
             const data = actionDataByYear[currentYear] || { items: [], nextMeeting: '' };
             if (data.items.length === 0) { setNotification({ message: 'Dışa aktarılacak aksiyon yok.', type: 'error' }); return; }
             let logoBuffer: ArrayBuffer | null = null;
-            try { const res = await fetch('SanifoamLogo-Transparent.png'); if (res.ok) logoBuffer = await res.arrayBuffer(); } catch { /* opsiyonel */ }
-            const blob = await exportFr216(window.ExcelJS, data.items, currentYear, data.nextMeeting, logoBuffer);
+            try { const res = await fetch(currentBrand.logo); if (res.ok) logoBuffer = await res.arrayBuffer(); } catch { /* opsiyonel */ }
+            const blob = await exportFr216(window.ExcelJS, data.items, currentYear, data.nextMeeting, logoBuffer, { companyName: currentBrand.name });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url; link.download = `FR216_Aksiyonlar_${currentYear}.xlsx`; link.click();
+            link.href = url; link.download = `FR216_Aksiyonlar_${currentLocObj.name}_${currentYear}.xlsx`; link.click();
             URL.revokeObjectURL(url);
             setNotification({ message: 'FR216 Aksiyon raporu oluşturuldu.', type: 'success' });
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Bilinmeyen hata';
             setNotification({ message: `FR216 oluşturulamadı: ${msg}`, type: 'error' });
         }
-    }, [actionDataByYear, currentYear]);
+    }, [actionDataByYear, currentYear, currentBrand, currentLocObj]);
 
 
     const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -876,6 +906,11 @@ const App: React.FC = () => {
                 onImportXlsx={handleImportXlsx}
                 onExport={handleExport}
                 onExportXlsx={handleExportXlsx}
+                exportLabel={currentBrand.fileTag}
+                locations={locations}
+                currentLocation={currentLocation}
+                onChangeLocation={setCurrentLocation}
+                onManageLocations={() => handleOpenModal('locations')}
                 onNavigateYear={handleNavigateYear}
                 isSummaryOpen={isSummaryOpen}
                 setSummaryOpen={setSummaryOpen}
@@ -1067,6 +1102,16 @@ const App: React.FC = () => {
                     onClose={handleCloseModal}
                     kpis={processedKpis}
                     initialKpiId={modal.data?.kpiId}
+                />
+            )}
+            {modal.type === 'locations' && (
+                <LocationsModal
+                    isOpen={modal.type === 'locations'}
+                    onClose={handleCloseModal}
+                    locations={locations}
+                    onChange={setLocations}
+                    currentLocation={currentLocation}
+                    onSelect={setCurrentLocation}
                 />
             )}
         </div>

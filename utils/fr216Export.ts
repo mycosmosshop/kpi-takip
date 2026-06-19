@@ -14,7 +14,8 @@ const toBase64 = (ab: ArrayBuffer): string => {
 const PRIO_FILL: Record<string, string> = { LOW: 'FFE2F0D9', MEDIUM: 'FFFFF2CC', HIGH: 'FFF8CBCB' };
 const PRIO_FONT: Record<string, string> = { LOW: 'FF548235', MEDIUM: 'FF9C6500', HIGH: 'FFC0392B' };
 
-export const exportFr216 = async (ExcelJS: any, items: ActionItem[], year: number, nextMeeting: string, logoBuffer: ArrayBuffer | null): Promise<Blob> => {
+export const exportFr216 = async (ExcelJS: any, items: ActionItem[], year: number, nextMeeting: string, logoBuffer: ArrayBuffer | null, brand?: { companyName?: string }): Promise<Blob> => {
+    const companyName = brand?.companyName || 'SANİFOAM';
     const wb = new ExcelJS.Workbook();
     wb.creator = 'KPI Takip Tablosu';
     const ws = wb.addWorksheet(`${year} Aksiyonlar`, {
@@ -60,7 +61,7 @@ export const exportFr216 = async (ExcelJS: any, items: ActionItem[], year: numbe
             ws.addImage(id, { tl: { col: 0.15, row: 0.35 }, ext: { width: 165, height: 56 }, editAs: 'oneCell' });
         } catch { /* atla */ }
     } else {
-        const lg = ws.getCell('A1'); lg.value = 'SANİFOAM'; lg.font = { bold: true, size: 16, color: { argb: 'FF0288D1' } }; lg.alignment = { vertical: 'middle', horizontal: 'center' };
+        const lg = ws.getCell('A1'); lg.value = companyName; lg.font = { bold: true, size: 16, color: { argb: 'FF0288D1' } }; lg.alignment = { vertical: 'middle', horizontal: 'center' };
     }
 
     // Last Updated / Next Meeting (5. satır)

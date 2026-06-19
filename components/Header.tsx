@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { Kpi, ModalType } from '../types';
-import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon } from './icons';
+import { Kpi, ModalType, KpiLocation } from '../types';
+import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon } from './icons';
 
 interface HeaderProps {
     year: number;
@@ -12,6 +12,11 @@ interface HeaderProps {
     onImportXlsx: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onExport: () => void;
     onExportXlsx: () => void;
+    exportLabel: string;
+    locations: KpiLocation[];
+    currentLocation: string;
+    onChangeLocation: (id: string) => void;
+    onManageLocations: () => void;
     onNavigateYear: (targetYear: number) => void;
     isSummaryOpen: boolean;
     setSummaryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -64,7 +69,7 @@ const FilterDropdown: React.FC<{ label: string; options: string[]; selected: str
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
+const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const xlsxInputRef = useRef<HTMLInputElement>(null);
     const uniqueProcesses = [...new Set(allKpis.map(kpi => kpi.proses))];
@@ -77,10 +82,24 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.5</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.6</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
+                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
+                        <select
+                            value={currentLocation}
+                            onChange={(e) => onChangeLocation(e.target.value)}
+                            className="bg-transparent text-base font-semibold text-gray-800 dark:text-gray-100 cursor-pointer focus:outline-none rounded-md py-1 pl-1 pr-1 hover:bg-gray-200 dark:hover:bg-gray-600 max-w-[160px]"
+                            aria-label="Lokasyon seç"
+                            title="Lokasyon seç"
+                        >
+                            {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                        </select>
+                        <button onClick={onManageLocations} title="Lokasyonları yönet" className="p-1 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                            <GearIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                     <div className="flex items-center gap-2 text-2xl font-bold text-blue-600 dark:text-blue-400 bg-gray-100 dark:bg-gray-700/50 px-3 py-1 rounded-lg">
                         <button
                             onClick={() => onNavigateYear(year - 1)}
@@ -130,8 +149,8 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                     <button onClick={() => xlsxInputRef.current?.click()} title="FR100 KPI Excel şablonundan KPI'ları içe aktar (hedef = HEDEF 1 YIL)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                         <TableCellsIcon className="w-4 h-4" /> Excel'den Yükle
                     </button>
-                    <button onClick={onExportXlsx} title="FR100 antetli (Sanifoam), biçimli Excel raporu indir" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
-                        <TableCellsIcon className="w-4 h-4" /> FR100 Excel
+                    <button onClick={onExportXlsx} title="Antetli, biçimli KPI Excel raporu indir (lokasyon markasına göre)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <TableCellsIcon className="w-4 h-4" /> {exportLabel} Excel
                     </button>
                     <button onClick={onExport} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <DownloadIcon className="w-4 h-4" /> Dışa Aktar (JSON)
