@@ -33,7 +33,8 @@ const STATUS_FONT: Record<string, string> = {
 };
 
 const TOTAL_COLS = 21; // A..U
-const NUMFMT = '#,##0.######';
+// Tam sayıda ondalık ayracı gösterme ("100," olmasın); ondalıklıda 6 haneye kadar
+const fmtFor = (v: number): string => (Number.isInteger(v) ? '#,##0' : '#,##0.######');
 
 // ArrayBuffer → base64 (tarayıcı ve Node'da çalışır; ExcelJS addImage için en güvenli yol)
 const toBase64 = (ab: ArrayBuffer): string => {
@@ -229,7 +230,7 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
                 const cell = ws.getCell(vRow, col);
                 if (val !== null && val !== undefined) {
                     cell.value = val;
-                    cell.numFmt = NUMFMT;
+                    cell.numFmt = fmtFor(val);
                     const ms = getSingleMonthStatus(kpi, val);
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATUS_FILL[ms] || 'FFFFFFFF' } };
                     cell.font = { size: 9, color: { argb: STATUS_FONT[ms] || 'FF222222' } };
@@ -241,7 +242,7 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
             const avgCell = ws.getCell(vRow, 21);
             if (kpi.ortalama !== null && kpi.ortalama !== undefined) {
                 avgCell.value = kpi.ortalama;
-                avgCell.numFmt = NUMFMT;
+                avgCell.numFmt = fmtFor(kpi.ortalama);
             } else {
                 avgCell.value = 'N/A';
             }
@@ -252,7 +253,7 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
             // F, G sayısal hizalama
             [6, 7].forEach(c => {
                 const cell = ws.getCell(vRow, c);
-                if (typeof cell.value === 'number') cell.numFmt = NUMFMT;
+                if (typeof cell.value === 'number') cell.numFmt = fmtFor(cell.value as number);
                 cell.font = { size: 9 };
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
             });
