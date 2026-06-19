@@ -639,7 +639,13 @@ const App: React.FC = () => {
         try {
             setCloudStatus('syncing');
             const cloudKpi = await cloudFetchKpi(loc, year);
-            if (cloudKpi) { applyCloudKpi(loc, year, cloudKpi); kpiHashRef.current = hashOf(cloudKpi); }
+            if (cloudKpi) {
+                // Eski demo (Laminasyon/Kesim) kayıtları buluttan da temizle ve düzeltilmişi geri yaz
+                const stripped = { ...cloudKpi, kpis: (cloudKpi.kpis || []).filter(k => k.id !== 'kpi-uuid-1' && k.id !== 'kpi-uuid-2') };
+                const demoCleaned = stripped.kpis.length !== (cloudKpi.kpis || []).length;
+                applyCloudKpi(loc, year, stripped); kpiHashRef.current = hashOf(stripped);
+                if (demoCleaned) { try { await cloudSaveKpi(loc, year, stripped); } catch { /* yok say */ } }
+            }
             else { const localK = (dataByLocation[loc] || {})[year]; if (localK && localK.kpis && localK.kpis.length) await cloudSaveKpi(loc, year, localK); }
             const cloudAct = await cloudFetchActions(loc, year);
             if (cloudAct) { applyCloudActions(loc, year, cloudAct); actHashRef.current = hashOf(cloudAct); }
