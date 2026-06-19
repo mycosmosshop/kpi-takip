@@ -104,6 +104,29 @@ const App: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Tek seferlik: eski demo (örnek) KPI kayıtlarını temizle (Laminasyon/Kesim tohumu)
+    useEffect(() => {
+        if (localStorage.getItem('kpi_demo_cleanup_v1')) return;
+        const isDemo = (k: Kpi) => k.id === 'kpi-uuid-1' || k.id === 'kpi-uuid-2';
+        setDataByLocation(prev => {
+            let changed = false;
+            const next: { [loc: string]: MultiYearKpiData } = {};
+            for (const loc of Object.keys(prev)) {
+                const years = prev[loc]; const ny: MultiYearKpiData = {};
+                for (const y of Object.keys(years)) {
+                    const yd = years[Number(y)];
+                    const filtered = yd.kpis.filter(k => !isDemo(k));
+                    if (filtered.length !== yd.kpis.length) changed = true;
+                    ny[Number(y)] = { ...yd, kpis: filtered };
+                }
+                next[loc] = ny;
+            }
+            return changed ? next : prev;
+        });
+        localStorage.setItem('kpi_demo_cleanup_v1', '1');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const [filteredData, setFilteredData] = useState<Kpi[]>([]);
     const [filters, setFilters] = useState({ process: [] as string[], status: [] as string[], risk: [] as string[] });
     const [monthFilter, setMonthFilter] = useState<string | null>(null);
@@ -130,32 +153,8 @@ const App: React.FC = () => {
     const [appearanceSettings, setAppearanceSettings] = useLocalStorage<AppearanceSettings>('appearanceSettings_v1', defaultAppearanceSettings);
 
 
-    // Migration from old single-year data structure to new multi-year structure
-    useEffect(() => {
-        if (Object.keys(allKpiData).length === 0) {
-            const oldDataString = localStorage.getItem('kpiData_v1');
-            let migrated = false;
-            if (oldDataString && oldDataString.trim()) {
-               try {
-                   const oldData: KpiData = JSON.parse(oldDataString);
-                   if (oldData && oldData.yil && Array.isArray(oldData.kpis)) {
-                       setAllKpiData({ [oldData.yil]: oldData });
-                       setCurrentYear(oldData.yil);
-                       setNotification({ message: 'Veri formatı çoklu yıl desteği için güncellendi.', type: 'success' });
-                       migrated = true;
-                   }
-               } catch (e) { 
-                   console.error("Could not migrate old data. It might be corrupted or empty.", e);
-               }
-            }
-            
-            if (!migrated) {
-                // First time user, or migration failed. Initialize with default data.
-                setAllKpiData({ [initialData.yil]: initialData });
-                setCurrentYear(initialData.yil);
-            }
-       }
-   }, []); // Run only once on initial load
+    // Not: Eski tek-yıl migrasyonu ve demo (örnek) veri tohumlama kaldırıldı.
+    // Boş lokasyon/yıl boş gelir; veriler Excel'den yüklenir veya elle eklenir.
 
     // Migration for evidence files
     useEffect(() => {
@@ -778,15 +777,21 @@ const App: React.FC = () => {
         reader.readAsArrayBuffer(file);
     };
 
+    // Yıl seçimi: sadece o yılın verisini göster (boşsa boş gelir). Kopya sormaz.
     const handleNavigateYear = (targetYear: number) => {
-        if (allKpiData[targetYear]) {
-            setCurrentYear(targetYear);
-        } else {
-            handleOpenModal('change-year', { targetYear });
-        }
+        setCurrentYear(targetYear);
+    };
+
+    // Açık "kopyala" isteği: hangi yıla kopyalanacağını sorar (ChangeYearModal)
+    const handleOpenCopyYear = () => {
+        handleOpenModal('change-year', { targetYear: currentYear + 1, copyMode: true });
     };
 
     const handleConfirmChangeYear = (newYear: number, copyData: boolean) => {
+        const existing = allKpiData[newYear];
+        if (copyData && existing && existing.kpis.length > 0) {
+            if (!window.confirm(`${newYear} yılında zaten ${existing.kpis.length} KPI var. Üzerine kopyalansın mı?`)) return;
+        }
         if (copyData) {
             const newKpis = processedKpis.map(kpi => {
                 // FIX: The new KPI object was missing several optional properties from the original KPI.
@@ -1028,6 +1033,7 @@ const App: React.FC = () => {
                 onManageLocations={() => handleOpenModal('locations')}
                 cloudStatus={cloudStatus}
                 onCloudRefresh={handleCloudRefresh}
+                onCopyYear={handleOpenCopyYear}
                 onNavigateYear={handleNavigateYear}
                 isSummaryOpen={isSummaryOpen}
                 setSummaryOpen={setSummaryOpen}

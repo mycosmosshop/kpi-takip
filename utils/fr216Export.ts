@@ -14,6 +14,15 @@ const toBase64 = (ab: ArrayBuffer): string => {
 const PRIO_FILL: Record<string, string> = { LOW: 'FFE2F0D9', MEDIUM: 'FFFFF2CC', HIGH: 'FFF8CBCB' };
 const PRIO_FONT: Record<string, string> = { LOW: 'FF548235', MEDIUM: 'FF9C6500', HIGH: 'FFC0392B' };
 
+// FR216 risk matrisi: RANK × Öncelik(High=3/Med=2/Low=1) → 1-4 Düşük, 5-8 Orta, 9+ Yüksek
+const PRIO_W: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3 };
+const riskFill = (rank: number, prio: string): { fill: string; font: string } => {
+    const s = (rank || 0) * (PRIO_W[prio] || 1);
+    if (s <= 4) return { fill: 'FFC6EFCE', font: 'FF006100' };
+    if (s <= 8) return { fill: 'FFFFEB9C', font: 'FF9C6500' };
+    return { fill: 'FFFFC7CE', font: 'FF9C0006' };
+};
+
 export const exportFr216 = async (ExcelJS: any, items: ActionItem[], year: number, nextMeeting: string, logoBuffer: ArrayBuffer | null, brand?: { companyName?: string }): Promise<Blob> => {
     const companyName = brand?.companyName || 'SANİFOAM';
     const wb = new ExcelJS.Workbook();
@@ -90,7 +99,11 @@ export const exportFr216 = async (ExcelJS: any, items: ActionItem[], year: numbe
         ws.getCell(r, 1).value = it.kpi || '';
         ws.getCell(r, 2).value = it.rootCause || '';
         ws.getCell(r, 3).value = it.action || '';
-        ws.getCell(r, 4).value = it.rank || '';
+        const rankCell = ws.getCell(r, 4);
+        rankCell.value = it.rank || '';
+        const rf = riskFill(it.rank, it.priority);
+        rankCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rf.fill } };
+        rankCell.font = { bold: true, size: 9, color: { argb: rf.font } };
         const prio = ws.getCell(r, 5);
         prio.value = it.priority;
         prio.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PRIO_FILL[it.priority] || 'FFFFFFFF' } };

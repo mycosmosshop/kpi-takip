@@ -116,6 +116,7 @@ interface KpiTableRowProps {
     individualSelectionSet: Set<string>;
     isRecentlyUpdated: boolean;
     showTrendlines: boolean;
+    processNo: number;
     year: number;
     onMouseMove: (event: React.MouseEvent, kpi: Kpi) => void;
     onMouseLeave: () => void;
@@ -123,7 +124,7 @@ interface KpiTableRowProps {
 }
 
 
-const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, year, onMouseMove, onMouseLeave, themeClasses }) => {
+const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, processNo, year, onMouseMove, onMouseLeave, themeClasses }) => {
     const statusIcons: { [key: string]: string } = { 'basarili': '✓', 'marjinal': '≈', 'basarisiz': '✗', 'n/a': '-' };
     const baseRowColor = getStatusColorClasses(kpi.durum);
     const finalRowColor = isRowSelected ? 'bg-blue-200 dark:bg-blue-800' : baseRowColor;
@@ -165,7 +166,7 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
             </td>
             <td className={`sticky-col-2 p-2 border-b border-gray-200 dark:border-gray-700 text-center font-bold w-[48px] ${themeClasses.tdSticky}`}>{statusIcons[kpi.durum]}</td>
             <td className={`sticky-col-3 p-2 border-b border-gray-200 dark:border-gray-700 w-[160px] ${themeClasses.tdSticky}`} title={kpi.proses}>
-                <div className="process-col">{kpi.proses}</div>
+                <div className="process-col"><span className="text-gray-400 dark:text-gray-500 font-semibold mr-1">{processNo})</span>{kpi.proses}</div>
             </td>
             <td className={`sticky-col-4 p-2 border-b border-gray-200 dark:border-gray-700 font-semibold w-[256px] ${themeClasses.tdSticky}`}>
                  <span onClick={() => onOpenModal('detail', kpi)} className="kpi-name cursor-pointer hover:underline text-blue-600 dark:text-blue-400" title={kpi.kpi_adi}>
@@ -314,6 +315,14 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
     
     const themeClasses = THEMES[appearanceSettings.theme];
     const fontClasses = `text-${appearanceSettings.fontSize} font-${appearanceSettings.fontWeight}`;
+
+    // Süreçleri ilk görünme sırasına göre numaralandır
+    const processNumbers = useMemo(() => {
+        const map = new Map<string, number>();
+        let n = 0;
+        kpis.forEach(k => { if (!map.has(k.proses)) map.set(k.proses, ++n); });
+        return map;
+    }, [kpis]);
 
     const totalSelectedCells = useMemo(() => {
         const selectionSet = new Set<string>(); // Use string "kpiId|month" to ensure uniqueness
@@ -604,6 +613,7 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                                 individualSelectionSet={individualSelectionSet}
                                 isRecentlyUpdated={kpi.id === recentlyUpdatedKpi}
                                 showTrendlines={showTrendlines}
+                                processNo={processNumbers.get(kpi.proses) || 0}
                                 year={year}
                                 onMouseMove={handleRowMouseMove}
                                 onMouseLeave={handleRowMouseLeave}

@@ -183,11 +183,17 @@ const parseSheet = (rows: any[][], sheetName: string, fallbackYear: number): Kpi
 
         // KPI satırı
         const unit = firstLine(row[cols.unit]);
-        const hedef = parseNum(row[cols.target]);
+        // Yüzde birimli KPI'larda kaynak bazen oran (0,88) bazen tam (%88) girilmiş.
+        // Tutarlılık için oran (|v|<3) olanları ×100 yaparak tam yüzdeye çeviriyoruz.
+        const isPct = unit.replace(/\s/g, '').includes('%');
+        const normPct = (v: number | null): number | null =>
+            (v !== null && isPct && Math.abs(v) > 0 && Math.abs(v) < 3) ? parseFloat((v * 100).toFixed(4)) : v;
+
+        const hedef = normPct(parseNum(row[cols.target]));
         const aylik: { [key: string]: number | null } = {};
         AYLAR.forEach(m => {
             const ci = cols.months[m];
-            aylik[m] = ci !== undefined ? parseNum(row[ci]) : null;
+            aylik[m] = ci !== undefined ? normPct(parseNum(row[ci])) : null;
         });
 
         const kpi: Kpi = {
@@ -196,7 +202,7 @@ const parseSheet = (rows: any[][], sheetName: string, fallbackYear: number): Kpi
             kpi_adi: nameStr,
             sorumlu: currentOwner || undefined,
             gozdenGecirmePeriyodu: mapPeriod(row[cols.period]),
-            onceki_yil_gerceklesen: parseNum(row[cols.prev]),
+            onceki_yil_gerceklesen: normPct(parseNum(row[cols.prev])),
             yeni_yil_hedef: hedef ?? 0,
             karsilastirma: guessComparison(nameStr, unit),
             hesap_metodu: 'ortalama',

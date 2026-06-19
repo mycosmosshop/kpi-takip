@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ActionItem, ActionPriority, Kpi } from '../types';
 import Modal from './Modal';
-import { PlusIcon, TrashIcon, TableCellsIcon, ClipboardCheckIcon, WrenchScrewdriverIcon } from './icons';
+import { PlusIcon, TrashIcon, TableCellsIcon, ClipboardCheckIcon } from './icons';
 
 interface ActionItemsModalProps {
     isOpen: boolean;
@@ -54,6 +54,16 @@ const PRIO_CLASS: Record<ActionPriority, string> = {
     LOW: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
     MEDIUM: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
     HIGH: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+};
+
+// FR216 risk matrisi: RANK (1-5) × Öncelik (High=3, Medium=2, Low=1)
+// Skor: 1-4 Düşük (yeşil), 5-8 Orta (sarı), 9+ Yüksek (kırmızı)
+const PRIO_WEIGHT: Record<ActionPriority, number> = { LOW: 1, MEDIUM: 2, HIGH: 3 };
+export const actionRiskInfo = (rank: number, priority: ActionPriority): { score: number; level: string; cls: string } => {
+    const score = (rank || 0) * (PRIO_WEIGHT[priority] || 1);
+    if (score <= 4) return { score, level: 'Düşük', cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' };
+    if (score <= 8) return { score, level: 'Orta', cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' };
+    return { score, level: 'Yüksek', cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' };
 };
 
 const inputCls = 'w-full bg-transparent px-1 py-1 text-xs rounded border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 focus:outline-none';
@@ -163,14 +173,14 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                     <table className="min-w-[1100px] w-full text-xs">
                         <thead>
                             <tr className="bg-[#375623] text-white">
-                                {['KPI', 'Root Cause', 'Action', 'RANK', 'PRIORITY', 'OWNER', 'ASSIGNED', 'DUE', 'DONE', 'STATUS %', 'NOTES', ''].map(h => (
+                                {['KPI', 'Root Cause', 'Action', 'RANK', 'PRIORITY', 'RISK', 'OWNER', 'ASSIGNED', 'DUE', 'DONE', 'STATUS %', 'NOTES', ''].map(h => (
                                     <th key={h} className="p-2 font-semibold text-left whitespace-nowrap">{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td colSpan={12} className="p-6 text-center text-gray-400">Henüz aksiyon yok. "KPI'dan Ekle" veya "Boş Satır" ile başlayın.</td></tr>
+                                <tr><td colSpan={13} className="p-6 text-center text-gray-400">Henüz aksiyon yok. "KPI'dan Ekle" veya "Boş Satır" ile başlayın.</td></tr>
                             )}
                             {rows.map(r => (
                                 <tr key={r.id} className="border-b border-gray-100 dark:border-gray-700 align-top">
@@ -185,6 +195,9 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                                             <option value="HIGH">HIGH</option>
                                         </select>
                                     </td>
+                                    <td className="p-1 w-20 text-center">
+                                        {(() => { const ri = actionRiskInfo(r.rank, r.priority); return <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${ri.cls}`} title={`RANK ${r.rank} × ${r.priority} = ${ri.score}`}>{ri.level} ({ri.score})</span>; })()}
+                                    </td>
                                     <td className="p-1 w-28"><input value={r.owner} onChange={e => update(r.id, { owner: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 w-28"><input value={r.assigned} onChange={e => update(r.id, { assigned: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 w-32"><input type="date" value={r.due} onChange={e => update(r.id, { due: e.target.value })} className={inputCls} /></td>
@@ -194,13 +207,15 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                                         <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded mt-0.5"><div className="h-full bg-green-500 rounded" style={{ width: `${r.status}%` }} /></div>
                                     </td>
                                     <td className="p-1 min-w-[120px]"><textarea rows={2} value={r.notes} onChange={e => update(r.id, { notes: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 w-20 whitespace-nowrap">
-                                        <button onClick={() => r.kpiId && onStartDof(r.kpiId, r.id)} disabled={!r.kpiId}
-                                            title={r.kpiId ? '8D / DÖF başlat' : 'KPI bağlantısı gerekli'}
-                                            className={`p-1 rounded ${r.kpiId ? 'text-purple-600 hover:text-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30' : 'text-gray-300 cursor-not-allowed'}`}>
-                                            <WrenchScrewdriverIcon className="w-4 h-4 inline" /> <span className="text-[10px] font-bold">8D</span>
-                                        </button>
-                                        <button onClick={() => remove(r.id)} title="Sil" className="p-1 text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
+                                    <td className="p-1 w-24 whitespace-nowrap">
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <button onClick={() => r.kpiId && onStartDof(r.kpiId, r.id)} disabled={!r.kpiId}
+                                                title={r.kpiId ? '8D / DÖF başlat' : 'KPI bağlantısı gerekli'}
+                                                className={`px-2 py-1 rounded text-[11px] font-bold border ${r.kpiId ? 'text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/30' : 'text-gray-300 border-gray-200 dark:border-gray-700 cursor-not-allowed'}`}>
+                                                8D
+                                            </button>
+                                            <button onClick={() => remove(r.id)} title="Sil" className="p-1 text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

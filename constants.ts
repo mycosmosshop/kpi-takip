@@ -56,57 +56,5 @@ export const THEMES: Record<AppearanceTheme, Record<string, string>> = {
 
 export const initialData: KpiData = {
     yil: 2026,
-    kpis: [
-        {
-            id: 'kpi-uuid-1',
-            proses: 'Laminasyon',
-            kpi_adi: 'Hurda Oranı (%)',
-            sorumlu: 'Üretim Müdürü',
-            gozdenGecirmePeriyodu: 'aylik',
-            pasifAylar: ['Ağustos'],
-            onceki_yil_gerceklesen: 3.1,
-            yeni_yil_hedef: 2.5,
-            karsilastirma: '<',
-            hesap_metodu: 'ortalama',
-            birim: '%',
-            aciklama: 'Toplam hurda / Toplam üretim',
-            kanit_dosyalari: [{ id: 'file-1', name: 'Laminasyon Hurda Raporu (Link)', type: 'link', data: 'https://example.com/laminasyon_hurda_raporu.pdf'}],
-            aylik: {
-                'Ocak': 2.9, 'Şubat': 2.7, 'Mart': 3.4, 'Nisan': null, 'Mayıs': null, 'Haziran': null,
-                'Temmuz': null, 'Ağustos': null, 'Eylül': null, 'Ekim': null, 'Kasım': null, 'Aralık': null
-            },
-            ortalama: null,
-            durum: 'n/a',
-            risk: {
-                S: 4, O: 3, D: 4, RPN: 48, esik: 40, riskSeviyesi: 'Yüksek'
-            },
-            dof: [],
-            son_guncelleme: '01.03.2026 14:32'
-        },
-        {
-            id: 'kpi-uuid-2',
-            proses: 'Kesim',
-            kpi_adi: 'Planlanan Teslimata Uyum (%)',
-            sorumlu: 'Lojistik Sorumlusu',
-            gozdenGecirmePeriyodu: 'aylik',
-            onceki_yil_gerceklesen: 93,
-            yeni_yil_hedef: 95,
-            karsilastirma: '>',
-            hesap_metodu: 'yilici_kumulatif',
-            birim: '%',
-            aciklama: 'Zamanında teslim edilen sipariş / Toplam sipariş',
-            kanit_dosyalari: [{ id: 'file-2', name: 'OTD Kesim Raporu (Link)', type: 'link', data: 'https://example.com/otd_kesim.xlsx'}],
-            aylik: {
-                'Ocak': 94, 'Şubat': 96, 'Mart': 95, 'Nisan': null, 'Mayıs': null, 'Haziran': null,
-                'Temmuz': null, 'Ağustos': null, 'Eylül': null, 'Ekim': null, 'Kasım': null, 'Aralık': null
-            },
-            ortalama: null,
-            durum: 'n/a',
-            risk: {
-                S: 2, O: 2, D: 4, RPN: 16, esik: 40, riskSeviyesi: 'Düşük'
-            },
-            dof: [],
-            son_guncelleme: '01.03.2026 15:00'
-        }
-    ]
+    kpis: [],
 };

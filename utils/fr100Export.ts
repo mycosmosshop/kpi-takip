@@ -21,8 +21,9 @@ const periodLabel = (p?: string): string => {
 
 const opLabel = (c: string): string => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
 
-// Yazılımdaki durum sembolleri (gülen/ağlayan yüz değil): ✓ başarılı, ≈ marjinal, ✗ başarısız
-const statusGlyph = (s: Status): string => (s === 'basarili' ? '✓' : s === 'marjinal' ? '≈' : s === 'basarisiz' ? '✗' : '');
+// Durum sembolleri: ✔ başarılı (yeşil), ⚠ marjinal/sınırda (amber), ❗ başarısız (kırmızı)
+// (U+FE0E = metin gösterimi: hücre yazı rengini alsın, renkli emoji'ye dönmesin)
+const statusGlyph = (s: Status): string => (s === 'basarili' ? '✔' : s === 'marjinal' ? '⚠︎' : s === 'basarisiz' ? '❗︎' : '');
 
 const STATUS_FILL: Record<string, string> = {
     basarili: 'FFE2F0D9', marjinal: 'FFFFF2CC', basarisiz: 'FFFBE0E0', 'n/a': 'FFFFFFFF',
