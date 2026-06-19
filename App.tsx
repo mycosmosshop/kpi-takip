@@ -6,6 +6,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { initialData, AYLAR } from './constants';
 import { calculateAverage, determineStatus } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
+import { exportFr100 } from './utils/fr100Export';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -31,6 +32,7 @@ declare global {
     interface Window {
         html2pdf: any;
         XLSX: any;
+        ExcelJS: any;
     }
 }
 
@@ -488,33 +490,31 @@ const App: React.FC = () => {
         link.click();
     }, [allKpiData, currentYear]);
 
-    const handleExportXlsx = useCallback(() => {
+    const handleExportXlsx = useCallback(async () => {
         try {
-            if (!window.XLSX) {
-                throw new Error("Excel (XLSX) kütüphanesi bulunamadı.");
+            if (!window.ExcelJS) {
+                throw new Error('Excel (ExcelJS) kütüphanesi yüklenemedi.');
             }
-            const dataToExport = filteredData.map(kpi => {
-                const row: { [key: string]: any } = {
-                    'Durum': kpi.durum,
-                    'Proses': kpi.proses,
-                    'KPI Adı': kpi.kpi_adi,
-                    'Hedef': `${kpi.yeni_yil_hedef} (${kpi.karsilastirma})`,
-                };
-                AYLAR.forEach(ay => {
-                    row[ay] = kpi.aylik[ay] ?? '';
-                });
-                row['Ortalama'] = kpi.ortalama ?? 'N/A';
-                return row;
-            });
+            if (filteredData.length === 0) {
+                setNotification({ message: 'Dışa aktarılacak KPI bulunamadı.', type: 'error' });
+                return;
+            }
+            // Sanifoam logosunu (public/) getir; başarısız olursa metin antetle devam et
+            let logoBuffer: ArrayBuffer | null = null;
+            try {
+                const res = await fetch('SanifoamLogo-Transparent.png');
+                if (res.ok) logoBuffer = await res.arrayBuffer();
+            } catch { /* logo opsiyonel */ }
 
-            const worksheet = window.XLSX.utils.json_to_sheet(dataToExport);
-            const workbook = window.XLSX.utils.book_new();
-            window.XLSX.utils.book_append_sheet(workbook, worksheet, 'KPI Raporu');
-            
-            const filename = `kpi_raporu_${kpiData.yil}_${new Date().toISOString().split('T')[0]}.xlsx`;
-            window.XLSX.writeFile(workbook, filename);
+            const blob = await exportFr100(window.ExcelJS, filteredData, kpiData.yil, logoBuffer);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `FR100_KPI_${kpiData.yil}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
 
-            setNotification({ message: 'Excel raporu başarıyla oluşturuldu.', type: 'success' });
+            setNotification({ message: 'FR100 Excel raporu başarıyla oluşturuldu.', type: 'success' });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen Excel oluşturma hatası';
             setNotification({ message: `Excel oluşturulamadı: ${errorMessage}`, type: 'error' });

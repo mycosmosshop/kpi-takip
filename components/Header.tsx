@@ -121,8 +121,8 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                     <button onClick={() => xlsxInputRef.current?.click()} title="FR100 KPI Excel şablonundan KPI'ları içe aktar (hedef = HEDEF 1 YIL)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                         <TableCellsIcon className="w-4 h-4" /> Excel'den Yükle
                     </button>
-                    <button onClick={onExportXlsx} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
-                        <TableCellsIcon className="w-4 h-4" /> Dışa Aktar (XLSX)
+                    <button onClick={onExportXlsx} title="FR100 antetli (Sanifoam), biçimli Excel raporu indir" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <TableCellsIcon className="w-4 h-4" /> FR100 Excel
                     </button>
                     <button onClick={onExport} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <DownloadIcon className="w-4 h-4" /> Dışa Aktar (JSON)
