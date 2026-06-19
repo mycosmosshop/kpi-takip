@@ -5,6 +5,7 @@ import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, Toolt
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { initialData, AYLAR } from './constants';
 import { calculateAverage, determineStatus } from './utils/calculations';
+import { parseKpiWorkbook } from './utils/excelImport';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -548,7 +549,46 @@ const App: React.FC = () => {
             reader.readAsText(file);
         }
     };
-    
+
+    const handleImportXlsx = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        // Aynı dosya tekrar seçilebilsin diye input'u sıfırla
+        const inputEl = event.target;
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                if (!window.XLSX) throw new Error('Excel (XLSX) kütüphanesi yüklenemedi.');
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                // Dosya adından yıl yedeği (ör. "...KPI 2026.xlsx")
+                const nameYear = file.name.match(/(20\d{2})/);
+                const fallbackYear = nameYear ? parseInt(nameYear[1], 10) : currentYear;
+                const imported = parseKpiWorkbook(window.XLSX, workbook, fallbackYear);
+
+                const year = imported.yil;
+                const existing = allKpiData[year];
+                if (existing && existing.kpis.length > 0) {
+                    const ok = window.confirm(
+                        `${year} yılı için zaten ${existing.kpis.length} KPI var.\n` +
+                        `Excel'den ${imported.kpis.length} KPI okundu. Mevcut ${year} verisinin ÜZERİNE yazılsın mı?`
+                    );
+                    if (!ok) { inputEl.value = ''; return; }
+                }
+
+                setAllKpiData(prev => ({ ...prev, [year]: imported }));
+                setCurrentYear(year);
+                setNotification({ message: `${year}: Excel'den ${imported.kpis.length} KPI başarıyla içe aktarıldı.`, type: 'success' });
+            } catch (error) {
+                const msg = error instanceof Error ? error.message : 'Bilinmeyen hata';
+                setNotification({ message: `Excel içe aktarma hatası: ${msg}`, type: 'error' });
+            } finally {
+                inputEl.value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
     const handleNavigateYear = (targetYear: number) => {
         if (allKpiData[targetYear]) {
             setCurrentYear(targetYear);
@@ -789,6 +829,7 @@ const App: React.FC = () => {
                 setFilters={setFilters}
                 onAddKpi={() => handleOpenModal('kpi')}
                 onImport={handleImport}
+                onImportXlsx={handleImportXlsx}
                 onExport={handleExport}
                 onExportXlsx={handleExportXlsx}
                 onNavigateYear={handleNavigateYear}

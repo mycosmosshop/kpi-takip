@@ -9,6 +9,7 @@ interface HeaderProps {
     setFilters: React.Dispatch<React.SetStateAction<{ process: string[]; status: string[]; risk: string[] }>>;
     onAddKpi: () => void;
     onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onImportXlsx: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onExport: () => void;
     onExportXlsx: () => void;
     onNavigateYear: (targetYear: number) => void;
@@ -63,8 +64,9 @@ const FilterDropdown: React.FC<{ label: string; options: string[]; selected: str
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onExport, onExportXlsx, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
+const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const xlsxInputRef = useRef<HTMLInputElement>(null);
     const uniqueProcesses = [...new Set(allKpis.map(kpi => kpi.proses))];
     const uniqueStatuses = ['basarili', 'marjinal', 'basarisiz', 'n/a'];
     const uniqueRisks = ['Düşük', 'Orta', 'Yüksek', 'N/A'];
@@ -75,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.2</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.3</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -114,6 +116,10 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                     <input type="file" accept=".json" ref={fileInputRef} onChange={onImport} className="hidden" />
                     <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <UploadIcon className="w-4 h-4" /> İçe Aktar
+                    </button>
+                    <input type="file" accept=".xlsx,.xls" ref={xlsxInputRef} onChange={onImportXlsx} className="hidden" />
+                    <button onClick={() => xlsxInputRef.current?.click()} title="FR100 KPI Excel şablonundan KPI'ları içe aktar (hedef = HEDEF 1 YIL)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <TableCellsIcon className="w-4 h-4" /> Excel'den Yükle
                     </button>
                     <button onClick={onExportXlsx} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <TableCellsIcon className="w-4 h-4" /> Dışa Aktar (XLSX)
