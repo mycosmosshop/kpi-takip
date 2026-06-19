@@ -174,7 +174,31 @@ export type MultiYearKpiData = {
     [year: number]: KpiData;
 };
 
-export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | null;
+export type ActionPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface ActionItem {
+    id: string;
+    kpiId?: string;       // bağlı KPI (opsiyonel)
+    kpi: string;          // KPI metni (ör. "Müşteri Şikayetleri ≤ 3,5 Ortalama: 5,33")
+    rootCause: string;    // Root Cause
+    action: string;       // Action
+    rank: number;         // 1-5 (FR216 RANK)
+    priority: ActionPriority;
+    owner: string;        // OWNER
+    assigned: string;     // ASSIGNED
+    due: string;          // DUE (tarih metni)
+    done: boolean;        // DONE
+    status: number;       // 0-100 (% tamamlanma)
+    notes: string;        // NOTES
+    dofId?: string;       // başlatılan 8D bağlantısı
+}
+
+export interface ActionYearData {
+    items: ActionItem[];
+    nextMeeting: string;  // Next Meeting (tarih/saat metni)
+}
+
+export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | null;
 
 export interface ModalState {
     type: ModalType;

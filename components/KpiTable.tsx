@@ -240,10 +240,10 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onOpenModal('dof', { kpiId: kpi.id, month: ay, year: year, returnTo: 'table' });
+                                            onOpenModal('action-items', { focusKpiId: kpi.id });
                                         }}
                                         className="p-0.5 text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Bu ay için DÖF başlat"
+                                        title="Bu KPI için aksiyon ekle (gerekirse 8D)"
                                     >
                                         <PlusIcon className="w-4 h-4" />
                                     </button>
@@ -274,10 +274,10 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onOpenModal('dof', { kpiId: kpi.id, year: year, returnTo: 'table' });
+                                onOpenModal('action-items', { focusKpiId: kpi.id });
                             }}
                             className="p-0.5 text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Bu KPI için genel bir DÖF başlat"
+                            title="Bu KPI için aksiyon ekle (gerekirse 8D)"
                         >
                             <PlusIcon className="w-4 h-4" />
                         </button>

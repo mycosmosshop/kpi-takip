@@ -1,12 +1,15 @@
 
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings } from './types';
+import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { initialData, AYLAR } from './constants';
 import { calculateAverage, determineStatus } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
 import { exportFr100 } from './utils/fr100Export';
+import { exportFr216 } from './utils/fr216Export';
+import ActionItemsModal from './components/ActionItemsModal';
+import TrendChartModal from './components/TrendChartModal';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -45,6 +48,7 @@ const defaultAppearanceSettings: AppearanceSettings = {
 
 const App: React.FC = () => {
     const [allKpiData, setAllKpiData] = useLocalStorage<MultiYearKpiData>('kpiData_multi_v2', {});
+    const [actionDataByYear, setActionDataByYear] = useLocalStorage<{ [year: number]: ActionYearData }>('kpiActionItems_v1', {});
     const [currentYear, setCurrentYear] = useState<number>(() => {
         const storedData = localStorage.getItem('kpiData_multi_v2');
         if (storedData && storedData.trim()) {
@@ -316,6 +320,10 @@ const App: React.FC = () => {
     };
 
     const handleDeleteKpi = (kpiId: string) => {
+        const kpi = kpiData.kpis.find(k => k.id === kpiId);
+        const adi = kpi ? `"${kpi.kpi_adi}"` : 'bu KPI';
+        const dofUyari = kpi && kpi.dof.length > 0 ? `\n\nBu KPI'ye bağlı ${kpi.dof.length} DÖF/8D kaydı da silinecek.` : '';
+        if (!window.confirm(`${adi} KPI'sini silmek istediğinize emin misiniz?${dofUyari}\n\nBu işlem geri alınamaz.`)) return;
         updateCurrentYearData(prevData => ({
             ...prevData,
             kpis: prevData.kpis.filter(k => k.id !== kpiId)
@@ -325,6 +333,7 @@ const App: React.FC = () => {
 
     const handleBulkDeleteKpis = (kpiIds: string[]) => {
         if (kpiIds.length === 0) return;
+        if (!window.confirm(`Seçili ${kpiIds.length} KPI silinecek. Emin misiniz?\n\nBu işlem geri alınamaz.`)) return;
         updateCurrentYearData(prevData => ({
             ...prevData,
             kpis: prevData.kpis.filter(k => !kpiIds.includes(k.id))
@@ -341,6 +350,8 @@ const App: React.FC = () => {
             setModal({ type: 'detail', data: updatedKpi });
         } else if (returnTo === 'all-dofs') {
             setModal({ type: 'all-dofs', data: null });
+        } else if (returnTo === 'action-items') {
+            setModal({ type: 'action-items', data: null });
         } else {
             handleCloseModal();
         }
@@ -520,6 +531,39 @@ const App: React.FC = () => {
             setNotification({ message: `Excel oluşturulamadı: ${errorMessage}`, type: 'error' });
         }
     }, [filteredData, kpiData.yil]);
+
+    // ── Aksiyon Maddeleri (FR216) ──
+    const currentActionData: ActionYearData = useMemo(
+        () => actionDataByYear[currentYear] || { items: [], nextMeeting: '' },
+        [actionDataByYear, currentYear]
+    );
+
+    const handleChangeActionItems = useCallback((items: ActionItem[]) => {
+        setActionDataByYear(prev => ({ ...prev, [currentYear]: { ...(prev[currentYear] || { items: [], nextMeeting: '' }), items } }));
+    }, [currentYear, setActionDataByYear]);
+
+    const handleChangeNextMeeting = useCallback((nextMeeting: string) => {
+        setActionDataByYear(prev => ({ ...prev, [currentYear]: { ...(prev[currentYear] || { items: [], nextMeeting: '' }), nextMeeting } }));
+    }, [currentYear, setActionDataByYear]);
+
+    const handleExportFr216 = useCallback(async () => {
+        try {
+            if (!window.ExcelJS) throw new Error('Excel (ExcelJS) kütüphanesi yüklenemedi.');
+            const data = actionDataByYear[currentYear] || { items: [], nextMeeting: '' };
+            if (data.items.length === 0) { setNotification({ message: 'Dışa aktarılacak aksiyon yok.', type: 'error' }); return; }
+            let logoBuffer: ArrayBuffer | null = null;
+            try { const res = await fetch('SanifoamLogo-Transparent.png'); if (res.ok) logoBuffer = await res.arrayBuffer(); } catch { /* opsiyonel */ }
+            const blob = await exportFr216(window.ExcelJS, data.items, currentYear, data.nextMeeting, logoBuffer);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = `FR216_Aksiyonlar_${currentYear}.xlsx`; link.click();
+            URL.revokeObjectURL(url);
+            setNotification({ message: 'FR216 Aksiyon raporu oluşturuldu.', type: 'success' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Bilinmeyen hata';
+            setNotification({ message: `FR216 oluşturulamadı: ${msg}`, type: 'error' });
+        }
+    }, [actionDataByYear, currentYear]);
 
 
     const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1000,6 +1044,29 @@ const App: React.FC = () => {
                 <DoeToolModal
                     isOpen={modal.type === 'doe-tool'}
                     onClose={handleCloseModal}
+                />
+            )}
+            {modal.type === 'action-items' && (
+                <ActionItemsModal
+                    isOpen={modal.type === 'action-items'}
+                    onClose={handleCloseModal}
+                    items={currentActionData.items}
+                    onChange={handleChangeActionItems}
+                    kpis={processedKpis}
+                    year={kpiData.yil}
+                    nextMeeting={currentActionData.nextMeeting}
+                    onChangeNextMeeting={handleChangeNextMeeting}
+                    onExport={handleExportFr216}
+                    onStartDof={(kpiId) => handleOpenModal('dof', { kpiId, returnTo: 'action-items' })}
+                    focusKpiId={modal.data?.focusKpiId}
+                />
+            )}
+            {modal.type === 'trend-chart' && (
+                <TrendChartModal
+                    isOpen={modal.type === 'trend-chart'}
+                    onClose={handleCloseModal}
+                    kpis={processedKpis}
+                    initialKpiId={modal.data?.kpiId}
                 />
             )}
         </div>

@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Kpi, ModalType } from '../types';
-import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon } from './icons';
+import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon } from './icons';
 
 interface HeaderProps {
     year: number;
@@ -77,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.3</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.4</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -132,6 +132,12 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                     </button>
                      <button onClick={onOpenDofPanel} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <ClipboardCheckIcon className="w-4 h-4" /> DÖF Paneli
+                    </button>
+                     <button onClick={() => onOpenModal('action-items')} title="KPI'lar için Aksiyonlar (FR216)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <ClipboardDocumentListIcon className="w-4 h-4" /> Aksiyonlar
+                    </button>
+                     <button onClick={() => onOpenModal('trend-chart')} title="Aylık trend grafiği (hedef çizgili)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <ChartBarIcon className="w-4 h-4" /> Trend Grafiği
                     </button>
                      <button onClick={() => setSummaryOpen(!isSummaryOpen)} className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         Özet Paneli {isSummaryOpen ? 'Kapat' : 'Aç'}
