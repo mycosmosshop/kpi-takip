@@ -77,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.4</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.5</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -89,7 +89,16 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                         >
                             <ChevronLeftIcon className="w-6 h-6" />
                         </button>
-                        <span className="min-w-[50px] text-center">{year}</span>
+                        <select
+                            value={year}
+                            onChange={(e) => onNavigateYear(parseInt(e.target.value, 10))}
+                            className="min-w-[80px] text-center bg-transparent text-blue-600 dark:text-blue-400 text-2xl font-bold cursor-pointer focus:outline-none rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                            aria-label="Yıl seç"
+                        >
+                            {Array.from(new Set([2024, 2025, 2026, 2027, 2028, year - 1, year, year + 1]))
+                                .sort((a, b) => a - b)
+                                .map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                         <button
                             onClick={() => onNavigateYear(year + 1)}
                             className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-300"

@@ -21,8 +21,8 @@ const periodLabel = (p?: string): string => {
 
 const opLabel = (c: string): string => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
 
-// Wingdings: J=☺ (başarılı), K=😐 (marjinal), L=☹ (başarısız)
-const statusGlyph = (s: Status): string => (s === 'basarili' ? 'J' : s === 'marjinal' ? 'K' : s === 'basarisiz' ? 'L' : '');
+// Yazılımdaki durum sembolleri (gülen/ağlayan yüz değil): ✓ başarılı, ≈ marjinal, ✗ başarısız
+const statusGlyph = (s: Status): string => (s === 'basarili' ? '✓' : s === 'marjinal' ? '≈' : s === 'basarisiz' ? '✗' : '');
 
 const STATUS_FILL: Record<string, string> = {
     basarili: 'FFE2F0D9', marjinal: 'FFFFF2CC', basarisiz: 'FFFBE0E0', 'n/a': 'FFFFFFFF',
@@ -270,13 +270,13 @@ export const exportFr100 = async (ExcelJS: any, kpis: Kpi[], year: number, logoB
                 if (val !== null && val !== undefined) {
                     const ms = getSingleMonthStatus(kpi, val);
                     const gl = statusGlyph(ms);
-                    if (gl) { cell.value = gl; cell.font = { name: 'Wingdings', size: 11, color: { argb: STATUS_FONT[ms] || 'FF222222' } }; }
+                    if (gl) { cell.value = gl; cell.font = { bold: true, size: 11, color: { argb: STATUS_FONT[ms] || 'FF222222' } }; }
                 }
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
             });
             const sAvg = ws.getCell(sRow, 21);
             const gl = statusGlyph(dur as Status);
-            if (gl) { sAvg.value = gl; sAvg.font = { name: 'Wingdings', size: 11, color: { argb: STATUS_FONT[dur] || 'FF222222' } }; }
+            if (gl) { sAvg.value = gl; sAvg.font = { bold: true, size: 11, color: { argb: STATUS_FONT[dur] || 'FF222222' } }; }
             sAvg.alignment = { vertical: 'middle', horizontal: 'center' };
             ws.getRow(sRow).height = 14;
 
