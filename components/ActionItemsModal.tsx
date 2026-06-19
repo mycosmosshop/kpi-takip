@@ -142,7 +142,7 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`KPI'lar için Aksiyonlar — FR216 (${year})`} size="7xl" footer={footer}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`KPI'lar için Aksiyonlar — FR216 (${year})`} size="full" footer={footer}>
             <div className="space-y-3">
                 {/* Üst araç çubuğu */}
                 <div className="flex flex-wrap items-center gap-2">
@@ -210,7 +210,7 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
 
                 {/* Tablo */}
                 <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <table className="min-w-[1100px] w-full text-xs">
+                    <table className="min-w-[1000px] w-full text-xs">
                         <thead>
                             <tr className="bg-[#375623] text-white">
                                 {['KPI', 'Root Cause', 'Action', 'RANK', 'PRIORITY', 'RISK', 'OWNER', 'ASSIGNED', 'DUE', 'DONE', 'STATUS %', 'NOTES', ''].map(h => (
@@ -224,9 +224,9 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                             )}
                             {rows.map(r => (
                                 <tr key={r.id} className="border-b border-gray-100 dark:border-gray-700 align-top">
-                                    <td className="p-1 min-w-[220px]"><textarea rows={2} value={r.kpi} onChange={e => update(r.id, { kpi: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 min-w-[160px]"><textarea rows={2} value={r.rootCause} onChange={e => update(r.id, { rootCause: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 min-w-[160px]"><textarea rows={2} value={r.action} onChange={e => update(r.id, { action: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 min-w-[190px]"><textarea rows={2} value={r.kpi} onChange={e => update(r.id, { kpi: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 min-w-[130px]"><textarea rows={2} value={r.rootCause} onChange={e => update(r.id, { rootCause: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 min-w-[130px]"><textarea rows={2} value={r.action} onChange={e => update(r.id, { action: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 w-14"><input type="number" min={1} max={5} value={r.rank} onChange={e => update(r.id, { rank: parseInt(e.target.value) || 0 })} className={`${inputCls} text-center`} /></td>
                                     <td className="p-1 w-24">
                                         <select value={r.priority} onChange={e => update(r.id, { priority: e.target.value as ActionPriority })} className={`${inputCls} font-semibold ${PRIO_CLASS[r.priority]}`}>
@@ -238,16 +238,16 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                                     <td className="p-1 w-20 text-center">
                                         {(() => { const ri = actionRiskInfo(r.rank, r.priority); return <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${ri.cls}`} title={`RANK ${r.rank} × ${r.priority} = ${ri.score}`}>{ri.level} ({ri.score})</span>; })()}
                                     </td>
-                                    <td className="p-1 w-28"><input value={r.owner} onChange={e => update(r.id, { owner: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 w-28"><input value={r.assigned} onChange={e => update(r.id, { assigned: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 w-32"><input type="date" value={r.due} onChange={e => update(r.id, { due: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 w-24"><input value={r.owner} onChange={e => update(r.id, { owner: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 w-24"><input value={r.assigned} onChange={e => update(r.id, { assigned: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 w-28"><input type="date" value={r.due} onChange={e => update(r.id, { due: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 w-12 text-center"><input type="checkbox" checked={r.done} onChange={e => update(r.id, { done: e.target.checked })} className="form-checkbox h-4 w-4 text-green-600 rounded" /></td>
                                     <td className="p-1 w-20">
                                         <input type="number" min={0} max={100} value={r.status} onChange={e => update(r.id, { status: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) })} className={`${inputCls} text-center`} />
                                         <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded mt-0.5"><div className="h-full bg-green-500 rounded" style={{ width: `${r.status}%` }} /></div>
                                     </td>
-                                    <td className="p-1 min-w-[120px]"><textarea rows={2} value={r.notes} onChange={e => update(r.id, { notes: e.target.value })} className={inputCls} /></td>
-                                    <td className="p-1 w-24 whitespace-nowrap">
+                                    <td className="p-1 min-w-[100px]"><textarea rows={2} value={r.notes} onChange={e => update(r.id, { notes: e.target.value })} className={inputCls} /></td>
+                                    <td className="p-1 w-20 whitespace-nowrap">
                                         <div className="flex items-center justify-center gap-1.5">
                                             <button onClick={() => r.kpiId && onStartDof(r.kpiId, r.id)} disabled={!r.kpiId}
                                                 title={r.kpiId ? '8D / DÖF başlat' : 'KPI bağlantısı gerekli'}

@@ -7,7 +7,7 @@ interface ModalProps {
     title: string;
     children: ReactNode;
     footer?: ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'lg' }) => {
@@ -24,6 +24,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
         '5xl': 'sm:max-w-5xl',
         '6xl': 'sm:max-w-6xl',
         '7xl': 'sm:max-w-7xl',
+        full: 'sm:max-w-[96vw]',
     };
 
     return (
