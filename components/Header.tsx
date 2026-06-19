@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Kpi, ModalType, KpiLocation } from '../types';
-import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon, DocumentDuplicateIcon } from './icons';
+import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon, DocumentDuplicateIcon, SunIcon, MoonIcon } from './icons';
 
 interface HeaderProps {
     year: number;
@@ -20,6 +20,9 @@ interface HeaderProps {
     cloudStatus: 'offline' | 'syncing' | 'connected';
     onCloudRefresh: () => void;
     onCopyYear: () => void;
+    onFillPrevYear: () => void;
+    darkMode: boolean;
+    onToggleDark: () => void;
     onNavigateYear: (targetYear: number) => void;
     isSummaryOpen: boolean;
     setSummaryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -72,7 +75,7 @@ const FilterDropdown: React.FC<{ label: string; options: string[]; selected: str
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, cloudStatus, onCloudRefresh, onCopyYear, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
+const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, cloudStatus, onCloudRefresh, onCopyYear, onFillPrevYear, darkMode, onToggleDark, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const xlsxInputRef = useRef<HTMLInputElement>(null);
     const uniqueProcesses = [...new Set(allKpis.map(kpi => kpi.proses))];
@@ -85,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v2.5</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v2.6</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -139,6 +142,13 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                     </button>
                     <button onClick={onCopyYear} title="Bu yılın KPI'larını seçilen başka yıla kopyala" className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300">
                         <DocumentDuplicateIcon className="w-4 h-4" /> Yıla Kopyala
+                    </button>
+                    <button onClick={onFillPrevYear} title="'Önceki Yıl' sütununu bir önceki yılın gerçekleşen ortalamalarıyla doldur" className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300">
+                        <ChevronLeftIcon className="w-4 h-4" /> Önceki Yılı Doldur
+                    </button>
+                    <button onClick={onToggleDark} title={darkMode ? 'Açık moda geç' : 'Koyu moda geç'} aria-label="Tema değiştir"
+                        className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-yellow-300 transition-colors">
+                        {darkMode ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
                     </button>
                 </div>
 

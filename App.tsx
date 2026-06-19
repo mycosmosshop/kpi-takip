@@ -152,6 +152,13 @@ const App: React.FC = () => {
         opacity: 0.95,
     });
     const [appearanceSettings, setAppearanceSettings] = useLocalStorage<AppearanceSettings>('appearanceSettings_v1', defaultAppearanceSettings);
+    const [darkMode, setDarkMode] = useLocalStorage<boolean>('kpi_dark_v1', typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        if (darkMode) root.classList.add('dark'); else root.classList.remove('dark');
+        root.style.colorScheme = darkMode ? 'dark' : 'light';
+    }, [darkMode]);
 
 
     // Not: Eski tek-yıl migrasyonu ve demo (örnek) veri tohumlama kaldırıldı.
@@ -352,6 +359,45 @@ const App: React.FC = () => {
         updateTimeoutRef.current = window.setTimeout(() => {
             setRecentlyUpdatedKpi(null);
         }, 2000);
+    };
+
+    // "Önceki Yıl" değerini elle düzenle (tablo içi)
+    const handleUpdateOnceki = (kpiId: string, value: number | null) => {
+        updateCurrentYearData(prevData => ({
+            ...prevData,
+            kpis: prevData.kpis.map(kpi => kpi.id === kpiId
+                ? { ...kpi, onceki_yil_gerceklesen: value, son_guncelleme: new Date().toLocaleString('tr-TR') }
+                : kpi),
+        }));
+    };
+
+    // "Önceki Yıl"ı bir önceki yılın gerçekleşen ortalamalarından doldur (proses + KPI adına göre eşleştirir)
+    const handleFillPrevYear = () => {
+        const prevYear = currentYear - 1;
+        const prevData = allKpiData[prevYear];
+        if (!prevData || prevData.kpis.length === 0) {
+            setNotification({ message: `${prevYear} yılı verisi bulunamadı.`, type: 'error' });
+            return;
+        }
+        const avgMap = new Map<string, number | null>();
+        prevData.kpis.forEach(k => avgMap.set(`${k.proses}||${k.kpi_adi}`, calculateAverage(k)));
+        const count = kpiData.kpis.filter(k => {
+            const v = avgMap.get(`${k.proses}||${k.kpi_adi}`);
+            return v !== undefined && v !== null;
+        }).length;
+        if (count === 0) {
+            setNotification({ message: `${prevYear} yılında eşleşen (hesaplanmış ortalamalı) KPI bulunamadı.`, type: 'error' });
+            return;
+        }
+        if (!window.confirm(`${count} KPI için "Önceki Yıl" değeri ${prevYear} ortalamalarıyla doldurulacak. Mevcut değerlerin üzerine yazılsın mı?`)) return;
+        updateCurrentYearData(prevData2 => ({
+            ...prevData2,
+            kpis: prevData2.kpis.map(k => {
+                const v = avgMap.get(`${k.proses}||${k.kpi_adi}`);
+                return (v !== undefined && v !== null) ? { ...k, onceki_yil_gerceklesen: v } : k;
+            }),
+        }));
+        setNotification({ message: `${count} KPI için önceki yıl (${prevYear}) verisi dolduruldu.`, type: 'success' });
     };
 
     const handleDeleteKpi = (kpiId: string) => {
@@ -1027,6 +1073,9 @@ const App: React.FC = () => {
                 cloudStatus={cloudStatus}
                 onCloudRefresh={handleCloudRefresh}
                 onCopyYear={handleOpenCopyYear}
+                onFillPrevYear={handleFillPrevYear}
+                darkMode={darkMode}
+                onToggleDark={() => setDarkMode(d => !d)}
                 onNavigateYear={handleNavigateYear}
                 isSummaryOpen={isSummaryOpen}
                 setSummaryOpen={setSummaryOpen}
@@ -1051,6 +1100,7 @@ const App: React.FC = () => {
                     year={kpiData.yil}
                     onOpenModal={handleOpenModal}
                     onUpdateValue={handleUpdateKpiValue}
+                    onUpdateOnceki={handleUpdateOnceki}
                     onDeleteKpi={handleDeleteKpi}
                     onDeleteKpis={handleBulkDeleteKpis}
                     recentlyUpdatedKpi={recentlyUpdatedKpi}
@@ -1181,6 +1231,8 @@ const App: React.FC = () => {
                         setAppearanceSettings(defaultAppearanceSettings);
                         handleCloseModal();
                     }}
+                    darkMode={darkMode}
+                    onToggleDark={() => setDarkMode(d => !d)}
                 />
             )}
             {modal.type === 'evidence' && (
@@ -1217,6 +1269,7 @@ const App: React.FC = () => {
                     isOpen={modal.type === 'trend-chart'}
                     onClose={handleCloseModal}
                     kpis={processedKpis}
+                    multiYearData={allKpiData}
                     initialKpiId={modal.data?.kpiId}
                 />
             )}

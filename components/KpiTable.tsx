@@ -10,6 +10,7 @@ interface KpiTableProps {
     kpis: Kpi[];
     onOpenModal: (type: ModalType, data: any) => void;
     onUpdateValue: (kpiId: string, month: string, value: number | null) => void;
+    onUpdateOnceki: (kpiId: string, value: number | null) => void;
     onDeleteKpi: (kpiId: string) => void;
     onDeleteKpis: (kpiIds: string[]) => void;
     recentlyUpdatedKpi: string | null;
@@ -103,10 +104,31 @@ const EditableCell: React.FC<{ kpi: Kpi; value: number | null; onChange: (newVal
     );
 };
 
+const OncekiCell: React.FC<{ value: number | null; onChange: (v: number | null) => void }> = ({ value, onChange }) => {
+    const [v, setV] = useState(value?.toString() ?? '');
+    useEffect(() => { setV(value?.toString() ?? ''); }, [value]);
+    const commit = () => {
+        const n = parseFloat(v);
+        const fv = isNaN(n) ? null : n;
+        if (fv !== value) onChange(fv);
+    };
+    return (
+        <input
+            type="number" step="any" value={v}
+            onChange={(e) => setV(e.target.value)} onBlur={commit}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="-"
+            className="w-full bg-transparent text-center rounded px-1 hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            title="Önceki yıl gerçekleşen (elle düzenlenebilir)"
+        />
+    );
+};
+
 interface KpiTableRowProps {
     kpi: Kpi;
     onOpenModal: (type: ModalType, data: any) => void;
     onUpdateValue: (month: string, value: number | null) => void;
+    onUpdateOnceki: (value: number | null) => void;
     onDelete: () => void;
     onCellSelect: (kpiId: string, month: string, isMulti: boolean) => void;
     onFillRight: (month: string, value: number) => void;
@@ -124,7 +146,7 @@ interface KpiTableRowProps {
 }
 
 
-const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, processNo, year, onMouseMove, onMouseLeave, themeClasses }) => {
+const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onUpdateOnceki, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, processNo, year, onMouseMove, onMouseLeave, themeClasses }) => {
     const statusIcons: { [key: string]: string } = { 'basarili': '✓', 'marjinal': '≈', 'basarisiz': '✗', 'n/a': '-' };
     const baseRowColor = getStatusColorClasses(kpi.durum);
     const finalRowColor = isRowSelected ? 'bg-blue-200 dark:bg-blue-800' : baseRowColor;
@@ -173,7 +195,7 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                     {kpi.kpi_adi}
                 </span>
             </td>
-            <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center w-[120px] ${themeClasses.tdAvg}`}>{kpi.onceki_yil_gerceklesen}</td>
+            <td className={`p-1 border-b border-gray-200 dark:border-gray-700 text-center w-[120px] ${themeClasses.tdAvg}`}><OncekiCell value={kpi.onceki_yil_gerceklesen} onChange={onUpdateOnceki} /></td>
             <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>{kpi.yeni_yil_hedef} ({kpi.karsilastirma})</td>
             <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>{kpi.birim}</td>
             <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>
@@ -296,7 +318,7 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
     );
 };
 
-const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, onDeleteKpi, onDeleteKpis, recentlyUpdatedKpi, year, tooltipSettings, appearanceSettings }) => {
+const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, onUpdateOnceki, onDeleteKpi, onDeleteKpis, recentlyUpdatedKpi, year, tooltipSettings, appearanceSettings }) => {
     const [individuallySelectedCells, setIndividuallySelectedCells] = useState<MultiSelectedCell[]>([]);
     const [selectedRows, setSelectedRows] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
@@ -604,6 +626,7 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                                 kpi={kpi}
                                 onOpenModal={onOpenModal}
                                 onUpdateValue={(month, value) => onUpdateValue(kpi.id, month, value)}
+                                onUpdateOnceki={(value) => onUpdateOnceki(kpi.id, value)}
                                 onDelete={() => onDeleteKpi(kpi.id)}
                                 onCellSelect={handleCellSelect}
                                 onFillRight={(month, value) => handleFillRight(kpi.id, month, value)}
