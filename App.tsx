@@ -8,6 +8,7 @@ import { calculateAverage, determineStatus } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
 import { exportFr100 } from './utils/fr100Export';
 import { exportFr216 } from './utils/fr216Export';
+import { buildFr100Html } from './utils/fr100Html';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import LocationsModal from './components/LocationsModal';
@@ -840,70 +841,56 @@ const App: React.FC = () => {
         handleCloseModal();
     };
 
-    const handleGeneratePdf = useCallback(() => {
+    const handleGeneratePdf = useCallback(async () => {
         try {
             if (!window.html2pdf) {
                 throw new Error("html2pdf kütüphanesi bulunamadı.");
             }
+            if (filteredData.length === 0) {
+                setNotification({ message: 'Rapor için KPI bulunamadı.', type: 'error' });
+                return;
+            }
+
+            // Markaya göre logoyu base64 olarak göm (html2canvas zamanlama sorununu önler)
+            let logoDataUrl: string | null = null;
+            try {
+                const res = await fetch(currentBrand.logo);
+                if (res.ok) {
+                    const buf = await res.arrayBuffer();
+                    const bytes = new Uint8Array(buf);
+                    let bin = '';
+                    const chunk = 0x8000;
+                    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+                    logoDataUrl = `data:image/png;base64,${btoa(bin)}`;
+                }
+            } catch { /* logo opsiyonel */ }
 
             const reportContainer = document.createElement('div');
-            reportContainer.className = 'p-8 font-sans';
+            reportContainer.className = 'p-4';
+            reportContainer.innerHTML = buildFr100Html(filteredData, kpiData.yil, {
+                docNo: currentBrand.docNo,
+                companyName: currentBrand.name,
+                locationName: currentLocObj.name,
+                logoDataUrl,
+            });
 
-            const tableHTML = `
-                <style>
-                    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-                    table { width: 100%; border-collapse: collapse; font-size: 9px; }
-                    th, td { padding: 6px; border: 1px solid #ddd; text-align: left; }
-                    th { background-color: #f2f2f2; font-weight: bold; }
-                    thead { display: table-header-group; }
-                </style>
-                <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">KPI Raporu - ${kpiData.yil}</h1>
-                <p style="font-size: 12px; color: #555; margin-bottom: 24px;">Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Durum</th>
-                            <th>Proses</th>
-                            <th>KPI Adı</th>
-                            <th>Önceki Yıl</th>
-                            <th>Hedef</th>
-                            ${AYLAR.map(ay => `<th>${ay}</th>`).join('')}
-                            <th>Ortalama</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filteredData.map(kpi => `
-                            <tr>
-                                <td>${kpi.durum}</td>
-                                <td>${kpi.proses}</td>
-                                <td>${kpi.kpi_adi}</td>
-                                <td>${kpi.onceki_yil_gerceklesen ?? 'N/A'}</td>
-                                <td>${kpi.yeni_yil_hedef} (${kpi.karsilastirma})</td>
-                                ${AYLAR.map(ay => `<td>${kpi.aylik[ay] ?? ''}</td>`).join('')}
-                                <td>${kpi.ortalama ?? 'N/A'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-            reportContainer.innerHTML = tableHTML;
-
-            const filename = `kpi_raporu_${kpiData.yil}_${new Date().toISOString().split('T')[0]}.pdf`;
+            const filename = `${currentBrand.fileTag}_KPI_${currentLocObj.name}_${kpiData.yil}.pdf`;
             const opt = {
-                margin: 10,
-                filename: filename,
+                margin: 6,
+                filename,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak: { mode: ['css', 'legacy'] },
             };
 
-            window.html2pdf().set(opt).from(reportContainer).save();
-            setNotification({ message: 'PDF raporu başarıyla oluşturuldu.', type: 'success' });
+            await window.html2pdf().set(opt).from(reportContainer).save();
+            setNotification({ message: 'PDF raporu (FR100 düzeni) oluşturuldu.', type: 'success' });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen PDF oluşturma hatası';
             setNotification({ message: `PDF oluşturulamadı: ${errorMessage}`, type: 'error' });
         }
-    }, [kpiData.yil, filteredData]);
+    }, [kpiData.yil, filteredData, currentBrand, currentLocObj]);
 
 
     useEffect(() => {
