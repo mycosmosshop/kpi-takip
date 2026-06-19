@@ -1,0 +1,968 @@
+
+
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings } from './types';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { initialData, AYLAR } from './constants';
+import { calculateAverage, determineStatus } from './utils/calculations';
+import Header from './components/Header';
+import SummaryPanel from './components/SummaryPanel';
+import KpiTable from './components/KpiTable';
+import KpiModal from './components/KpiModal';
+import DofModal from './components/DofModal';
+import RiskModal from './components/RiskModal';
+import Notification from './components/Notification';
+import KpiDetailView from './components/KpiDetailView';
+import MonthDetailModal from './components/MonthDetailModal';
+import AllDofsModal from './components/AllDofsModal';
+import DofReportView from './components/DofReportView';
+import ChangeYearModal from './components/ChangeYearModal';
+import TooltipSettingsPanel from './components/TooltipSettingsPanel';
+import CopyDofModal from './components/CopyDofModal';
+import DeleteProcessModal from './components/DeleteProcessModal';
+import AppearanceSettingsModal from './components/AppearanceSettingsModal';
+import EvidenceModal from './components/EvidenceModal';
+import BulkKpiModal from './components/BulkKpiModal';
+import DoeToolModal from './components/DoeToolModal';
+
+// Add declarations for html2pdf and xlsx from window object
+declare global {
+    interface Window {
+        html2pdf: any;
+        XLSX: any;
+    }
+}
+
+const defaultAppearanceSettings: AppearanceSettings = {
+    fontSize: 'sm',
+    fontWeight: 'normal',
+    theme: 'default',
+};
+
+
+const App: React.FC = () => {
+    const [allKpiData, setAllKpiData] = useLocalStorage<MultiYearKpiData>('kpiData_multi_v2', {});
+    const [currentYear, setCurrentYear] = useState<number>(() => {
+        const storedData = localStorage.getItem('kpiData_multi_v2');
+        if (storedData && storedData.trim()) {
+            try {
+                const parsed = JSON.parse(storedData);
+                if (parsed && typeof parsed === 'object') {
+                    const years = Object.keys(parsed).map(Number).filter(y => !isNaN(y) && y > 0);
+                    if (years.length > 0) return Math.max(...years);
+                }
+            } catch (e) {
+                console.error("Error parsing 'kpiData_multi_v2'. Data might be corrupted or empty.", e);
+            }
+        }
+        const oldStoredData = localStorage.getItem('kpiData_v1');
+        if (oldStoredData && oldStoredData.trim()) {
+            try {
+                const parsedOld = JSON.parse(oldStoredData);
+                if (parsedOld && parsedOld.yil) {
+                    return parsedOld.yil;
+                }
+            } catch (e) {
+                console.error("Error parsing legacy 'kpiData_v1'. Data might be corrupted or empty.", e);
+            }
+        }
+        return initialData.yil;
+    });
+
+    const [filteredData, setFilteredData] = useState<Kpi[]>([]);
+    const [filters, setFilters] = useState({ process: [] as string[], status: [] as string[], risk: [] as string[] });
+    const [monthFilter, setMonthFilter] = useState<string | null>(null);
+    const [isSummaryOpen, setSummaryOpen] = useState(true);
+    const [modal, setModal] = useState<ModalState>({ type: null, data: null });
+    const [recentlyUpdatedKpi, setRecentlyUpdatedKpi] = useState<string | null>(null);
+    const updateTimeoutRef = useRef<number | null>(null);
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [tooltipSettings, setTooltipSettings] = useLocalStorage<TooltipSettings>('tooltipSettings_v2', {
+        goster: true,
+        aktif_ay_degeri: true,
+        sorumlu: true,
+        hesap_metodu: true,
+        RPN: true,
+        son_guncelleme: true,
+        hedef: true,
+        durum: true,
+        opacity: 0.95,
+    });
+    const [appearanceSettings, setAppearanceSettings] = useLocalStorage<AppearanceSettings>('appearanceSettings_v1', defaultAppearanceSettings);
+
+
+    // Migration from old single-year data structure to new multi-year structure
+    useEffect(() => {
+        if (Object.keys(allKpiData).length === 0) {
+            const oldDataString = localStorage.getItem('kpiData_v1');
+            let migrated = false;
+            if (oldDataString && oldDataString.trim()) {
+               try {
+                   const oldData: KpiData = JSON.parse(oldDataString);
+                   if (oldData && oldData.yil && Array.isArray(oldData.kpis)) {
+                       setAllKpiData({ [oldData.yil]: oldData });
+                       setCurrentYear(oldData.yil);
+                       setNotification({ message: 'Veri formatı çoklu yıl desteği için güncellendi.', type: 'success' });
+                       migrated = true;
+                   }
+               } catch (e) { 
+                   console.error("Could not migrate old data. It might be corrupted or empty.", e);
+               }
+            }
+            
+            if (!migrated) {
+                // First time user, or migration failed. Initialize with default data.
+                setAllKpiData({ [initialData.yil]: initialData });
+                setCurrentYear(initialData.yil);
+            }
+       }
+   }, []); // Run only once on initial load
+
+    // Migration for evidence files
+    useEffect(() => {
+        const migrationKey = 'evidence_migrated_v1';
+        if (localStorage.getItem(migrationKey) || Object.keys(allKpiData).length === 0) {
+            return;
+        }
+
+        const needsMigration = Object.values(allKpiData).some(data =>
+            data.kpis.some(kpi => (kpi as any).kanit_url !== undefined)
+        );
+
+        if (needsMigration) {
+            console.log("Running evidence data migration...");
+            const migratedData = JSON.parse(JSON.stringify(allKpiData)); // Deep copy
+
+            for (const year in migratedData) {
+                migratedData[year].kpis = migratedData[year].kpis.map((kpi: any) => {
+                    if (kpi.kanit_url) {
+                        kpi.kanit_dosyalari = kpi.kanit_dosyalari || [];
+                        if (kpi.kanit_url.trim() && !kpi.kanit_dosyalari.some((f: any) => f.data === kpi.kanit_url)) {
+                             kpi.kanit_dosyalari.push({
+                                id: `migrated-${kpi.id}`,
+                                name: `İçe Aktarılan Link`,
+                                type: 'link',
+                                data: kpi.kanit_url
+                            });
+                        }
+                        delete kpi.kanit_url;
+                    }
+                    if (!kpi.kanit_dosyalari) {
+                        kpi.kanit_dosyalari = [];
+                    }
+                    return kpi;
+                });
+            }
+            setAllKpiData(migratedData);
+            localStorage.setItem(migrationKey, 'true');
+            setNotification({ message: 'Kanıt dosyası formatı güncellendi.', type: 'success' });
+        } else {
+             localStorage.setItem(migrationKey, 'true'); // No migration needed, but mark as checked
+        }
+    }, [allKpiData, setAllKpiData]);
+
+
+    const kpiData = useMemo(() => {
+        return allKpiData[currentYear] || { yil: currentYear, kpis: [] };
+    }, [allKpiData, currentYear]);
+
+
+    const processedKpis = useMemo(() => {
+        return kpiData.kpis.map(kpi => {
+            const average = calculateAverage(kpi);
+            const status = determineStatus(kpi, average);
+            return { ...kpi, ortalama: average, durum: status };
+        });
+    }, [kpiData.kpis]);
+
+    useEffect(() => {
+        let data = processedKpis;
+        if (filters.process.length > 0) {
+            data = data.filter(kpi => filters.process.includes(kpi.proses));
+        }
+        if (filters.status.length > 0) {
+            data = data.filter(kpi => filters.status.includes(kpi.durum));
+        }
+        if (filters.risk.length > 0) {
+            // FIX: Access riskSeviyesi through the nested risk object.
+            data = data.filter(kpi => filters.risk.includes(kpi.risk.riskSeviyesi));
+        }
+        if (monthFilter) {
+            data = data.filter(kpi => kpi.aylik[monthFilter] !== null && kpi.aylik[monthFilter] !== undefined);
+        }
+        setFilteredData(data);
+    }, [processedKpis, filters, monthFilter]);
+    
+    useEffect(() => {
+        // Sync modal data if it's open and its underlying data changes.
+        if ((modal.type === 'detail' || modal.type === 'evidence') && modal.data?.id) {
+            const freshKpi = processedKpis.find(k => k.id === modal.data.id);
+            // If the modal data is stale (based on the last update timestamp), refresh it.
+            if (freshKpi && freshKpi.son_guncelleme !== modal.data.son_guncelleme) {
+                setModal(prev => ({...prev, data: freshKpi}));
+            }
+        }
+    }, [processedKpis, modal.type, modal.data]);
+
+    useEffect(() => {
+        // cleanup for update highlight timeout
+        return () => {
+            if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const updateCurrentYearData = (updater: (prevData: KpiData) => KpiData) => {
+        setAllKpiData(prevAllData => {
+            const currentData = prevAllData[currentYear] || { yil: currentYear, kpis: [] };
+            const newData = updater(currentData);
+            return {
+                ...prevAllData,
+                [currentYear]: newData
+            };
+        });
+    };
+
+    const handleMonthFilterChange = useCallback((month: string | null) => {
+        setMonthFilter(prev => prev === month ? null : month);
+    }, []);
+
+    const handleOpenModal = useCallback((type: ModalType, data: any = null) => {
+        setModal({ type, data });
+    }, []);
+
+    const handleCloseModal = () => {
+        setModal({ type: null, data: null });
+    };
+
+    const handleSaveKpi = (kpiToSave: Kpi) => {
+        updateCurrentYearData(prevData => {
+            const kpiIndex = prevData.kpis.findIndex(k => k.id === kpiToSave.id);
+            const newKpis = [...prevData.kpis];
+            if (kpiIndex > -1) {
+                newKpis[kpiIndex] = kpiToSave;
+            } else {
+                newKpis.push(kpiToSave);
+            }
+            return { ...prevData, kpis: newKpis };
+        });
+        handleCloseModal();
+    };
+
+    const handleBulkAddKpis = (kpisToAdd: Partial<Kpi>[], commonData: Partial<Kpi>) => {
+        updateCurrentYearData(prevData => {
+            const newKpis: Kpi[] = kpisToAdd.map(partialKpi => {
+                // FIX: The original object creation was not type-safe because spreading a `Partial<Kpi>`
+                // does not satisfy the compiler that required fields are present. This revised version
+                // is explicit about all required properties to create a valid Kpi object.
+                const fullKpi: Kpi = {
+                    // Spread the form data first to get optional fields like `sorumlu`.
+                    ...commonData,
+                    ...partialKpi,
+                    // Provide hardcoded defaults for fields not on the form, or that need to be fresh.
+                    id: `kpi-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    kanit_dosyalari: [],
+                    aylik: Object.fromEntries(AYLAR.map(ay => [ay, null])),
+                    dof: [],
+                    risk: { S: 1, O: 1, D: 1, RPN: 1, esik: 40, riskSeviyesi: 'Düşük' },
+                    son_guncelleme: new Date().toLocaleString('tr-TR'),
+                    ortalama: null,
+                    durum: 'n/a',
+
+                    // Explicitly define required fields from the form to satisfy TypeScript,
+                    // overwriting the optional versions from the spread.
+                    // Fallbacks match the modal's initial state.
+                    proses: commonData.proses || '',
+                    kpi_adi: partialKpi.kpi_adi || '',
+                    onceki_yil_gerceklesen: commonData.onceki_yil_gerceklesen ?? null,
+                    yeni_yil_hedef: commonData.yeni_yil_hedef ?? 0,
+                    karsilastirma: commonData.karsilastirma || '<',
+                    hesap_metodu: commonData.hesap_metodu || 'ortalama',
+                    birim: commonData.birim || '%',
+                    aciklama: commonData.aciklama || '',
+                };
+                return fullKpi;
+            });
+    
+            return { ...prevData, kpis: [...prevData.kpis, ...newKpis] };
+        });
+    
+        setNotification({ message: `${kpisToAdd.length} adet yeni KPI başarıyla eklendi.`, type: 'success' });
+        handleCloseModal();
+    };
+    
+    const handleUpdateKpiValue = (kpiId: string, month: string, value: number | null) => {
+        updateCurrentYearData(prevData => {
+            const newKpis = prevData.kpis.map(kpi => {
+                if (kpi.id === kpiId) {
+                    return { ...kpi, aylik: { ...kpi.aylik, [month]: value }, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }
+                return kpi;
+            });
+            return { ...prevData, kpis: newKpis };
+        });
+        
+        if (updateTimeoutRef.current) {
+            clearTimeout(updateTimeoutRef.current);
+        }
+        setRecentlyUpdatedKpi(kpiId);
+        updateTimeoutRef.current = window.setTimeout(() => {
+            setRecentlyUpdatedKpi(null);
+        }, 2000);
+    };
+
+    const handleDeleteKpi = (kpiId: string) => {
+        updateCurrentYearData(prevData => ({
+            ...prevData,
+            kpis: prevData.kpis.filter(k => k.id !== kpiId)
+        }));
+        setNotification({ message: 'KPI başarıyla silindi.', type: 'success' });
+    };
+
+    const handleBulkDeleteKpis = (kpiIds: string[]) => {
+        if (kpiIds.length === 0) return;
+        updateCurrentYearData(prevData => ({
+            ...prevData,
+            kpis: prevData.kpis.filter(k => !kpiIds.includes(k.id))
+        }));
+        setNotification({ message: `${kpiIds.length} adet KPI başarıyla silindi.`, type: 'success' });
+    };
+    
+    const handleDofModalClose = () => {
+        const returnTo = modal.data?.returnTo;
+        const kpiId = modal.data?.kpiId;
+
+        if (returnTo === 'detail' && kpiId) {
+            const updatedKpi = processedKpis.find(k => k.id === kpiId);
+            setModal({ type: 'detail', data: updatedKpi });
+        } else if (returnTo === 'all-dofs') {
+            setModal({ type: 'all-dofs', data: null });
+        } else {
+            handleCloseModal();
+        }
+    };
+
+    const handleSaveDof = (kpiId: string, dof: Dof) => {
+        updateCurrentYearData(prevData => {
+            const newKpis = prevData.kpis.map(kpi => {
+                if (kpi.id === kpiId) {
+                    const dofIndex = kpi.dof.findIndex(d => d.id === dof.id);
+                    const newDofs = [...kpi.dof];
+                    if (dofIndex > -1) {
+                        newDofs[dofIndex] = dof;
+                    } else {
+                        newDofs.push(dof);
+                    }
+                    return { ...kpi, dof: newDofs, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }
+                return kpi;
+            });
+            return { ...prevData, kpis: newKpis };
+        });
+        handleDofModalClose();
+    };
+
+    const handleUpdateDof = (kpiId: string, dof: Dof) => {
+        updateCurrentYearData(prevData => {
+            const newKpis = prevData.kpis.map(kpi => {
+                if (kpi.id === kpiId) {
+                    const dofIndex = kpi.dof.findIndex(d => d.id === dof.id);
+                    const newDofs = [...kpi.dof];
+                    if (dofIndex > -1) {
+                        newDofs[dofIndex] = dof;
+                    }
+                    return { ...kpi, dof: newDofs, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }
+                return kpi;
+            });
+            return { ...prevData, kpis: newKpis };
+        });
+    };
+
+    const handleDeleteDof = (kpiId: string, dofId: string) => {
+        updateCurrentYearData(prevData => ({
+            ...prevData,
+            kpis: prevData.kpis.map(kpi =>
+                kpi.id === kpiId
+                    ? { ...kpi, dof: kpi.dof.filter(d => d.id !== dofId), son_guncelleme: new Date().toLocaleString('tr-TR') }
+                    : kpi
+            )
+        }));
+        setNotification({ message: 'DÖF başarıyla silindi.', type: 'success' });
+    };
+    
+    const handleCopyDof = (dofToCopy: Dof, targetKpiId: string, targetMonth: string, year: number) => {
+        updateCurrentYearData(prevData => {
+            const targetKpiIndex = prevData.kpis.findIndex(k => k.id === targetKpiId);
+            if (targetKpiIndex === -1) {
+                setNotification({ message: 'Hedef KPI bulunamadı.', type: 'error' });
+                return prevData;
+            }
+
+            const newDof: Dof = JSON.parse(JSON.stringify(dofToCopy)); // Deep copy
+            newDof.id = `dof-uuid-${Date.now()}`;
+            newDof.kpiId = targetKpiId;
+
+            const monthIndex = AYLAR.indexOf(targetMonth);
+            
+            // Calculate duration
+            const originalStartDate = new Date(dofToCopy.start_date);
+            const originalDueDate = new Date(dofToCopy.due_date);
+            let duration = 30 * 24 * 60 * 60 * 1000; // 30 days fallback
+            if (!isNaN(originalStartDate.getTime()) && !isNaN(originalDueDate.getTime())) {
+                duration = originalDueDate.getTime() - originalStartDate.getTime();
+            }
+
+            if (targetMonth === 'average') {
+                const today = new Date();
+                newDof.start_date = today.toISOString().split('T')[0];
+                
+                const newStartDateUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+                const newDueDate = new Date(newStartDateUTC.getTime() + duration);
+                newDof.due_date = newDueDate.toISOString().split('T')[0];
+
+            } else if (monthIndex > -1) {
+                const monthStr = String(monthIndex + 1).padStart(2, '0');
+                newDof.start_date = `${year}-${monthStr}-02`;
+                
+                const newStartDateUTC = new Date(Date.UTC(year, monthIndex, 2));
+                const newDueDate = new Date(newStartDateUTC.getTime() + duration);
+                newDof.due_date = newDueDate.toISOString().split('T')[0];
+            }
+            
+            const newKpis = [...prevData.kpis];
+            const targetKpi = { ...newKpis[targetKpiIndex] };
+            targetKpi.dof = [...targetKpi.dof, newDof];
+            targetKpi.son_guncelleme = new Date().toLocaleString('tr-TR');
+            newKpis[targetKpiIndex] = targetKpi;
+
+            setNotification({ message: 'DÖF başarıyla kopyalandı.', type: 'success' });
+            
+            return { ...prevData, kpis: newKpis };
+        });
+        handleCloseModal();
+    };
+
+
+    const handleSaveRisk = (kpiId: string, risk: Risk) => {
+        updateCurrentYearData(prevData => {
+            const newKpis = prevData.kpis.map(kpi => {
+                if (kpi.id === kpiId) {
+                    return { ...kpi, risk, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }
+                return kpi;
+            });
+            return { ...prevData, kpis: newKpis };
+        });
+        
+        if(modal.data?.fromDetail) {
+           const updatedKpi = processedKpis.find(k => k.id === kpiId);
+           setModal({ type: 'detail', data: updatedKpi });
+        } else {
+           handleCloseModal();
+        }
+    };
+
+    const handleSaveEvidence = (kpiId: string, newEvidence: Kpi['kanit_dosyalari']) => {
+        updateCurrentYearData(prevData => {
+            const newKpis = prevData.kpis.map(kpi => {
+                if (kpi.id === kpiId) {
+                    return { ...kpi, kanit_dosyalari: newEvidence, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }
+                return kpi;
+            });
+            return { ...prevData, kpis: newKpis };
+        });
+        setNotification({ message: 'Kanıt dosyaları güncellendi.', type: 'success' });
+    };
+
+    const handleExport = useCallback(() => {
+        const dataToExport = allKpiData[currentYear];
+        if (!dataToExport) return;
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dataToExport, null, 2))}`;
+        const link = document.createElement("a");
+        link.href = jsonString;
+        link.download = `kpi_data_${dataToExport.yil}.json`;
+        link.click();
+    }, [allKpiData, currentYear]);
+
+    const handleExportXlsx = useCallback(() => {
+        try {
+            if (!window.XLSX) {
+                throw new Error("Excel (XLSX) kütüphanesi bulunamadı.");
+            }
+            const dataToExport = filteredData.map(kpi => {
+                const row: { [key: string]: any } = {
+                    'Durum': kpi.durum,
+                    'Proses': kpi.proses,
+                    'KPI Adı': kpi.kpi_adi,
+                    'Hedef': `${kpi.yeni_yil_hedef} (${kpi.karsilastirma})`,
+                };
+                AYLAR.forEach(ay => {
+                    row[ay] = kpi.aylik[ay] ?? '';
+                });
+                row['Ortalama'] = kpi.ortalama ?? 'N/A';
+                return row;
+            });
+
+            const worksheet = window.XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(workbook, worksheet, 'KPI Raporu');
+            
+            const filename = `kpi_raporu_${kpiData.yil}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            window.XLSX.writeFile(workbook, filename);
+
+            setNotification({ message: 'Excel raporu başarıyla oluşturuldu.', type: 'success' });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen Excel oluşturma hatası';
+            setNotification({ message: `Excel oluşturulamadı: ${errorMessage}`, type: 'error' });
+        }
+    }, [filteredData, kpiData.yil]);
+
+
+    const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target?.result;
+                    if (typeof text === 'string') {
+                        const importedData = JSON.parse(text);
+                        // Basic validation
+                        if (importedData.yil && Array.isArray(importedData.kpis)) {
+                            const year = importedData.yil;
+                            setAllKpiData(prev => ({ ...prev, [year]: importedData }));
+                            setCurrentYear(year);
+                            setNotification({ message: `${year} yılı verisi başarıyla içe aktarıldı!`, type: 'success' });
+                        } else {
+                            throw new Error("Geçersiz JSON formatı.");
+                        }
+                    }
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+                    setNotification({ message: `İçe aktarma hatası: ${errorMessage}`, type: 'error' });
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+    
+    const handleNavigateYear = (targetYear: number) => {
+        if (allKpiData[targetYear]) {
+            setCurrentYear(targetYear);
+        } else {
+            handleOpenModal('change-year', { targetYear });
+        }
+    };
+
+    const handleConfirmChangeYear = (newYear: number, copyData: boolean) => {
+        if (copyData) {
+            const newKpis = processedKpis.map(kpi => {
+                // FIX: The new KPI object was missing several optional properties from the original KPI.
+                // This caused a type error and was functionally incorrect as it didn't fully copy the KPI's definition.
+                // All definitional properties are now copied to the new year.
+                const newKpi: Kpi = {
+                    // Definitional properties copied from previous year
+                    id: kpi.id,
+                    proses: kpi.proses,
+                    kpi_adi: kpi.kpi_adi,
+                    sorumlu: kpi.sorumlu,
+                    gozdenGecirmePeriyodu: kpi.gozdenGecirmePeriyodu,
+                    pasifAylar: kpi.pasifAylar,
+                    yeni_yil_hedef: kpi.yeni_yil_hedef,
+                    karsilastirma: kpi.karsilastirma,
+                    hesap_metodu: kpi.hesap_metodu,
+                    formula: kpi.formula,
+                    birim: kpi.birim,
+                    aciklama: kpi.aciklama,
+                    kanit_dosyalari: kpi.kanit_dosyalari,
+                    risk: kpi.risk,
+
+                    // Values reset for the new year
+                    onceki_yil_gerceklesen: kpi.ortalama,
+                    aylik: Object.fromEntries(AYLAR.map(ay => [ay, null])),
+                    dof: [],
+                    son_guncelleme: new Date().toLocaleString('tr-TR'),
+                    ortalama: null,
+                    durum: 'n/a',
+                };
+                return newKpi;
+            });
+            setAllKpiData(prev => ({ ...prev, [newYear]: { yil: newYear, kpis: newKpis } }));
+            setNotification({ message: `${newYear} yılına başarıyla geçildi ve veriler kopyalandı.`, type: 'success' });
+        } else {
+            setAllKpiData(prev => ({ ...prev, [newYear]: { yil: newYear, kpis: [] } }));
+            setNotification({ message: `${newYear} yılına başarıyla geçildi. Yeni KPI'lar oluşturabilirsiniz.`, type: 'success' });
+        }
+        setCurrentYear(newYear);
+        handleCloseModal();
+    };
+
+    const handleGeneratePdf = useCallback(() => {
+        try {
+            if (!window.html2pdf) {
+                throw new Error("html2pdf kütüphanesi bulunamadı.");
+            }
+
+            const reportContainer = document.createElement('div');
+            reportContainer.className = 'p-8 font-sans';
+
+            const tableHTML = `
+                <style>
+                    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+                    table { width: 100%; border-collapse: collapse; font-size: 9px; }
+                    th, td { padding: 6px; border: 1px solid #ddd; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; }
+                    thead { display: table-header-group; }
+                </style>
+                <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">KPI Raporu - ${kpiData.yil}</h1>
+                <p style="font-size: 12px; color: #555; margin-bottom: 24px;">Oluşturulma Tarihi: ${new Date().toLocaleDateString('tr-TR')}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Durum</th>
+                            <th>Proses</th>
+                            <th>KPI Adı</th>
+                            <th>Önceki Yıl</th>
+                            <th>Hedef</th>
+                            ${AYLAR.map(ay => `<th>${ay}</th>`).join('')}
+                            <th>Ortalama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredData.map(kpi => `
+                            <tr>
+                                <td>${kpi.durum}</td>
+                                <td>${kpi.proses}</td>
+                                <td>${kpi.kpi_adi}</td>
+                                <td>${kpi.onceki_yil_gerceklesen ?? 'N/A'}</td>
+                                <td>${kpi.yeni_yil_hedef} (${kpi.karsilastirma})</td>
+                                ${AYLAR.map(ay => `<td>${kpi.aylik[ay] ?? ''}</td>`).join('')}
+                                <td>${kpi.ortalama ?? 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            reportContainer.innerHTML = tableHTML;
+
+            const filename = `kpi_raporu_${kpiData.yil}_${new Date().toISOString().split('T')[0]}.pdf`;
+            const opt = {
+                margin: 10,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            window.html2pdf().set(opt).from(reportContainer).save();
+            setNotification({ message: 'PDF raporu başarıyla oluşturuldu.', type: 'success' });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen PDF oluşturma hatası';
+            setNotification({ message: `PDF oluşturulamadı: ${errorMessage}`, type: 'error' });
+        }
+    }, [kpiData.yil, filteredData]);
+
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const activeElement = document.activeElement;
+            const isTyping = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT');
+
+            if (isTyping) {
+                return; // Do not trigger global shortcuts when user is typing
+            }
+            
+            if (event.key && event.key.toLowerCase() === 'n') {
+                event.preventDefault();
+                handleOpenModal('kpi');
+            }
+            if (event.key && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                handleExport();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleOpenModal, handleExport]);
+    
+    const handleBulkDeleteAction = (target: string, action: 'clear' | 'delete' | 'delete-dofs' | 'delete-evidences') => {
+        const isAll = target === '__ALL__';
+    
+        setAllKpiData(prevAllData => {
+            const prevYearData = prevAllData[currentYear] || { yil: currentYear, kpis: [] };
+            let newKpis: Kpi[];
+    
+            if (action === 'clear') {
+                newKpis = prevYearData.kpis.map(kpi => {
+                    if (!isAll && kpi.proses !== target) {
+                        return kpi;
+                    }
+                    return {
+                        ...kpi,
+                        aylik: Object.fromEntries(AYLAR.map(ay => [ay, null])),
+                        son_guncelleme: new Date().toLocaleString('tr-TR'),
+                    };
+                });
+            } else if (action === 'delete') {
+                if (isAll) {
+                    newKpis = [];
+                } else {
+                    newKpis = prevYearData.kpis.filter(kpi => kpi.proses !== target);
+                }
+            } else if (action === 'delete-dofs') {
+                newKpis = prevYearData.kpis.map(kpi => {
+                    if (!isAll && kpi.proses !== target) {
+                        return kpi;
+                    }
+                    if (kpi.dof.length > 0) {
+                        return {
+                            ...kpi,
+                            dof: [],
+                            son_guncelleme: new Date().toLocaleString('tr-TR'),
+                        };
+                    }
+                    return kpi;
+                });
+            } else if (action === 'delete-evidences') {
+                newKpis = prevYearData.kpis.map(kpi => {
+                    if (!isAll && kpi.proses !== target) {
+                        return kpi;
+                    }
+                    if (kpi.kanit_dosyalari.length > 0) {
+                        return {
+                            ...kpi,
+                            kanit_dosyalari: [],
+                            son_guncelleme: new Date().toLocaleString('tr-TR'),
+                        };
+                    }
+                    return kpi;
+                });
+            }
+            else {
+                 newKpis = prevYearData.kpis;
+            }
+    
+            return {
+                ...prevAllData,
+                [currentYear]: {
+                    ...prevYearData,
+                    kpis: newKpis,
+                },
+            };
+        });
+    
+        const targetName = isAll ? `${currentYear} yılı` : `"${target}" prosesi`;
+        const actionText = action === 'clear' 
+            ? 'içindeki veriler temizlendi' 
+            : action === 'delete-dofs'
+            ? 'içindeki DÖF\'ler silindi'
+            : action === 'delete-evidences'
+            ? 'içindeki kanıtlar silindi'
+            : 've ilgili tüm KPI\'lar silindi';
+        setNotification({ message: `${targetName} ${actionText}.`, type: 'success' });
+        handleCloseModal();
+    };
+    
+    const uniqueProcesses = useMemo(() => [...new Set(kpiData.kpis.map(kpi => kpi.proses))], [kpiData.kpis]);
+
+
+    return (
+        <div className="p-4 sm:p-6 lg:p-8 font-sans">
+            <TooltipSettingsPanel
+                settings={tooltipSettings}
+                onChange={setTooltipSettings}
+            />
+            {notification && (
+                <Notification
+                    message={notification.message}
+                    type={notification.type}
+                    onClose={() => setNotification(null)}
+                />
+            )}
+            <Header
+                year={kpiData.yil}
+                allKpis={processedKpis}
+                filters={filters}
+                setFilters={setFilters}
+                onAddKpi={() => handleOpenModal('kpi')}
+                onImport={handleImport}
+                onExport={handleExport}
+                onExportXlsx={handleExportXlsx}
+                onNavigateYear={handleNavigateYear}
+                isSummaryOpen={isSummaryOpen}
+                setSummaryOpen={setSummaryOpen}
+                onGeneratePdf={handleGeneratePdf}
+                onOpenDofPanel={() => handleOpenModal('all-dofs')}
+                onBulkDelete={() => handleOpenModal('delete-process')}
+                onOpenModal={handleOpenModal}
+            />
+
+            {isSummaryOpen && (
+                <SummaryPanel
+                    allKpis={processedKpis}
+                    onMonthFilter={handleMonthFilterChange}
+                    selectedMonth={monthFilter}
+                    onOpenModal={handleOpenModal}
+                />
+            )}
+            
+            <main className="mt-4">
+                <KpiTable
+                    kpis={filteredData}
+                    year={kpiData.yil}
+                    onOpenModal={handleOpenModal}
+                    onUpdateValue={handleUpdateKpiValue}
+                    onDeleteKpi={handleDeleteKpi}
+                    onDeleteKpis={handleBulkDeleteKpis}
+                    recentlyUpdatedKpi={recentlyUpdatedKpi}
+                    tooltipSettings={tooltipSettings}
+                    appearanceSettings={appearanceSettings}
+                />
+            </main>
+
+            {modal.type === 'kpi' && (
+                <KpiModal
+                    isOpen={modal.type === 'kpi'}
+                    onClose={handleCloseModal}
+                    onSave={handleSaveKpi}
+                    kpiData={modal.data}
+                />
+            )}
+             {modal.type === 'bulk-kpi' && (
+                <BulkKpiModal
+                    isOpen={modal.type === 'bulk-kpi'}
+                    onClose={handleCloseModal}
+                    onSave={handleBulkAddKpis}
+                />
+            )}
+            {modal.type === 'dof' && (
+                 <DofModal
+                    isOpen={modal.type === 'dof'}
+                    onClose={handleDofModalClose}
+                    onSave={(dof) => handleSaveDof(modal.data.kpiId, dof)}
+                    onUpdateDof={(dof) => handleUpdateDof(modal.data.kpiId, dof)}
+                    onDelete={(kpiId, dofId) => {
+                        handleDeleteDof(kpiId, dofId);
+                        handleDofModalClose();
+                    }}
+                    dofData={modal.data}
+                    kpi={processedKpis.find(k => k.id === modal.data.kpiId)}
+                    year={kpiData.yil}
+                    onOpenModal={handleOpenModal}
+                />
+            )}
+            {modal.type === 'risk' && (
+                <RiskModal
+                    isOpen={modal.type === 'risk'}
+                    onClose={() => {
+                         if(modal.data?.fromDetail) {
+                            const updatedKpi = processedKpis.find(k => k.id === modal.data.id);
+                            setModal({ type: 'detail', data: updatedKpi });
+                         } else {
+                            handleCloseModal();
+                         }
+                    }}
+                    onSave={(risk) => handleSaveRisk(modal.data.id, risk)}
+                    kpi={modal.data}
+                    onStartDof={(kpiId) => handleOpenModal('dof', { kpiId: kpiId })}
+                />
+            )}
+            {modal.type === 'detail' && (
+                 <KpiDetailView
+                    isOpen={modal.type === 'detail'}
+                    onClose={handleCloseModal}
+                    kpi={modal.data}
+                    onSaveKpi={handleSaveKpi}
+                    onOpenModal={handleOpenModal}
+                    onDeleteDof={handleDeleteDof}
+                />
+            )}
+             {modal.type === 'month-detail' && (
+                 <MonthDetailModal
+                    isOpen={modal.type === 'month-detail'}
+                    onClose={handleCloseModal}
+                    month={modal.data.month}
+                    allKpis={processedKpis}
+                />
+            )}
+             {modal.type === 'all-dofs' && (
+                <AllDofsModal
+                    isOpen={modal.type === 'all-dofs'}
+                    onClose={handleCloseModal}
+                    allKpis={processedKpis}
+                    onOpenModal={handleOpenModal}
+                    onDeleteDof={handleDeleteDof}
+                />
+            )}
+            {modal.type === 'change-year' && (
+                <ChangeYearModal
+                    isOpen={modal.type === 'change-year'}
+                    onClose={handleCloseModal}
+                    currentYear={kpiData.yil}
+                    onConfirm={handleConfirmChangeYear}
+                    targetYear={modal.data?.targetYear}
+                />
+            )}
+            {modal.type === 'dof-report' && modal.data.dof && modal.data.kpi && (
+                <DofReportView
+                    isOpen={modal.type === 'dof-report'}
+                    onClose={handleCloseModal}
+                    dof={modal.data.dof}
+                    kpi={modal.data.kpi}
+                />
+            )}
+            {modal.type === 'copy-dof' && (
+                <CopyDofModal
+                    isOpen={modal.type === 'copy-dof'}
+                    onClose={handleCloseModal}
+                    onCopy={handleCopyDof}
+                    dofToCopy={modal.data.dof}
+                    allKpis={processedKpis}
+                    year={kpiData.yil}
+                />
+            )}
+             {modal.type === 'delete-process' && (
+                <DeleteProcessModal
+                    isOpen={modal.type === 'delete-process'}
+                    onClose={handleCloseModal}
+                    onConfirm={handleBulkDeleteAction}
+                    processes={uniqueProcesses}
+                />
+            )}
+            {modal.type === 'appearance-settings' && (
+                <AppearanceSettingsModal
+                    isOpen={modal.type === 'appearance-settings'}
+                    onClose={handleCloseModal}
+                    settings={appearanceSettings}
+                    onSave={(newSettings) => {
+                        setAppearanceSettings(newSettings);
+                        handleCloseModal();
+                    }}
+                    onReset={() => {
+                        setAppearanceSettings(defaultAppearanceSettings);
+                        handleCloseModal();
+                    }}
+                />
+            )}
+            {modal.type === 'evidence' && (
+                <EvidenceModal
+                    isOpen={modal.type === 'evidence'}
+                    onClose={handleCloseModal}
+                    kpi={modal.data}
+                    onSave={handleSaveEvidence}
+                />
+            )}
+            {modal.type === 'doe-tool' && (
+                <DoeToolModal
+                    isOpen={modal.type === 'doe-tool'}
+                    onClose={handleCloseModal}
+                />
+            )}
+        </div>
+    );
+};
+
+export default App;

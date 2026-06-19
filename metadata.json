@@ -1,0 +1,6 @@
+{
+  "name": "KPI Takip Tablosu rev3",
+  "description": "Kapsamlı bir KPI (Anahtar Performans Göstergesi) takip tablosu. Bu uygulama, proses ve KPI bilgilerini, aylık hedefleri ve gerçekleşmeleri izlemenizi sağlar. Renk kodlaması ve sembollerle hedef başarı durumunu görselleştirir, risk analizi yapar ve düzeltici faaliyetlerin (DÖF) yönetilmesine olanak tanır. Tüm veriler tarayıcınızda saklanır ve JSON formatında içe/dışa aktarılabilir.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

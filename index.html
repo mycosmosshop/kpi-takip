@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KPI Takip Tablosu</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* For custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+    /* Custom style for sticky table header and first columns */
+    .sticky-header th {
+      position: sticky;
+      top: 0;
+    }
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+    }
+    .sticky-col-2 {
+      position: sticky;
+      left: 48px; /* Width of the checkbox column */
+      z-index: 20;
+    }
+    .sticky-col-3 {
+      position: sticky;
+      left: 96px; /* 48px (checkbox) + 48px (status) */
+      z-index: 20;
+    }
+     .sticky-col-4 {
+      position: sticky;
+      left: 256px; /* 96px + 160px (proses) */
+      z-index: 20;
+    }
+    .sticky-col-right {
+      position: sticky;
+      right: 0;
+      z-index: 20;
+    }
+    .sticky-col-right-2 {
+      position: sticky;
+      right: 100px; /* Width of İşlemler column */
+      z-index: 20;
+    }
+    /* Animation for active DOF icon */
+    @keyframes dof-icon-pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: drop-shadow(0 0 2px rgba(192, 132, 252, 0.7));
+      }
+      50% {
+        opacity: 0.8;
+        transform: scale(1.1);
+        filter: drop-shadow(0 0 5px rgba(192, 132, 252, 1));
+      }
+    }
+    .animate-dof-icon-pulse {
+      animation: dof-icon-pulse 2.5s infinite ease-in-out;
+    }
+    /* NEW Fishbone Diagram Styles */
+    .fishbone-diagram {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: 1fr;
+      padding: 2rem 1rem;
+      position: relative;
+      min-height: 550px;
+    }
+
+    .fishbone-diagram .spine {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      align-self: center;
+      height: 6px;
+      background-color: #9ca3af; /* gray-400 */
+      border-radius: 3px;
+    }
+    .dark .fishbone-diagram .spine {
+      background-color: #4b5563; /* gray-600 */
+    }
+
+    .fishbone-diagram .head {
+      grid-column: 2;
+      grid-row: 1;
+      width: 200px;
+      padding: 1rem 1rem 1rem 2rem;
+      background-color: #3b82f6; /* blue-500 */
+      color: white;
+      clip-path: polygon(25% 0%, 100% 50%, 25% 100%, 0% 50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .fishbone-diagram .head textarea, .fishbone-diagram .head p {
+        background: transparent;
+        border: none;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1rem;
+        resize: none;
+        width: 100%;
+        height: 80px;
+    }
+    .fishbone-diagram .head textarea::placeholder {
+        color: #dbeafe; /* blue-100 */
+    }
+
+    .fishbone-diagram .category-grid {
+      grid-column: 1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .fishbone-diagram .category-card {
+      position: relative;
+      padding: 1rem;
+      background-color: #f9fafb; /* gray-50 */
+      border: 1px solid #e5e7eb; /* gray-200 */
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    }
+    .dark .fishbone-diagram .category-card {
+      background-color: #374151; /* gray-700 */
+      border-color: #4b5563; /* gray-600 */
+    }
+
+    /* Connecting lines */
+    .fishbone-diagram .category-card::before {
+      content: '';
+      position: absolute;
+      width: 3px;
+      height: 40px;
+      background-color: #9ca3af; /* gray-400 */
+      transform-origin: center;
+    }
+     .dark .fishbone-diagram .category-card::before {
+        background-color: #4b5563; /* gray-600 */
+     }
+
+    /* Top row cards */
+    .category-grid > div:nth-child(-n+3) {
+      align-self: end;
+      margin-bottom: 20px;
+    }
+    .category-grid > div:nth-child(-n+3)::before {
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+    }
+
+    /* Bottom row cards */
+    .category-grid > div:nth-child(n+4) {
+      align-self: start;
+      margin-top: 20px;
+    }
+     .category-grid > div:nth-child(n+4)::before {
+      top: -40px;
+      left: 50%;
+      transform: translateX(-50%) rotate(-45deg);
+    }
+     .inactive-month-pattern {
+        background-image: repeating-linear-gradient(
+            45deg,
+            rgba(0, 0, 0, 0.05),
+            rgba(0, 0, 0, 0.05) 5px,
+            transparent 5px,
+            transparent 10px
+        );
+    }
+    .dark .inactive-month-pattern {
+        background-image: repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.05),
+            rgba(255, 255, 255, 0.05) 5px,
+            transparent 5px,
+            transparent 10px
+        );
+    }
+    /* FTA Diagram Styles */
+    .fta-editor-grid {
+        display: grid;
+        grid-template-columns: 200px 1fr 300px;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 1rem;
+        height: 100%;
+        transition: grid-template-columns 0.3s ease-in-out;
+    }
+
+    .fta-editor-grid.fta-results-collapsed {
+        grid-template-columns: 200px 1fr 0;
+    }
+    
+    .fta-editor-grid.fta-results-collapsed .fta-results-panel {
+        visibility: hidden;
+        opacity: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    .fta-palette {
+        padding: 1rem;
+        background-color: #f3f4f6;
+        border-radius: 0.5rem;
+        border: 1px solid #e5e7eb;
+        display: flex;
+        flex-direction: column;
+    }
+    .dark .fta-palette {
+        background-color: #374151;
+        border-color: #4b5563;
+    }
+    .fta-palette-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.5rem;
+        border-radius: 4px;
+        cursor: grab;
+        transition: background-color 0.2s;
+        border: 1px solid transparent;
+        margin-bottom: 0.5rem;
+    }
+    .fta-palette-item:hover {
+        background-color: #e5e7eb;
+        border-color: #d1d5db;
+    }
+    .dark .fta-palette-item:hover {
+        background-color: #4b5563;
+        border-color: #6b7280;
+    }
+    .fta-palette-item .fta-shape {
+        width: 48px;
+        height: 36px;
+    }
+    .fta-palette-item span {
+        font-size: 0.75rem;
+        margin-top: 4px;
+        text-align: center;
+    }
+
+    .fta-canvas {
+        flex-grow: 1;
+        position: relative;
+        padding: 1rem;
+        background-color: #f9fafb; /* gray-50 */
+        border: 1px solid #e5e7eb; /* gray-200 */
+        border-radius: 0.5rem;
+        overflow: auto;
+        min-height: 400px;
+    }
+    .dark .fta-canvas {
+        background-color: #1f2937; /* gray-800 */
+        border-color: #374151; /* gray-700 */
+    }
+
+    .fta-canvas svg.fta-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 200%; /* Larger to allow drawing outside initial view */
+        height: 200%;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .fta-canvas svg.fta-lines line {
+        stroke: #9ca3af;
+        stroke-width: 2px;
+    }
+    .dark .fta-canvas svg.fta-lines line {
+        stroke: #4b5563;
+    }
+    
+    .fta-canvas svg.fta-lines .fta-preview-line {
+        stroke: #3b82f6; /* blue-500 */
+        stroke-width: 2px;
+        stroke-dasharray: 4 4;
+        animation: dash-flow 0.5s linear infinite;
+    }
+    .dark .fta-canvas svg.fta-lines .fta-preview-line {
+        stroke: #60a5fa; /* blue-400 */
+    }
+    @keyframes dash-flow {
+      to {
+        stroke-dashoffset: -16;
+      }
+    }
+
+
+    .fta-node {
+        position: absolute;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 1;
+        width: 140px; /* Fixed width */
+    }
+
+    .fta-node-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.5rem;
+        border: 1px solid #9ca3af;
+        background-color: white;
+        border-radius: 4px;
+        width: 100%;
+        min-height: 80px;
+        position: relative;
+        cursor: grab;
+        transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .fta-node-content:active {
+        cursor: grabbing;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        z-index: 10;
+    }
+    .dark .fta-node-content {
+        background-color: #374151; /* gray-700 */
+        border-color: #4b5563; /* gray-600 */
+    }
+
+    .fta-node .fta-connection-handle {
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 16px;
+        height: 16px;
+        background-color: #3b82f6; /* blue-500 */
+        border: 2px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 12;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .dark .fta-node .fta-connection-handle {
+        border-color: #374151; /* gray-700 */
+    }
+    .fta-node-content:hover .fta-connection-handle {
+        opacity: 1;
+    }
+
+    .fta-node.is-drop-target .fta-node-content {
+        border-color: #2563eb; /* blue-600 */
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* blue-500 with opacity */
+    }
+    .dark .fta-node.is-drop-target .fta-node-content {
+        border-color: #60a5fa; /* blue-400 */
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.5); /* blue-400 with opacity */
+    }
+
+    .fta-node textarea {
+        background: transparent;
+        border: none;
+        text-align: center;
+        resize: none;
+        width: 100%;
+        padding: 2px;
+        font-size: 0.8rem;
+        color: inherit;
+        min-height: 30px;
+        cursor: text;
+    }
+    .fta-node textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #3b82f6;
+        border-radius: 2px;
+    }
+    .fta-node .fta-probability-input {
+      width: 60px;
+      font-size: 0.75rem;
+      padding: 1px 4px;
+      margin-top: 4px;
+      text-align: center;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+    }
+    .dark .fta-node .fta-probability-input {
+      background-color: #4b5563;
+      border-color: #6b7280;
+    }
+    .fta-node .fta-calculated-p {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-size: 0.7rem;
+      font-family: monospace;
+      color: #1d4ed8;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    .dark .fta-node .fta-calculated-p {
+      color: #93c5fd;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .fta-shape {
+        width: 40px;
+        height: 30px;
+        margin-bottom: 5px;
+        stroke: #4b5563;
+    }
+    .dark .fta-shape { stroke: #9ca3af; }
+
+    /* Gate Colors */
+    .fta-shape-and { fill: #c4b5fd; stroke: #8b5cf6;}
+    .fta-shape-or { fill: #c4b5fd; stroke: #8b5cf6;}
+    .fta-shape-xor { fill: #c4b5fd; stroke: #8b5cf6;}
+    .fta-shape-priority-and { fill: #c4b5fd; stroke: #8b5cf6;}
+    .fta-shape-inhibit { fill: #c4b5fd; stroke: #8b5cf6;}
+    .dark .fta-shape-and, .dark .fta-shape-or, .dark .fta-shape-xor, .dark .fta-shape-priority-and, .dark .fta-shape-inhibit { fill: #5b21b6; stroke: #a78bfa; }
+
+    /* Event Colors */
+    .fta-shape-basic { fill: #fca5a5; stroke: #ef4444; }
+    .dark .fta-shape-basic { fill: #991b1b; stroke: #f87171; }
+    .fta-shape-intermediate { fill: #fdba74; stroke: #f97316; }
+    .dark .fta-shape-intermediate { fill: #9a3412; stroke: #fb923c; }
+    .fta-shape-undeveloped { fill: #fde047; stroke: #eab308; }
+    .dark .fta-shape-undeveloped { fill: #854d0e; stroke: #facc15; }
+    .fta-shape-conditional { fill: #a3e635; stroke: #65a30d; }
+    .dark .fta-shape-conditional { fill: #3f6212; stroke: #84cc16; }
+    .fta-shape-house { fill: #67e8f9; stroke: #0891b2; }
+    .dark .fta-shape-house { fill: #155e75; stroke: #22d3ee; }
+    .fta-shape-transfer { fill: #f0abfc; stroke: #d946ef; }
+    .dark .fta-shape-transfer { fill: #86198f; stroke: #e879f9; }
+
+    .fta-disconnect-btn {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 11;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+    }
+
+    .fta-node:hover .fta-disconnect-btn {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
+    /* Styles for FTA Diagram in Report View */
+    .fta-diagram {
+        position: relative;
+        overflow: visible;
+        width: 100%;
+    }
+    .fta-diagram .fta-node {
+        font-size: 11px;
+    }
+    .fta-diagram .fta-node-content {
+        min-height: 70px;
+        cursor: default;
+        padding: 0.25rem;
+    }
+    .fta-diagram .fta-shape {
+        width: 32px;
+        height: 24px;
+        margin-bottom: 4px;
+    }
+    .fta-diagram svg.fta-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: visible;
+    }
+     .fta-diagram svg.fta-lines line {
+        stroke: #9ca3af;
+        stroke-width: 1.5px;
+    }
+    .dark .fta-diagram svg.fta-lines line {
+        stroke: #4b5563;
+    }
+
+    /* NEW FTA RESULT PANEL STYLES */
+    .fta-results-panel {
+        background-color: #f3f4f6;
+        border-radius: 0.5rem;
+        border: 1px solid #e5e7eb;
+        padding: 1rem;
+        overflow-y: auto;
+        transition: opacity 0.2s linear, padding 0.3s ease-in-out, border 0.3s ease-in-out;
+    }
+    .dark .fta-results-panel {
+        background-color: #374151;
+        border-color: #4b5563;
+    }
+
+    .fta-results-toggle {
+        position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translate(calc(50% + 0.5rem), -50%); /* 0.5rem is half the grid gap */
+        z-index: 40;
+        width: 24px;
+        height: 60px;
+        background-color: #374151; /* gray-700 */
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .fta-results-toggle:hover {
+        background-color: #3b82f6; /* blue-500 */
+    }
+    .dark .fta-results-toggle {
+        background-color: #4b5563; /* gray-600 */
+    }
+    .dark .fta-results-toggle:hover {
+        background-color: #60a5fa; /* blue-400 */
+    }
+
+    .fta-result-panel-metric {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #3b82f6;
+      margin-bottom: 0.5rem;
+    }
+    .dark .fta-result-panel-metric {
+      color: #60a5fa;
+    }
+    .fta-result-panel-out {
+      white-space: pre-wrap;
+      background-color: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 180px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    .dark .fta-result-panel-out {
+        background-color: #1f2937;
+        border-color: #4b5563;
+    }
+    .fta-result-panel-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .fta-result-panel-tbl th, .fta-result-panel-tbl td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    .dark .fta-result-panel-tbl th, .dark .fta-result-panel-tbl td {
+      border-color: #4b5563;
+    }
+    .fta-result-panel-tbl th {
+      background-color: #f9fafb;
+    }
+    .dark .fta-result-panel-tbl th {
+      background-color: #374151;
+    }
+    
+    /* NEW PARETO STYLES */
+    .pa{background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; border-radius:12px;padding:12px;font:14px/1.45 system-ui,Segoe UI,Roboto,Arial}
+    .dark .pa{background: #1f2937; border: 1px solid #374151; color: #d1d5db;}
+    .pa-h{display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .pa-h h3{margin:0;font-size:16px;color:#111827}
+    .dark .pa-h h3 {color: #f3f4f6;}
+    .pa-g{display:grid;grid-template-columns:320px 1fr;gap:12px;margin-top:12px}
+    .pa .card{background: #fff; border:1px solid #e5e7eb; border-radius:10px;padding:10px}
+    .dark .pa .card {background: #374151; border-color: #4b5563;}
+    .pa .card h4{margin:0 0 8px;font-size:13px;color:#4b5563;text-transform:uppercase;letter-spacing:.02em}
+    .dark .pa .card h4 {color: #9ca3af;}
+    .pa .row{display:flex;gap:8px;align-items:center;margin:6px 0}
+    .pa .in,.pa .sel{flex:1;background: #fff; border:1px solid #d1d5db; color:#111827; border-radius:8px;padding:8px}
+    .dark .pa .in, .dark .pa .sel {background: #374151; border-color: #4b5563; color: #d1d5db;}
+    .pa .btn{border:1px solid #d1d5db; background: #fff; color:#374151; padding:8px 10px;border-radius:8px;cursor:pointer}
+    .pa .btn:hover{background: #f9fafb;}
+    .dark .pa .btn {border-color: #4b5563; background: #374151; color: #d1d5db;}
+    .dark .pa .btn:hover {background: #4b5563;}
+    .pa .note{font-size:12px;color:#6b7280}
+    .dark .pa .note {color: #9ca3af;}
+    .pa .ok{color:#16a34a}.pa .err{color:#dc2626}
+    .dark .pa .ok{color:#4ade80}.dark .pa .err{color:#f87171}
+    .pa .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #e5e7eb; background:#f3f4f6; font-size:12px;margin-left:6px}
+    .dark .pa .badge {border-color: #4b5563; background: #374151;}
+    .pa .tbl{width:100%;border-collapse:collapse;margin-top:8px}
+    .pa .tbl th,.pa .tbl td{border:1px solid #e5e7eb; padding:6px 8px;text-align:left}
+    .dark .pa .tbl th, .dark .pa .tbl td {border-color: #4b5563;}
+    .pa .tbl th{background:#f9fafb; color:#374151}
+    .dark .pa .tbl th {background: #374151; color: #d1d5db;}
+    .pa .legend{display:flex;gap:12px;align-items:center;margin:6px 0 8px}
+    .pa .lgb{width:14px;height:14px;border-radius:3px;background:#60a5fa;border:1px solid #1d4ed8}
+    .pa .lgl{width:18px;height:0;border-top:3px solid #22d3ee}
+    #p-svg{width:100%;height:380px;background:linear-gradient(#f9fafb, #f3f4f6);border:1px solid #e5e7eb;border-radius:10px}
+    .dark #p-svg {background: linear-gradient(#1f2937, #111827); border-color: #374151;}
+
+    /* NEW SCATTER PLOT STYLES */
+    .spm-wrap{background:#0c1428;border:1px solid #1f2940;color:#e5e7eb;border-radius:12px;padding:12px;font:14px/1.45 system-ui,Segoe UI,Roboto,Arial}
+    .spm-tabs{display:flex;gap:8px;margin-bottom:8px}
+    .spm-tab{border:1px solid #2a3a5a;background:#0e162a;color:#e5e7eb;padding:6px 10px;border-radius:8px;cursor:pointer}
+    .spm-tab.act{background:#17223f;border-color:#3b4f73}
+    .spm-grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
+    .spm-card{background:#0a0f1f;border:1px solid #1f2937;border-radius:10px;padding:10px}
+    .spm-card h4{margin:0 0 8px;font-size:13px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.02em}
+    .spm-row{display:flex;gap:8px;align-items:center;margin:6px 0}
+    .spm-wrap textarea,.spm-wrap .inp,.spm-wrap .sel{flex:1;background:#0b1224;border:1px solid #22304b;color:#fff;border-radius:8px;padding:8px}
+    .spm-wrap .btn{border:1px solid #2a3a5a;background:#0e162a;color:#e5e7eb;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .spm-wrap .btn:hover{border-color:#3b4f73}
+    .spm-wrap .note{font-size:12px;color:#91a0bb}
+    .spm-wrap .ok{color:#86efac}.spm-wrap .err{color:#fca5a5}
+    .spm-wrap canvas{width:100%;height:640px;background:#0b1224;border:1px solid #22304b;border-radius:10px}
+    .spm-simple-canvas{height:420px}
+    .spm-chk{display:flex;align-items:center;gap:6px}
+    .spm-insight{white-space:pre-wrap;background:#0b1224;border:1px solid #22304b;border-radius:10px;padding:10px;margin-top:8px;font-family:monospace;font-size:12px;}
+
+
+    /* PDF Print Styles */
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .no-print {
+        display: none !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tfoot {
+        display: table-footer-group !important;
+      }
+      tr, img, .no-break {
+        page-break-inside: avoid !important;
+      }
+      table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+      }
+      th, td {
+        border: 1px solid #999 !important;
+        padding: 4px 6px !important;
+        vertical-align: top;
+      }
+    }
+
+    /* === KPI Tablosu – Dikiş (white seam) ve zoom taşmaları için fix === */
+    /* 1) Hücre aralarındaki beyaz çizgileri kaldır */
+    .kpi-table,
+    .kpi-table table {
+      border-collapse: collapse !important;
+      border-spacing: 0 !important;
+      table-layout: fixed;          /* zoom’da sütun kaymalarını azaltır */
+      width: 100%;
+    }
+    
+    /* 2) Tüm hücreler, satırın arka planını miras alsın (satır rengi kesintisiz görünsün) */
+    .kpi-table th,
+    .kpi-table td {
+      border: 0 !important;
+      background-color: inherit !important;       /* tr’deki rengi aynen uygula */
+      background-clip: padding-box !important; /* sub-pixel çizgi oluşumunu engeller */
+    }
+    
+    /* 3) Sticky sabit sütunlar varsa, onlar da satırın rengine boyansın */
+    .kpi-table th.sticky-col, .kpi-table th.sticky-col-2, .kpi-table th.sticky-col-3, .kpi-table th.sticky-col-4, .kpi-table th.sticky-col-5,
+    .kpi-table td.sticky-col, .kpi-table td.sticky-col-2, .kpi-table td.sticky-col-3, .kpi-table td.sticky-col-4, .kpi-table td.sticky-col-5 {
+      background-color: inherit !important;
+      box-shadow: none !important;          /* bazı UI kitleri çizgi gölgesi ekliyor */
+    }
+    
+    /* 4) İçe giren satır metni: zoom’da sütunu taşırmasın, taşarsa üç nokta ile kesilsin */
+    .kpi-table .cell,
+    .kpi-table .process-col,
+    .kpi-table .kpi-name {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      min-width: 0;                 /* overflow kontrolü için şart */
+      overflow: hidden;
+      white-space: nowrap;          /* satır kırılmasını önle */
+      text-overflow: ellipsis;      /* uzun metni … ile kısalt */
+    }
+    
+    /* 5) İkon/checkbox sütunları dar ve sabit kalsın; boşluk taşması çizgi oluşturmasın */
+    .kpi-table .col-check,
+    .kpi-table .col-flag,
+    .kpi-table .col-spark {
+      width: 32px;
+      min-width: 32px;
+      max-width: 32px;
+      overflow: visible;            /* ikonlar kırpılmasın */
+    }
+    
+    /* 6) Satırın tamamına renk veren sınıflar kullanıyorsan, rengi TR’ye ver */
+    .kpi-table tr.is-danger,
+    .kpi-table tr.is-warning,
+    .kpi-table tr.is-success,
+    .kpi-table tr.is-info {
+      /* örnek: mevcut projendeki renkler zaten tanımlıysa dokunma;
+         sadece arka planın TR seviyesinde olduğundan emin ol */
+      /* background-color: var(--row-color); */
+    }
+    
+    /* 7) Retina/Chrome beyaz dikişlerini yakalayan son hat: */
+    .kpi-table tbody tr { transform: translateZ(0); }  /* bazı tarayıcılarda seam’leri keser */
+  </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+  <script>
+/* =========================
+   GEMINI BUILD DROP-IN: FTA Akıllı Hesaplama Çekirdeği
+   - Hatalı modeli hesaplamadan önce doğrular ve otomatik düzeltir.
+   - UI bağımsızdır (DOM, CSS değiştirmez).
+   - Desteklenen tipler:
+     Events: 'primary','intermediate','undeveloped','conditional','house_true','house_false','transfer'
+     Gates : 'and','or','xor','pand','inhibit'
+   - Her düğüm yapısı: { id, type, label?, p?, cond?, children?: string[] }
+   - Dönen sonuç: { ok, p?, steps?, model?, fixes?, warnings?, errors? }
+========================= */
+(function(){
+  const TYPES = {
+    EVENT: new Set(['primary','intermediate','undeveloped','conditional','house_true','house_false','transfer']),
+    GATE:  new Set(['and','or','xor','pand','inhibit']),
+    LEAF:  new Set(['primary','undeveloped','conditional','house_true','house_false']), // yaprak olması gerekenler
+  };
+
+  /** Modeli doğrula, düzelt ve normalleştir. */
+  function normalizeAndValidate(model){
+    const {nodes:arr, edges, topId} = model || {};
+    const nodes = {}, node_list = [], edges_list = [];
+    const errors = [], warnings = [], fixes = [];
+    const childMap = {}, parentMap = {};
+
+    // 1. Pass: Düğümleri ve çocuk haritasını oluştur
+    for (const n of arr || []) {
+      if (!n || !n.id) {
+        warnings.push({id: n?.id || '?', message: 'Geçersiz veya ID\'siz düğüm atlandı.'});
+        continue;
+      }
+      if (nodes[n.id]) {
+        errors.push({id: n.id, message: `Tekrarlanan ID: ${n.id}. Yalnızca ilki kullanılacak.`});
+        continue;
+      }
+      
+      const type = n.type || 'intermediate';
+      if (!TYPES.EVENT.has(type) && !TYPES.GATE.has(type)) {
+        errors.push({id: n.id, message: `Bilinmeyen tip: ${type}`});
+        continue;
+      }
+      
+      nodes[n.id] = {
+        id: n.id, type, label: n.label || '',
+        p: (typeof n.p === 'number') ? n.p : (type==='house_true' ? 1 : (type==='house_false' ? 0 : undefined)),
+        cond: (typeof n.cond === 'number') ? n.cond : undefined,
+        children: Array.isArray(n.children) ? [...n.children] : []
+      };
+      childMap[n.id] = new Set(nodes[n.id].children);
+    }
+    
+    // Edges'ten çocuk listesini doldur
+    for (const {from,to} of edges || []) {
+      if (!from || !to || !nodes[from] || !nodes[to]) continue;
+      if (!childMap[from].has(to)) {
+        childMap[from].add(to);
+      }
+    }
+
+    // Çocuk ve ebeveyn haritalarını son haline getir
+    for(const id in nodes) {
+      nodes[id].children = Array.from(childMap[id]);
+      for(const childId of nodes[id].children) {
+        if(parentMap[childId]) parentMap[childId].push(id); else parentMap[childId] = [id];
+      }
+    }
+    
+    // 2. Pass: Kuralları uygula ve düzeltmeleri yap
+    for(const id in nodes) {
+      const n = nodes[id];
+      // Kural: Yaprak olması gerekenlerin çocuğu olmamalı
+      if(TYPES.LEAF.has(n.type) && n.children.length > 0){
+        fixes.push(`Düğüm '${id}' (${n.type}) çocuk sahibi olamaz; 'intermediate' tipine dönüştürüldü.`);
+        n.type = 'intermediate';
+        delete n.p; // intermediate p almaz
+      }
+      // Kural: Intermediate tam 1 çocuk almalı
+      if(n.type === 'intermediate' && n.children.length > 1){
+        const newOrGateId = `${id}_OR_${Date.now()}`;
+        fixes.push(`Düğüm '${id}' (intermediate) 1'den fazla çocuğa sahip; araya '${newOrGateId}' VEYA kapısı eklendi.`);
+        nodes[newOrGateId] = { id: newOrGateId, type:'or', label:'Auto-OR', children: n.children };
+        n.children = [newOrGateId];
+      }
+      // Kural: Transfer tam 1 çocuk almalı
+      if(n.type === 'transfer' && n.children.length > 1){
+        warnings.push({id, message: `'${id}' (transfer) 1'den fazla çocuğa sahip; sadece ilki dikkate alındı.`});
+        n.children = [n.children[0]];
+      }
+      // Kural: XOR tam 2 çocuk almalı
+      if(n.type === 'xor' && n.children.length !== 2){
+         if(n.children.length > 2) {
+            warnings.push({id, message: `'${id}' (XOR) 2'den fazla çocuğa sahip; sadece ilk ikisi dikkate alındı.`});
+            n.children = n.children.slice(0,2);
+         } else {
+            errors.push({id, message: `'${id}' (XOR) tam olarak 2 çocuğa sahip olmalıdır.`});
+         }
+      }
+      // Uyarı: Birden fazla ebeveyni olan düğüm
+      if(parentMap[id] && parentMap[id].length > 1){
+        warnings.push({id, message: `'${id}' düğümüne birden fazla ebeveyn (${parentMap[id].join(',')}) bağlanıyor. Bu genellikle istenmeyen bir durumdur.`});
+      }
+    }
+
+    // Döngü kontrolü
+    const seen=new Set(), stack=new Set();
+    function detectCycle(id){
+      if (stack.has(id)) return true;
+      if (seen.has(id)) return false;
+      seen.add(id); stack.add(id);
+      const n = nodes[id]; if (!n) return false;
+      for (const c of (n.children||[])) if (detectCycle(c)) return true;
+      stack.delete(id); return false;
+    }
+    if (detectCycle(topId)) {
+        errors.push({id:topId, message: 'Döngü tespit edildi (cycle). Hesaplama yapılamaz.'});
+    }
+
+    // Final listeleri oluştur
+    for(const id in nodes) {
+        node_list.push(nodes[id]);
+        nodes[id].children.forEach(c => edges_list.push({from: id, to: c}));
+    }
+
+    return { validatedNodes: nodes, validatedNodeList: node_list, validatedEdges: edges_list, errors, warnings, fixes };
+  }
+
+  /** Olasılık hesabı (aşağıdan yukarıya) - Exposed for what-if analysis */
+  function computeProbability(nodes, topId){
+    const memo = {};
+    function pOf(id){
+      if (memo[id] !== undefined) return memo[id];
+      const n = nodes[id];
+      if (!n) throw new Error(`Düğüm bulunamadı: ${id}`);
+      const t = n.type;
+
+      if (t==='primary' || t==='undeveloped' || t==='conditional') {
+        const p = Number(n.p);
+        if (!(p>=0 && p<=1)) throw new Error(`'${id}' (${n.label}) için 0..1 arası p giriniz.`);
+        return (memo[id]=p);
+      }
+      if (t==='house_true')  return (memo[id]=1);
+      if (t==='house_false') return (memo[id]=0);
+      if (t==='transfer') {
+        if (!n.children?.length) throw new Error(`'${id}' (transfer): çocuk yok.`);
+        return (memo[id]=pOf(n.children[0]));
+      }
+      if (t==='intermediate') {
+        if (n.children.length!==1) throw new Error(`'${id}' (intermediate): tam 1 çocuk bağlayın.`);
+        return (memo[id]=pOf(n.children[0]));
+      }
+
+      const childPs = (n.children||[]).map(pOf);
+      if (!childPs.length) throw new Error(`'${id}' (${t}): çocuk yok.`);
+
+      let out = 0;
+      if (t==='and') { out = childPs.reduce((a,b)=>a*b,1); }
+      else if (t==='or') { out = 1 - childPs.reduce((a,b)=>a*(1-b),1); }
+      else if (t==='xor') {
+        if (childPs.length!==2) throw new Error(`'${id}' (XOR): tam 2 çocuk gereklidir.`);
+        const [p1,p2]=childPs; out = p1*(1-p2)+p2*(1-p1);
+      } else if (t==='pand') {
+        if (childPs.length<2) throw new Error(`'${id}' (PAND): en az 2 çocuk gereklidir.`);
+        out = childPs[0] * ((typeof n.cond === 'number') ? n.cond : childPs[1]);
+      } else if (t==='inhibit') {
+        out = childPs[0] * ((typeof n.cond === 'number') ? n.cond : (childPs[1] ?? 0));
+      } else { throw new Error(`Bilinmeyen kapı: ${t}`); }
+      return (memo[id]=out);
+    }
+    const pT = pOf(topId);
+    return {pT, memo};
+  }
+
+  /** Adım adım açıklama (post-order) */
+  function explain(nodes, topId, memo){
+    const lines=[]; const seen=new Set();
+    function walk(id, depth){
+      if (seen.has(id)) return; seen.add(id);
+      const n = nodes[id];
+      (n.children||[]).forEach(c=> walk(c, depth+1));
+      const p = (memo && memo[id] !== undefined) ? memo[id] : NaN;
+      let rule='Olay';
+      if (n.type==='and') rule='AND: ∏P(çocuklar)';
+      else if (n.type==='or') rule='OR: 1-∏(1-P(çocuklar))';
+      else if (n.type==='xor') rule='XOR: p1(1-p2)+p2(1-p1)';
+      else if (n.type==='pand') rule='PAND: P(A)·P(B|A)';
+      else if (n.type==='inhibit') rule='INHIBIT: P(girdi)·P(koşul)';
+      else if (n.type==='intermediate' || n.type==='transfer') rule='= Çocuk';
+      lines.push(`${'  '.repeat(depth)}• ${n.label||id} [${n.type}] P=${p.toExponential(4)} (${rule})`);
+    }
+    walk(topId,0);
+    return lines.join('\n');
+  }
+
+  /** Dış API */
+  function fixAndCalculate(input){
+    const { topId } = input || {};
+    if (!topId) return {ok:false, error:'topId gerekli'};
+
+    const { validatedNodes, validatedNodeList, validatedEdges, errors, warnings, fixes } = normalizeAndValidate(input);
+    
+    if (!validatedNodes[topId]) {
+      errors.push({id:topId, message:'Geçersiz veya bulunamayan topId.'});
+    }
+    if (errors.length > 0) {
+      return {ok:false, error: errors[0].message, errors, warnings, fixes};
+    }
+
+    try{
+      const {pT, memo} = computeProbability(validatedNodes, topId);
+      const steps = explain(validatedNodes, topId, memo);
+      return {ok:true, p: pT, steps, memo, fixes, warnings, model: { nodes: validatedNodeList, edges: validatedEdges }};
+    }catch(err){
+      return {ok:false, error: String(err && err.message || err), errors:[{id:'?', message:String(err && err.message || err)}], warnings, fixes};
+    }
+  }
+
+  if (!window.FTA) window.FTA = {};
+  window.FTA.fixAndCalculate = fixAndCalculate;
+  // What-if analizi için olasılık fonksiyonunu dışarı aç
+  window.FTA.computeProbability = computeProbability;
+
+})();
+</script>
+</body>
+</html>
