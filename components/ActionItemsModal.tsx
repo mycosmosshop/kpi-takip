@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ActionItem, ActionPriority, Kpi } from '../types';
 import { AYLAR } from '../constants';
 import { getSingleMonthStatus, isMonthActive } from '../utils/calculations';
@@ -84,26 +84,15 @@ export const actionRiskInfo = (rank: number, priority: ActionPriority): { score:
 
 const inputCls = 'w-full bg-transparent px-1 py-1 text-xs rounded border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 focus:outline-none';
 
-const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof, focusKpiId }) => {
+const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof }) => {
     const [rows, setRows] = useState<ActionItem[]>(items);
     const [showPicker, setShowPicker] = useState(false);
     const [picked, setPicked] = useState<Set<string>>(new Set());
     const [pickedMonth, setPickedMonth] = useState<{ [id: string]: string }>({});
-    const didInit = useRef(false);
 
     // rows -> yukarı senkron (onChange'i deps'e koymuyoruz; sonsuz döngü olmasın)
+    // Not: Aksiyonlar açılınca otomatik satır EKLENMEZ; sadece "Hedef Dışı Çek" / "KPI'dan Ekle" ile gelir.
     useEffect(() => { onChange(rows); /* eslint-disable-next-line */ }, [rows]);
-
-    // İlgili KPI'dan açıldıysa o KPI için satır yoksa otomatik ekle
-    useEffect(() => {
-        if (didInit.current) return;
-        didInit.current = true;
-        if (focusKpiId && !rows.some(r => r.kpiId === focusKpiId)) {
-            const k = kpis.find(x => x.id === focusKpiId);
-            if (k) setRows(prev => [...prev, makeFromKpi(k)]);
-        }
-        // eslint-disable-next-line
-    }, []);
 
     const update = (id: string, patch: Partial<ActionItem>) =>
         setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
