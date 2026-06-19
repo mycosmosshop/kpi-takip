@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ActionItem, ActionPriority, Kpi } from '../types';
+import { AYLAR } from '../constants';
+import { getSingleMonthStatus, isMonthActive } from '../utils/calculations';
 import Modal from './Modal';
 import { PlusIcon, TrashIcon, TableCellsIcon, ClipboardCheckIcon } from './icons';
 
@@ -19,8 +21,22 @@ interface ActionItemsModalProps {
 
 const opSym = (c: string) => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
 
-const buildKpiText = (kpi: Kpi): string =>
-    `${kpi.kpi_adi} ${opSym(kpi.karsilastirma)}${kpi.yeni_yil_hedef} Ortalama: ${kpi.ortalama ?? 'N/A'}`;
+// Bir KPI'nın hedef dışı (başarısız) ayları
+const failMonths = (kpi: Kpi): { month: string; value: number }[] =>
+    AYLAR.map((m, i) => ({ m, i, v: kpi.aylik[m] }))
+        .filter(x => x.v !== null && x.v !== undefined && isMonthActive(kpi, x.i) && getSingleMonthStatus(kpi, x.v) === 'basarisiz')
+        .map(x => ({ month: x.m, value: x.v as number }));
+
+// Belirli bir ay seçilirse ►Ay=değer; yoksa hedef dışı aylar; o da yoksa Ortalama
+const buildKpiText = (kpi: Kpi, month?: string): string => {
+    const base = `${kpi.kpi_adi} ${opSym(kpi.karsilastirma)}${kpi.yeni_yil_hedef}`;
+    if (month && kpi.aylik[month] !== null && kpi.aylik[month] !== undefined) {
+        return `${base} ►${month}=${kpi.aylik[month]}`;
+    }
+    const fails = failMonths(kpi);
+    if (fails.length) return `${base} ►` + fails.map(f => `${f.month.slice(0, 3)}=${f.value}`).join(', ');
+    return `${base} Ortalama: ${kpi.ortalama ?? 'N/A'}`;
+};
 
 const priorityFromKpi = (kpi: Kpi): ActionPriority =>
     kpi.durum === 'basarisiz' ? 'HIGH' : kpi.durum === 'marjinal' ? 'MEDIUM' : 'LOW';
@@ -29,10 +45,10 @@ const rankFromKpi = (kpi: Kpi): number =>
 
 const newId = () => `ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-const makeFromKpi = (kpi: Kpi): ActionItem => ({
+const makeFromKpi = (kpi: Kpi, month?: string): ActionItem => ({
     id: newId(),
     kpiId: kpi.id,
-    kpi: buildKpiText(kpi),
+    kpi: buildKpiText(kpi, month),
     rootCause: '',
     action: '',
     rank: rankFromKpi(kpi),
@@ -72,6 +88,7 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
     const [rows, setRows] = useState<ActionItem[]>(items);
     const [showPicker, setShowPicker] = useState(false);
     const [picked, setPicked] = useState<Set<string>>(new Set());
+    const [pickedMonth, setPickedMonth] = useState<{ [id: string]: string }>({});
     const didInit = useRef(false);
 
     // rows -> yukarı senkron (onChange'i deps'e koymuyoruz; sonsuz döngü olmasın)
@@ -92,14 +109,20 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
         setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
     const remove = (id: string) => setRows(prev => prev.filter(r => r.id !== id));
 
+    // Bir KPI hedef dışı mı? (herhangi bir ay başarısız VEYA genel durum başarısız/marjinal)
+    const isOffTarget = (k: Kpi) => failMonths(k).length > 0 || k.durum === 'basarisiz' || k.durum === 'marjinal';
+
     const openPicker = () => {
-        const off = new Set(kpis.filter(k => k.durum === 'basarisiz' || k.durum === 'marjinal').map(k => k.id));
-        setPicked(off);
+        const existing = new Set(rows.map(r => r.kpiId).filter(Boolean));
+        const offKpis = kpis.filter(isOffTarget);
+        setPicked(new Set(offKpis.filter(k => !existing.has(k.id)).map(k => k.id))); // hedef dışı + henüz eklenmemiş ön-seçili
+        const months: { [id: string]: string } = {};
+        offKpis.forEach(k => { const f = failMonths(k); if (f.length) months[k.id] = f[0].month; });
+        setPickedMonth(months);
         setShowPicker(true);
     };
     const addPicked = () => {
-        const existing = new Set(rows.map(r => r.kpiId).filter(Boolean));
-        const toAdd = kpis.filter(k => picked.has(k.id) && !existing.has(k.id)).map(makeFromKpi);
+        const toAdd = kpis.filter(k => picked.has(k.id)).map(k => makeFromKpi(k, pickedMonth[k.id] || undefined));
         if (toAdd.length) setRows(prev => [...prev, ...toAdd]);
         setShowPicker(false);
     };
@@ -107,14 +130,14 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
         const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
     });
 
-    // Henüz eklenmemiş hedef dışı (başarısız + marjinal) KPI'lar
+    // Henüz eklenmemiş hedef dışı (ay-bazlı veya genel) KPI'lar
     const offTarget = useMemo(() => {
         const existing = new Set(rows.map(r => r.kpiId).filter(Boolean));
-        return kpis.filter(k => (k.durum === 'basarisiz' || k.durum === 'marjinal') && !existing.has(k.id));
+        return kpis.filter(k => !existing.has(k.id) && isOffTarget(k));
     }, [kpis, rows]);
     const pullOffTarget = () => {
         if (!offTarget.length) return;
-        setRows(prev => [...prev, ...offTarget.map(makeFromKpi)]);
+        setRows(prev => [...prev, ...offTarget.map(k => makeFromKpi(k))]);
     };
 
     const stats = useMemo(() => {
@@ -135,7 +158,7 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                 {/* Üst araç çubuğu */}
                 <div className="flex flex-wrap items-center gap-2">
                     <button onClick={pullOffTarget} disabled={!offTarget.length}
-                        title="Hedef dışı (başarısız + marjinal) KPI'ları tek tıkla aksiyon listesine çek"
+                        title="Ay bazında hedef dışı olan (veya genel başarısız/marjinal) KPI'ları tek tıkla çek; satır metni hedef dışı ayı gösterir (►Ay=değer)"
                         className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md text-white ${offTarget.length ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'}`}>
                         <ClipboardCheckIcon className="w-4 h-4" /> Hedef Dışı Çek ({offTarget.length})
                     </button>
@@ -162,21 +185,34 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                 {showPicker && (
                     <div className="border border-blue-300 dark:border-blue-700 rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">KPI seç (hedef dışı olanlar ön-seçili) — başarılı olanları da ekleyebilirsiniz</p>
+                            <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">KPI + Ay seç (hedef dışı olanlar ön-seçili) — başarılı/farklı KPI'ları ve istediğin ayı da ekleyebilirsin</p>
                             <div className="flex gap-2">
                                 <button onClick={addPicked} className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Seçilenleri Ekle ({picked.size})</button>
                                 <button onClick={() => setShowPicker(false)} className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300">İptal</button>
                             </div>
                         </div>
-                        <div className="max-h-52 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-1">
+                        <div className="max-h-60 overflow-y-auto space-y-0.5">
                             {kpis.map(k => {
                                 const dotColor = k.durum === 'basarisiz' ? 'bg-red-500' : k.durum === 'marjinal' ? 'bg-yellow-500' : k.durum === 'basarili' ? 'bg-green-500' : 'bg-gray-400';
+                                const availMonths = AYLAR.filter((m, i) => k.aylik[m] !== null && k.aylik[m] !== undefined && isMonthActive(k, i));
                                 return (
-                                    <label key={k.id} className="flex items-center gap-2 px-2 py-1 text-sm rounded hover:bg-white dark:hover:bg-gray-800 cursor-pointer">
-                                        <input type="checkbox" checked={picked.has(k.id)} onChange={() => togglePick(k.id)} className="form-checkbox h-4 w-4 text-blue-600 rounded" />
-                                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${dotColor}`} />
-                                        <span className="truncate"><span className="text-gray-400">{k.proses} —</span> {k.kpi_adi}</span>
-                                    </label>
+                                    <div key={k.id} className="flex items-center gap-2 px-2 py-1 text-sm rounded hover:bg-white dark:hover:bg-gray-800">
+                                        <input type="checkbox" checked={picked.has(k.id)} onChange={() => togglePick(k.id)} className="form-checkbox h-4 w-4 text-blue-600 rounded shrink-0" />
+                                        <span className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+                                        <span className="truncate flex-1 min-w-0"><span className="text-gray-400">{k.proses} —</span> {k.kpi_adi}</span>
+                                        <select
+                                            value={pickedMonth[k.id] || ''}
+                                            onChange={e => setPickedMonth(prev => ({ ...prev, [k.id]: e.target.value }))}
+                                            className="text-xs px-1 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shrink-0"
+                                            title="Hangi ay/değer aksiyona yazılsın"
+                                        >
+                                            <option value="">Ortalama</option>
+                                            {availMonths.map(m => {
+                                                const fail = getSingleMonthStatus(k, k.aylik[m]) === 'basarisiz';
+                                                return <option key={m} value={m}>{fail ? '⚠ ' : ''}{m}={k.aylik[m]}</option>;
+                                            })}
+                                        </select>
+                                    </div>
                                 );
                             })}
                         </div>
