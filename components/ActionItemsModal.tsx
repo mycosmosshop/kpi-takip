@@ -107,6 +107,16 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
         const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
     });
 
+    // Henüz eklenmemiş hedef dışı (başarısız + marjinal) KPI'lar
+    const offTarget = useMemo(() => {
+        const existing = new Set(rows.map(r => r.kpiId).filter(Boolean));
+        return kpis.filter(k => (k.durum === 'basarisiz' || k.durum === 'marjinal') && !existing.has(k.id));
+    }, [kpis, rows]);
+    const pullOffTarget = () => {
+        if (!offTarget.length) return;
+        setRows(prev => [...prev, ...offTarget.map(makeFromKpi)]);
+    };
+
     const stats = useMemo(() => {
         const done = rows.filter(r => r.done || r.status >= 100).length;
         const high = rows.filter(r => r.priority === 'HIGH').length;
@@ -124,7 +134,12 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
             <div className="space-y-3">
                 {/* Üst araç çubuğu */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={openPicker} className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    <button onClick={pullOffTarget} disabled={!offTarget.length}
+                        title="Hedef dışı (başarısız + marjinal) KPI'ları tek tıkla aksiyon listesine çek"
+                        className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md text-white ${offTarget.length ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'}`}>
+                        <ClipboardCheckIcon className="w-4 h-4" /> Hedef Dışı Çek ({offTarget.length})
+                    </button>
+                    <button onClick={openPicker} title="KPI listesinden seçerek ekle (başarılılar dahil)" className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                         <ClipboardCheckIcon className="w-4 h-4" /> KPI'dan Ekle
                     </button>
                     <button onClick={() => setRows(prev => [...prev, blankItem()])} className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600">

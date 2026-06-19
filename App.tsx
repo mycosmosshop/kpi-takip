@@ -1221,7 +1221,7 @@ const App: React.FC = () => {
                     nextMeeting={currentActionData.nextMeeting}
                     onChangeNextMeeting={handleChangeNextMeeting}
                     onExport={handleExportFr216}
-                    onStartDof={(kpiId) => handleOpenModal('dof', { kpiId, returnTo: 'action-items' })}
+                    onStartDof={(kpiId) => handleOpenModal('dof', { kpiId, year: kpiData.yil, returnTo: 'action-items' })}
                     focusKpiId={modal.data?.focusKpiId}
                 />
             )}
