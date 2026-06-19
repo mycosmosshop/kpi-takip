@@ -103,7 +103,18 @@ const AppearanceSettingsModal: React.FC<AppearanceSettingsModalProps> = ({ isOpe
                         })}
                     </div>
                 </div>
-                <p className="text-xs text-gray-400">Mod anında uygulanır; yazı ve tablo teması "Kaydet" ile uygulanır.</p>
+                {/* Sütunlar */}
+                <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Sütunlar</h4>
+                    <label className="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-600 cursor-pointer">
+                        <span className="text-sm text-gray-700 dark:text-gray-200">"Son Güncelleme" sütununu göster</span>
+                        <button type="button" onClick={() => set('showSonGuncelleme', local.showSonGuncelleme === false ? true : false)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${local.showSonGuncelleme !== false ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${local.showSonGuncelleme !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </label>
+                </div>
+                <p className="text-xs text-gray-400">Mod anında uygulanır; yazı, tema ve sütun ayarları "Kaydet" ile uygulanır.</p>
             </div>
         </Modal>
     );

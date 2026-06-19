@@ -1,9 +1,9 @@
 // FIX: Added import for React hooks (useState, useEffect, useMemo) to resolve multiple 'Cannot find name' errors.
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Kpi, ModalType, TooltipSettings, Status, Dof, AppearanceSettings } from '../types';
 import { AYLAR, THEMES } from '../constants';
 import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../utils/calculations';
-import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon } from './icons';
+import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon } from './icons';
 import Trendline from './Trendline';
 
 interface KpiTableProps {
@@ -11,6 +11,7 @@ interface KpiTableProps {
     onOpenModal: (type: ModalType, data: any) => void;
     onUpdateValue: (kpiId: string, month: string, value: number | null) => void;
     onUpdateOnceki: (kpiId: string, value: number | null) => void;
+    onReorderKpis: (draggedId: string, targetId: string) => void;
     onDeleteKpi: (kpiId: string) => void;
     onDeleteKpis: (kpiIds: string[]) => void;
     recentlyUpdatedKpi: string | null;
@@ -138,15 +139,18 @@ interface KpiTableRowProps {
     individualSelectionSet: Set<string>;
     isRecentlyUpdated: boolean;
     showTrendlines: boolean;
+    showSonGuncelleme: boolean;
     processNo: number;
     year: number;
     onMouseMove: (event: React.MouseEvent, kpi: Kpi) => void;
     onMouseLeave: () => void;
     themeClasses: Record<string, string>;
+    onRowDragStart: (id: string) => void;
+    onRowDrop: (id: string) => void;
 }
 
 
-const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onUpdateOnceki, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, processNo, year, onMouseMove, onMouseLeave, themeClasses }) => {
+const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateValue, onUpdateOnceki, onDelete, onCellSelect, onFillRight, isRowSelected, onRowSelect, selectedCols, individualSelectionSet, isRecentlyUpdated, showTrendlines, showSonGuncelleme, processNo, year, onMouseMove, onMouseLeave, themeClasses, onRowDragStart, onRowDrop }) => {
     const statusIcons: { [key: string]: string } = { 'basarili': '✓', 'marjinal': '≈', 'basarisiz': '✗', 'n/a': '-' };
     const baseRowColor = getStatusColorClasses(kpi.durum);
     const finalRowColor = isRowSelected ? 'bg-blue-200 dark:bg-blue-800' : baseRowColor;
@@ -178,13 +182,25 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
     }, [kpi.dof, year]);
 
     return (
-        <tr 
+        <tr
             className={`group transition-colors duration-1000 ease-out ${rowBgClass}`}
             onMouseMove={(e) => onMouseMove(e, kpi)}
             onMouseLeave={onMouseLeave}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); onRowDrop(kpi.id); }}
         >
             <td className={`sticky-col p-2 border-b border-gray-200 dark:border-gray-700 text-center w-[48px] ${themeClasses.tdSticky}`}>
-                <input type="checkbox" checked={isRowSelected} onChange={onRowSelect} className="form-checkbox h-4 w-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                <div className="flex items-center justify-center gap-1">
+                    <span
+                        draggable
+                        onDragStart={(e) => { e.stopPropagation(); onRowDragStart(kpi.id); }}
+                        title="Sürükleyip sırayı değiştir"
+                        className="cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400"
+                    >
+                        <GripIcon className="w-4 h-4" />
+                    </span>
+                    <input type="checkbox" checked={isRowSelected} onChange={onRowSelect} className="form-checkbox h-4 w-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                </div>
             </td>
             <td className={`sticky-col-2 p-2 border-b border-gray-200 dark:border-gray-700 text-center font-bold w-[48px] ${themeClasses.tdSticky}`}>{statusIcons[kpi.durum]}</td>
             <td className={`sticky-col-3 p-2 border-b border-gray-200 dark:border-gray-700 w-[160px] ${themeClasses.tdSticky}`} title={kpi.proses}>
@@ -307,9 +323,11 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                     )}
                 </div>
             </td>
-            <td className={`sticky-col-right-2 p-2 border-b border-gray-200 dark:border-gray-700 text-center text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ${themeClasses.tdAvg}`}>
-                {kpi.son_guncelleme}
-            </td>
+            {showSonGuncelleme && (
+                <td className={`sticky-col-right-2 p-2 border-b border-gray-200 dark:border-gray-700 text-center text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ${themeClasses.tdAvg}`}>
+                    {kpi.son_guncelleme}
+                </td>
+            )}
             <td className={`sticky-col-right p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>
                 <button onClick={() => onOpenModal('kpi', kpi)} className="p-1 text-blue-600 hover:text-blue-800"><EditIcon className="w-5 h-5"/></button>
                 <button onClick={onDelete} className="p-1 text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5"/></button>
@@ -318,7 +336,30 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
     );
 };
 
-const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, onUpdateOnceki, onDeleteKpi, onDeleteKpis, recentlyUpdatedKpi, year, tooltipSettings, appearanceSettings }) => {
+const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, onUpdateOnceki, onReorderKpis, onDeleteKpi, onDeleteKpis, recentlyUpdatedKpi, year, tooltipSettings, appearanceSettings }) => {
+    const showSonGuncelleme = appearanceSettings.showSonGuncelleme !== false;
+    // Satır sürükle-bırak
+    const draggedId = useRef<string | null>(null);
+    const handleRowDragStart = (id: string) => { draggedId.current = id; };
+    const handleRowDrop = (id: string) => { if (draggedId.current) onReorderKpis(draggedId.current, id); draggedId.current = null; };
+    // Sağ tık ile pan (yatay/dikey kaydırma)
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const pan = useRef({ active: false, startX: 0, startY: 0, left: 0, top: 0, moved: false });
+    const onPanDown = (e: React.MouseEvent) => {
+        if (e.button !== 2) return;
+        const el = scrollRef.current; if (!el) return;
+        pan.current = { active: true, startX: e.clientX, startY: e.clientY, left: el.scrollLeft, top: el.scrollTop, moved: false };
+    };
+    const onPanMove = (e: React.MouseEvent) => {
+        if (!pan.current.active) return;
+        const el = scrollRef.current; if (!el) return;
+        const dx = e.clientX - pan.current.startX, dy = e.clientY - pan.current.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) pan.current.moved = true;
+        el.scrollLeft = pan.current.left - dx;
+        el.scrollTop = pan.current.top - dy;
+    };
+    const onPanEnd = () => { pan.current.active = false; };
+    const onCtxMenu = (e: React.MouseEvent) => { if (pan.current.moved) { e.preventDefault(); pan.current.moved = false; } };
     const [individuallySelectedCells, setIndividuallySelectedCells] = useState<MultiSelectedCell[]>([]);
     const [selectedRows, setSelectedRows] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
@@ -548,7 +589,16 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                     {tooltipSettings.son_guncelleme && <p><strong>Son Güncelleme:</strong> {activeTooltip.kpi.son_guncelleme}</p>}
                 </div>
             )}
-            <div className="kpi-table overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md max-h-[70vh]">
+            <div
+                ref={scrollRef}
+                onMouseDown={onPanDown}
+                onMouseMove={onPanMove}
+                onMouseUp={onPanEnd}
+                onMouseLeave={onPanEnd}
+                onContextMenu={onCtxMenu}
+                title="İpucu: tabloyu sağ tık ile tutup sürükleyerek kaydırabilirsiniz"
+                className="kpi-table overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md max-h-[70vh]"
+            >
                 {selectionCount > 0 && (
                     <div className="sticky top-0 z-30 bg-blue-100 dark:bg-blue-900/80 p-2 flex flex-wrap items-center gap-2 backdrop-blur-sm border-b-2 border-blue-300 dark:border-blue-700">
                         <span className="font-semibold text-sm text-blue-800 dark:text-blue-200">{selectionCount} hücre seçildi</span>
@@ -615,7 +665,7 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                                 );
                             })}
                             <th className={`w-[150px] ${themeClasses.th} ${themeClasses.thStatic}`}>Ortalama</th>
-                            <th className={`w-[160px] sticky-col-right-2 ${themeClasses.th} ${themeClasses.thStatic}`}>Son Güncelleme</th>
+                            {showSonGuncelleme && <th className={`w-[160px] sticky-col-right-2 ${themeClasses.th} ${themeClasses.thStatic}`}>Son Güncelleme</th>}
                             <th className={`w-[100px] sticky-col-right ${themeClasses.th} ${themeClasses.thStatic}`}>İşlemler</th>
                         </tr>
                     </thead>
@@ -636,11 +686,14 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                                 individualSelectionSet={individualSelectionSet}
                                 isRecentlyUpdated={kpi.id === recentlyUpdatedKpi}
                                 showTrendlines={showTrendlines}
+                                showSonGuncelleme={showSonGuncelleme}
                                 processNo={processNumbers.get(kpi.proses) || 0}
                                 year={year}
                                 onMouseMove={handleRowMouseMove}
                                 onMouseLeave={handleRowMouseLeave}
                                 themeClasses={themeClasses}
+                                onRowDragStart={handleRowDragStart}
+                                onRowDrop={handleRowDrop}
                             />
                         ))}
                     </tbody>

@@ -206,7 +206,7 @@ export interface ActionYearData {
     nextMeeting: string;  // Next Meeting (tarih/saat metni)
 }
 
-export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | null;
+export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | 'process-order' | null;
 
 export interface ModalState {
     type: ModalType;
@@ -231,4 +231,5 @@ export interface AppearanceSettings {
     fontSize: 'xs' | 'sm' | 'base';
     fontWeight: 'normal' | 'medium' | 'semibold';
     theme: AppearanceTheme;
+    showSonGuncelleme?: boolean;
 }

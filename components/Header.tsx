@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Kpi, ModalType, KpiLocation } from '../types';
-import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon, DocumentDuplicateIcon, SunIcon, MoonIcon } from './icons';
+import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon, DocumentDuplicateIcon, SunIcon, MoonIcon, CalendarIcon } from './icons';
 
 interface HeaderProps {
     year: number;
@@ -23,6 +23,7 @@ interface HeaderProps {
     onFillPrevYear: () => void;
     darkMode: boolean;
     onToggleDark: () => void;
+    onBulkSonGuncelleme: () => void;
     onNavigateYear: (targetYear: number) => void;
     isSummaryOpen: boolean;
     setSummaryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -75,7 +76,7 @@ const FilterDropdown: React.FC<{ label: string; options: string[]; selected: str
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, cloudStatus, onCloudRefresh, onCopyYear, onFillPrevYear, darkMode, onToggleDark, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
+const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, cloudStatus, onCloudRefresh, onCopyYear, onFillPrevYear, darkMode, onToggleDark, onBulkSonGuncelleme, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const xlsxInputRef = useRef<HTMLInputElement>(null);
     const uniqueProcesses = [...new Set(allKpis.map(kpi => kpi.proses))];
@@ -88,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v2.6</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v2.7</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -203,6 +204,12 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                 </button>
                  <button onClick={() => onOpenModal('appearance-settings')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                     <PaintBrushIcon className="w-4 h-4" /> Görünüm Ayarları
+                </button>
+                 <button onClick={() => onOpenModal('process-order')} title="Proses sırasını ve numaralarını düzenle" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <ClipboardDocumentListIcon className="w-4 h-4" /> Proses Sırası
+                </button>
+                 <button onClick={onBulkSonGuncelleme} title="Tüm KPI'ların Son Güncelleme tarihini topluca ayarla" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <CalendarIcon className="w-4 h-4" /> Son Güncelleme (Toplu)
                 </button>
             </div>
         </header>

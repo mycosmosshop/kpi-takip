@@ -12,6 +12,7 @@ import { buildFr100Html } from './utils/fr100Html';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import LocationsModal from './components/LocationsModal';
+import ProcessOrderModal from './components/ProcessOrderModal';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -46,6 +47,7 @@ const defaultAppearanceSettings: AppearanceSettings = {
     fontSize: 'sm',
     fontWeight: 'normal',
     theme: 'default',
+    showSonGuncelleme: true,
 };
 
 
@@ -369,6 +371,47 @@ const App: React.FC = () => {
                 ? { ...kpi, onceki_yil_gerceklesen: value, son_guncelleme: new Date().toLocaleString('tr-TR') }
                 : kpi),
         }));
+    };
+
+    // Satır sürükle-bırak ile yeniden sırala (sürüklenen, hedefin konumuna taşınır)
+    const handleReorderKpis = (draggedId: string, targetId: string) => {
+        if (draggedId === targetId) return;
+        updateCurrentYearData(prev => {
+            const arr = [...prev.kpis];
+            const from = arr.findIndex(k => k.id === draggedId);
+            const to = arr.findIndex(k => k.id === targetId);
+            if (from < 0 || to < 0) return prev;
+            const [moved] = arr.splice(from, 1);
+            arr.splice(to, 0, moved);
+            return { ...prev, kpis: arr };
+        });
+    };
+
+    // Proses bloğunu yukarı/aşağı taşı (numarası değişir)
+    const handleReorderProcess = (proses: string, dir: 'up' | 'down') => {
+        updateCurrentYearData(prev => {
+            const order = [...new Set(prev.kpis.map(k => k.proses))];
+            const i = order.indexOf(proses);
+            const j = dir === 'up' ? i - 1 : i + 1;
+            if (i < 0 || j < 0 || j >= order.length) return prev;
+            [order[i], order[j]] = [order[j], order[i]];
+            const rank = new Map(order.map((p, idx) => [p, idx]));
+            const arr = [...prev.kpis].sort((a, b) => (rank.get(a.proses) ?? 0) - (rank.get(b.proses) ?? 0));
+            return { ...prev, kpis: arr };
+        });
+    };
+
+    // Tüm KPI'ların "Son Güncelleme" değerini topluca ayarla
+    const handleBulkSetSonGuncelleme = () => {
+        const def = new Date().toLocaleString('tr-TR');
+        const val = window.prompt('Tüm KPI\'lar için "Son Güncelleme" değeri (boş bırakırsanız şu an):', def);
+        if (val === null) return;
+        const finalVal = val.trim() === '' ? def : val.trim();
+        updateCurrentYearData(prev => ({
+            ...prev,
+            kpis: prev.kpis.map(k => ({ ...k, son_guncelleme: finalVal })),
+        }));
+        setNotification({ message: `${kpiData.kpis.length} KPI'nın son güncelleme tarihi ayarlandı.`, type: 'success' });
     };
 
     // "Önceki Yıl"ı bir önceki yılın gerçekleşen ortalamalarından doldur (proses + KPI adına göre eşleştirir)
@@ -1076,6 +1119,7 @@ const App: React.FC = () => {
                 onFillPrevYear={handleFillPrevYear}
                 darkMode={darkMode}
                 onToggleDark={() => setDarkMode(d => !d)}
+                onBulkSonGuncelleme={handleBulkSetSonGuncelleme}
                 onNavigateYear={handleNavigateYear}
                 isSummaryOpen={isSummaryOpen}
                 setSummaryOpen={setSummaryOpen}
@@ -1101,6 +1145,7 @@ const App: React.FC = () => {
                     onOpenModal={handleOpenModal}
                     onUpdateValue={handleUpdateKpiValue}
                     onUpdateOnceki={handleUpdateOnceki}
+                    onReorderKpis={handleReorderKpis}
                     onDeleteKpi={handleDeleteKpi}
                     onDeleteKpis={handleBulkDeleteKpis}
                     recentlyUpdatedKpi={recentlyUpdatedKpi}
@@ -1281,6 +1326,14 @@ const App: React.FC = () => {
                     onChange={setLocations}
                     currentLocation={currentLocation}
                     onSelect={setCurrentLocation}
+                />
+            )}
+            {modal.type === 'process-order' && (
+                <ProcessOrderModal
+                    isOpen={modal.type === 'process-order'}
+                    onClose={handleCloseModal}
+                    processes={uniqueProcesses}
+                    onReorder={handleReorderProcess}
                 />
             )}
         </div>

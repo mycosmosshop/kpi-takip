@@ -219,6 +219,14 @@ export const PaperclipIcon: React.FC<{ className?: string }> = ({ className }) =
     </svg>
 );
 
+export const GripIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
+        <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
+        <circle cx="7" cy="15" r="1.5" /><circle cx="13" cy="15" r="1.5" />
+    </svg>
+);
+
 export const SunIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M6.05 6.05L4.636 4.636m12.728 0l-1.414 1.414M6.05 17.95l-1.414 1.414M16 12a4 4 0 11-8 0 4 4 0 018 0z" />

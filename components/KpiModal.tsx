@@ -78,7 +78,7 @@ const KpiModal: React.FC<KpiModalProps> = ({ isOpen, onClose, onSave, kpiData })
             aylik: kpi.aylik || Object.fromEntries(AYLAR.map(ay => [ay, null])),
             dof: kpi.dof || [],
             risk: kpi.risk || { S: 1, O: 1, D: 1, RPN: 1, esik: 40, riskSeviyesi: 'Düşük' },
-            son_guncelleme: new Date().toLocaleString('tr-TR'),
+            son_guncelleme: (kpi.son_guncelleme && kpi.son_guncelleme.trim()) ? kpi.son_guncelleme : new Date().toLocaleString('tr-TR'),
             ortalama: kpi.ortalama || null,
             durum: kpi.durum || 'n/a',
         };
@@ -129,6 +129,10 @@ const KpiModal: React.FC<KpiModalProps> = ({ isOpen, onClose, onSave, kpiData })
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sorumlu</label>
                         <input type="text" name="sorumlu" value={kpi.sorumlu ?? ''} onChange={handleChange} className="mt-1 block w-full form-input" placeholder="Hedefin sahibini girin..." />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Son Güncelleme</label>
+                        <input type="text" name="son_guncelleme" value={kpi.son_guncelleme ?? ''} onChange={handleChange} className="mt-1 block w-full form-input" placeholder="örn. 20.06.2026 10:00 (boş = şimdi)" />
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
