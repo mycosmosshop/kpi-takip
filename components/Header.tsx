@@ -17,6 +17,8 @@ interface HeaderProps {
     currentLocation: string;
     onChangeLocation: (id: string) => void;
     onManageLocations: () => void;
+    cloudStatus: 'offline' | 'syncing' | 'connected';
+    onCloudRefresh: () => void;
     onNavigateYear: (targetYear: number) => void;
     isSummaryOpen: boolean;
     setSummaryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -69,7 +71,7 @@ const FilterDropdown: React.FC<{ label: string; options: string[]; selected: str
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
+const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onAddKpi, onImport, onImportXlsx, onExport, onExportXlsx, exportLabel, locations, currentLocation, onChangeLocation, onManageLocations, cloudStatus, onCloudRefresh, onNavigateYear, isSummaryOpen, setSummaryOpen, onGeneratePdf, onOpenDofPanel, onBulkDelete, onOpenModal }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const xlsxInputRef = useRef<HTMLInputElement>(null);
     const uniqueProcesses = [...new Set(allKpis.map(kpi => kpi.proses))];
@@ -82,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.6</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v1.7</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>
@@ -126,8 +128,16 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                             <ChevronRightIcon className="w-6 h-6" />
                         </button>
                     </div>
+                    <button
+                        onClick={onCloudRefresh}
+                        title={cloudStatus === 'connected' ? 'Buluta bağlı — yenile' : cloudStatus === 'syncing' ? 'Senkronize ediliyor…' : 'Çevrimdışı (yerel) — buluttan yenilemeyi dene'}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${cloudStatus === 'connected' ? 'bg-green-500' : cloudStatus === 'syncing' ? 'bg-yellow-500 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className="text-gray-600 dark:text-gray-300">{cloudStatus === 'connected' ? 'Bulut' : cloudStatus === 'syncing' ? 'Senkron…' : 'Çevrimdışı'}</span>
+                    </button>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center gap-2">
                     <FilterDropdown label="Proses" options={uniqueProcesses} selected={filters.process} onChange={handleFilterChange('process')} />
                     <FilterDropdown label="Durum" options={uniqueStatuses} selected={filters.status} onChange={handleFilterChange('status')} />

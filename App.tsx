@@ -11,6 +11,7 @@ import { exportFr216 } from './utils/fr216Export';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import LocationsModal from './components/LocationsModal';
+import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -111,6 +112,10 @@ const App: React.FC = () => {
     const [recentlyUpdatedKpi, setRecentlyUpdatedKpi] = useState<string | null>(null);
     const updateTimeoutRef = useRef<number | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'connected'>('offline');
+    const kpiHashRef = useRef<string>('');
+    const actHashRef = useRef<string>('');
+    const locHashRef = useRef<string | null>(null);
     const [tooltipSettings, setTooltipSettings] = useLocalStorage<TooltipSettings>('tooltipSettings_v2', {
         goster: true,
         aktif_ay_degeri: true,
@@ -595,6 +600,116 @@ const App: React.FC = () => {
         }
     }, [actionDataByYear, currentYear, currentBrand, currentLocObj]);
 
+    // ───────────── Supabase bulut senkronu (ERP projesi, oturum paylaşımlı) ─────────────
+    const hashOf = (o: any): string => { try { return JSON.stringify(o); } catch { return ''; } };
+
+    const applyCloudKpi = useCallback((loc: string, year: number, data: KpiData) => {
+        setDataByLocation(prev => ({ ...prev, [loc]: { ...(prev[loc] || {}), [year]: data } }));
+    }, [setDataByLocation]);
+    const applyCloudActions = useCallback((loc: string, year: number, ad: ActionYearData) => {
+        setActionDataByLocation(prev => ({ ...prev, [loc]: { ...(prev[loc] || {}), [year]: ad } }));
+    }, [setActionDataByLocation]);
+
+    // Açılışta: oturum + bulut lokasyon listesi
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const authed = await isAuthed();
+                if (cancelled) return;
+                setCloudStatus(authed ? 'connected' : 'offline');
+                const cloudLocs = await cloudFetchMeta('locations');
+                if (cancelled) return;
+                if (Array.isArray(cloudLocs) && cloudLocs.length) {
+                    setLocations(cloudLocs);
+                    locHashRef.current = hashOf(cloudLocs);
+                } else {
+                    locHashRef.current = hashOf(locations);
+                }
+            } catch { if (!cancelled) setCloudStatus('offline'); }
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Lokasyon/yıl değişince buluttan çek (yoksa yereli yukarı it)
+    const pullCloud = useCallback(async (loc: string, year: number) => {
+        // Önce mevcut yereli "senkron" işaretle ki erken push olmasın
+        kpiHashRef.current = hashOf((dataByLocation[loc] || {})[year]);
+        actHashRef.current = hashOf((actionDataByLocation[loc] || {})[year]);
+        try {
+            setCloudStatus('syncing');
+            const cloudKpi = await cloudFetchKpi(loc, year);
+            if (cloudKpi) { applyCloudKpi(loc, year, cloudKpi); kpiHashRef.current = hashOf(cloudKpi); }
+            else { const localK = (dataByLocation[loc] || {})[year]; if (localK && localK.kpis && localK.kpis.length) await cloudSaveKpi(loc, year, localK); }
+            const cloudAct = await cloudFetchActions(loc, year);
+            if (cloudAct) { applyCloudActions(loc, year, cloudAct); actHashRef.current = hashOf(cloudAct); }
+            else { const localA = (actionDataByLocation[loc] || {})[year]; if (localA && (localA.items?.length || localA.nextMeeting)) await cloudSaveActions(loc, year, localA); }
+            setCloudStatus('connected');
+        } catch { setCloudStatus('offline'); }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [applyCloudKpi, applyCloudActions]);
+
+    useEffect(() => {
+        pullCloud(currentLocation, currentYear);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentLocation, currentYear]);
+
+    // KPI verisi değişince buluta kaydet (debounce; hash ile echo engellenir)
+    useEffect(() => {
+        const cur = allKpiData[currentYear];
+        const h = hashOf(cur);
+        if (h === kpiHashRef.current) return;
+        const t = window.setTimeout(async () => {
+            try { setCloudStatus('syncing'); await cloudSaveKpi(currentLocation, currentYear, cur || { yil: currentYear, kpis: [] }); kpiHashRef.current = h; setCloudStatus('connected'); }
+            catch { setCloudStatus('offline'); }
+        }, 1200);
+        return () => window.clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allKpiData, currentYear, currentLocation]);
+
+    // Aksiyon verisi değişince buluta kaydet
+    useEffect(() => {
+        const cur = actionDataByYear[currentYear];
+        const h = hashOf(cur);
+        if (h === actHashRef.current) return;
+        const t = window.setTimeout(async () => {
+            try { setCloudStatus('syncing'); await cloudSaveActions(currentLocation, currentYear, cur || { items: [], nextMeeting: '' }); actHashRef.current = h; setCloudStatus('connected'); }
+            catch { setCloudStatus('offline'); }
+        }, 1200);
+        return () => window.clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [actionDataByYear, currentYear, currentLocation]);
+
+    // Lokasyon listesi değişince buluta kaydet (meta)
+    useEffect(() => {
+        if (locHashRef.current === null) { return; } // açılış çekmesi tamamlanana kadar bekle
+        const h = hashOf(locations);
+        if (h === locHashRef.current) return;
+        const t = window.setTimeout(async () => {
+            try { await cloudSaveMeta('locations', locations); locHashRef.current = h; } catch { /* yok say */ }
+        }, 1000);
+        return () => window.clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locations]);
+
+    // Realtime: başka kullanıcıların değişiklikleri canlı yansısın
+    useEffect(() => {
+        const unsub = subscribeLocation(
+            currentLocation,
+            (year, data) => { if (year === currentYear) { applyCloudKpi(currentLocation, year, data); kpiHashRef.current = hashOf(data); } },
+            (year, ad) => { if (year === currentYear) { applyCloudActions(currentLocation, year, ad); actHashRef.current = hashOf(ad); } },
+        );
+        return unsub;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentLocation, currentYear, applyCloudKpi, applyCloudActions]);
+
+    const handleCloudRefresh = useCallback(() => {
+        kpiHashRef.current = '~'; actHashRef.current = '~'; // farklı işaretle ki çekilen uygulansın
+        pullCloud(currentLocation, currentYear);
+        setNotification({ message: 'Bulut verisi yenilendi.', type: 'success' });
+    }, [pullCloud, currentLocation, currentYear]);
+
 
     const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -911,6 +1026,8 @@ const App: React.FC = () => {
                 currentLocation={currentLocation}
                 onChangeLocation={setCurrentLocation}
                 onManageLocations={() => handleOpenModal('locations')}
+                cloudStatus={cloudStatus}
+                onCloudRefresh={handleCloudRefresh}
                 onNavigateYear={handleNavigateYear}
                 isSummaryOpen={isSummaryOpen}
                 setSummaryOpen={setSummaryOpen}
