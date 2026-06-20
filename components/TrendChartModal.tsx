@@ -15,7 +15,7 @@ interface TrendChartModalProps {
 const STATUS_COLOR: Record<string, string> = {
     basarili: '#22c55e', marjinal: '#eab308', basarisiz: '#ef4444', 'n/a': '#cbd5e1',
 };
-const opSym = (c: string) => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
+const opSym = (c: string) => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
 
 const fmt = (n: number) => {
     const abs = Math.abs(n);

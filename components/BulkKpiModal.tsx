@@ -85,7 +85,9 @@ const BulkKpiModal: React.FC<BulkKpiModalProps> = ({ isOpen, onClose, onSave }) 
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Karşılaştırma</label>
                         <select name="karsilastirma" value={commonData.karsilastirma} onChange={handleChange} className="mt-1 block w-full form-select">
                             <option value="<">Küçükse İyi (&lt;)</option>
+                            <option value="<=">Küçük-Eşit İyi (≤)</option>
                             <option value=">">Büyükse İyi (&gt;)</option>
+                            <option value=">=">Büyük-Eşit İyi (≥)</option>
                             <option value="=">Eşitse İyi (=)</option>
                         </select>
                     </div>

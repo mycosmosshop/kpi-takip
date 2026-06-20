@@ -179,9 +179,17 @@ export const determineStatus = (kpi: Kpi, average: number | null): Status => {
             if (average < hedef) return 'basarili';
             if (average === hedef || yuzdeFark <= 0.05) return 'marjinal';
             return 'basarisiz';
+        case '<=':
+            if (average <= hedef) return 'basarili';
+            if (yuzdeFark <= 0.05) return 'marjinal';
+            return 'basarisiz';
         case '>':
             if (average > hedef) return 'basarili';
             if (average === hedef || yuzdeFark <= 0.05) return 'marjinal';
+            return 'basarisiz';
+        case '>=':
+            if (average >= hedef) return 'basarili';
+            if (yuzdeFark <= 0.05) return 'marjinal';
             return 'basarisiz';
         case '=':
             if (yuzdeFark <= 0.02) return 'basarili';
@@ -196,13 +204,17 @@ export const getSingleMonthStatus = (kpi: Kpi, value: number | null): Status => 
     if (value === null) return 'n/a';
     const hedef = kpi.yeni_yil_hedef;
 
-    if (value === hedef) return 'marjinal';
-
     switch (kpi.karsilastirma) {
         case '<':
-            return value < hedef ? 'basarili' : 'basarisiz';
+            if (value < hedef) return 'basarili';
+            return value === hedef ? 'marjinal' : 'basarisiz';
+        case '<=':
+            return value <= hedef ? 'basarili' : 'basarisiz';
         case '>':
-            return value > hedef ? 'basarili' : 'basarisiz';
+            if (value > hedef) return 'basarili';
+            return value === hedef ? 'marjinal' : 'basarisiz';
+        case '>=':
+            return value >= hedef ? 'basarili' : 'basarisiz';
         case '=': {
             const fark = Math.abs(value - hedef);
             const yuzdeFark = hedef === 0 ? (value === 0 ? 0 : Infinity) : fark / hedef;

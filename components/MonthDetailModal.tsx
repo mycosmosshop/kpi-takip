@@ -17,7 +17,9 @@ const getMonthlyStatus = (kpi: Kpi, value: number | null): Status => {
     const { yeni_yil_hedef, karsilastirma } = kpi;
     switch (karsilastirma) {
         case '<': return value < yeni_yil_hedef ? 'basarili' : value === yeni_yil_hedef ? 'marjinal' : 'basarisiz';
+        case '<=': return value <= yeni_yil_hedef ? 'basarili' : 'basarisiz';
         case '>': return value > yeni_yil_hedef ? 'basarili' : value === yeni_yil_hedef ? 'marjinal' : 'basarisiz';
+        case '>=': return value >= yeni_yil_hedef ? 'basarili' : 'basarisiz';
         case '=': return value === yeni_yil_hedef ? 'basarili' : 'basarisiz';
         default: return 'n/a';
     }

@@ -180,7 +180,9 @@ const KpiDetailView: React.FC<KpiDetailViewProps> = ({ isOpen, onClose, kpi, onS
                             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">Karşılaştırma</label>
                             <select name="karsilastirma" value={editableKpi.karsilastirma} onChange={handleChange} className="mt-1 block w-full form-select">
                                 <option value="<">Küçükse İyi (&lt;)</option>
+                                <option value="<=">Küçük-Eşit İyi (≤)</option>
                                 <option value=">">Büyükse İyi (&gt;)</option>
+                                <option value=">=">Büyük-Eşit İyi (≥)</option>
                                 <option value="=">Eşitse İyi (=)</option>
                             </select>
                         </div>

@@ -15,7 +15,7 @@ const periodLabel = (p?: string): string => {
         default: return '1 AY';
     }
 };
-const opLabel = (c: string): string => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
+const opLabel = (c: string): string => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
 const glyph = (s: Status): string => (s === 'basarili' ? '✔' : s === 'marjinal' ? '⚠' : s === 'basarisiz' ? '❗' : '');
 
 const FILL: Record<string, string> = { basarili: '#e2f0d9', marjinal: '#fff2cc', basarisiz: '#fbe0e0', 'n/a': '#ffffff' };

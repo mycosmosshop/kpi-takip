@@ -19,7 +19,7 @@ interface ActionItemsModalProps {
     focusKpiId?: string;
 }
 
-const opSym = (c: string) => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
+const opSym = (c: string) => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
 
 // Bir KPI'nın hedef dışı (başarısız) ayları
 const failMonths = (kpi: Kpi): { month: string; value: number }[] =>

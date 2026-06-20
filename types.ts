@@ -1,6 +1,6 @@
 
 
-export type Comparison = '<' | '>' | '=';
+export type Comparison = '<' | '>' | '=' | '>=' | '<=';
 export type CalculationMethod = 'ortalama' | 'medyan' | 'yilici_kumulatif' | 'formula';
 export type Status = 'basarili' | 'marjinal' | 'basarisiz' | 'n/a';
 export type DofStatus = 'Açık' | 'Devam' | 'Tamamlandı';

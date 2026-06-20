@@ -6,6 +6,8 @@ import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../u
 import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon, ClipboardDocumentListIcon } from './icons';
 import Trendline from './Trendline';
 
+const opLbl = (c: string) => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
+
 interface KpiTableProps {
     kpis: Kpi[];
     onOpenModal: (type: ModalType, data: any) => void;
@@ -212,7 +214,7 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                 </span>
             </td>
             <td className={`p-1 border-b border-gray-200 dark:border-gray-700 text-center w-[120px] ${themeClasses.tdAvg}`}><OncekiCell value={kpi.onceki_yil_gerceklesen} onChange={onUpdateOnceki} /></td>
-            <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>{kpi.yeni_yil_hedef} ({kpi.karsilastirma})</td>
+            <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>{kpi.yeni_yil_hedef} ({opLbl(kpi.karsilastirma)})</td>
             <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>{kpi.birim}</td>
             <td className={`p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>
                  <button
@@ -582,7 +584,7 @@ const KpiTable: React.FC<KpiTableProps> = ({ kpis, onOpenModal, onUpdateValue, o
                         </div>
                     )}
                     
-                    {tooltipSettings.hedef && <p><strong>Hedef:</strong> {activeTooltip.kpi.yeni_yil_hedef} ({activeTooltip.kpi.karsilastirma})</p>}
+                    {tooltipSettings.hedef && <p><strong>Hedef:</strong> {activeTooltip.kpi.yeni_yil_hedef} ({opLbl(activeTooltip.kpi.karsilastirma)})</p>}
                     {tooltipSettings.durum && <p><strong>Durum:</strong> {activeTooltip.kpi.durum}</p>}
                     {tooltipSettings.sorumlu && <p><strong>Sorumlu:</strong> {activeTooltip.kpi.sorumlu || 'N/A'}</p>}
                     {tooltipSettings.hesap_metodu && <p><strong>Hesap:</strong> {activeTooltip.kpi.hesap_metodu}</p>}

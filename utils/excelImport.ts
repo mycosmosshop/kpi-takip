@@ -35,8 +35,8 @@ const parseNum = (v: any): number | null => {
 
 const symbolOf = (v: any): Comparison | null => {
     const s = String(v ?? '');
-    if (s.includes('≥') || s.includes('>=')) return '>';
-    if (s.includes('≤') || s.includes('<=')) return '<';
+    if (s.includes('≥') || s.includes('>=')) return '>=';
+    if (s.includes('≤') || s.includes('<=')) return '<=';
     const t = s.trim();
     if (t === '>') return '>';
     if (t === '<') return '<';

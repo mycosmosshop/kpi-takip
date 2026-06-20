@@ -19,7 +19,7 @@ const periodLabel = (p?: string): string => {
     }
 };
 
-const opLabel = (c: string): string => (c === '>' ? '≥' : c === '<' ? '≤' : '=');
+const opLabel = (c: string): string => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
 
 // Durum sembolleri: ✔ başarılı (yeşil), ⚠ marjinal/sınırda (amber), ❗ başarısız (kırmızı)
 // (U+FE0E = metin gösterimi: hücre yazı rengini alsın, renkli emoji'ye dönmesin)
