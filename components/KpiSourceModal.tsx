@@ -17,7 +17,11 @@ const guessMetric = (kpi: Kpi | null): CmmsMetric => {
     const t = (kpi?.kpi_adi || '').toLowerCase();
     if (t.includes('mtbf')) return 'mtbf';
     if (t.includes('mttr')) return 'mttr';
+    if (t.includes('mttf')) return 'mttf';
     if (t.includes('kullanılab') || t.includes('availab')) return 'availability';
+    if (t.includes('plansız') || t.includes('plansiz')) return 'unplanned';
+    if (t.includes('uyum') || t.includes('pmc')) return 'pmc';
+    if (t.includes('planlı bakım oran') || t.includes('pmr')) return 'pmr';
     return 'mtbf';
 };
 
@@ -67,9 +71,13 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                     <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Metrik</label>
                         <select value={metric} onChange={e => setMetric(e.target.value as CmmsMetric)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                            <option value="mtbf">MTBF (saat)</option>
-                            <option value="mttr">MTTR (saat)</option>
+                            <option value="mtbf">MTBF — Arızalar arası ort. süre (saat)</option>
+                            <option value="mttr">MTTR — Ort. tamir süresi (saat)</option>
                             <option value="availability">Kullanılabilirlik (%)</option>
+                            <option value="pmr">PMR — Planlı Bakım Oranı (%)</option>
+                            <option value="pmc">PMC — Planlı Bakım Uyumu (%)</option>
+                            <option value="unplanned">Plansız Bakım (%)</option>
+                            <option value="mttf">MTTF — İlk arızaya kadar süre (saat)</option>
                         </select>
                     </div>
                     <div>

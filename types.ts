@@ -144,7 +144,7 @@ export interface Risk {
 
 export interface KpiSource {
     type: 'cmms';
-    metric: 'mtbf' | 'mttr' | 'availability';
+    metric: 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf';
     location?: string;   // CMMS lokasyonu (boşsa app lokasyon adı kullanılır)
     formula?: string;    // opsiyonel; 'x' = kaynaktan çekilen değer (ör. x/60)
 }

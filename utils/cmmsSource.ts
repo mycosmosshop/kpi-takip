@@ -13,16 +13,16 @@ const getCmmsClient = (): any => {
     return _client;
 };
 
-export type CmmsMetric = 'mtbf' | 'mttr' | 'availability';
+export type CmmsMetric = 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf';
 
-// Bir lokasyon + yıl için ay→metrik haritası döndürür: { [month1-12]: {mtbf,mttr,availability} }
-export const fetchCmmsMetrics = async (location: string, year: number): Promise<{ [month: number]: { mtbf: number | null; mttr: number | null; availability: number | null } }> => {
+// Bir lokasyon + yıl için ay→metrik haritası döndürür
+export const fetchCmmsMetrics = async (location: string, year: number): Promise<{ [month: number]: Record<CmmsMetric, number | null> }> => {
     const sb = getCmmsClient();
     if (!sb) throw new Error('Supabase istemcisi yüklenemedi.');
-    const { data, error } = await sb.from('cmms_metrics').select('month,mtbf,mttr,availability').eq('location', location).eq('year', year);
+    const { data, error } = await sb.from('cmms_metrics').select('month,mtbf,mttr,availability,pmr,pmc,unplanned,mttf').eq('location', location).eq('year', year);
     if (error) throw error;
     const map: { [month: number]: any } = {};
-    (data || []).forEach((r: any) => { map[r.month] = { mtbf: r.mtbf, mttr: r.mttr, availability: r.availability }; });
+    (data || []).forEach((r: any) => { map[r.month] = { mtbf: r.mtbf, mttr: r.mttr, availability: r.availability, pmr: r.pmr, pmc: r.pmc, unplanned: r.unplanned, mttf: r.mttf }; });
     return map;
 };
 
