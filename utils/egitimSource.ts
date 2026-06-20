@@ -23,9 +23,11 @@ export const fetchEgitimMetrics = async (location: string, year: number): Promis
     const sb = getEgitimClient();
     if (!sb) throw new Error('Supabase istemcisi yüklenemedi.');
     const from = `${year}-01-01`, to = `${year + 1}-01-01`;
+    // Lokasyon adı kaynakta farklı yazılmış olabilir (app "Çerkezköy" ↔ kayıt "ÇERKEZKÖY MERKEZ")
+    // bu yüzden tam eşitlik yerine "içerir" (ilike) ile esnek eşleştir.
     const { data, error } = await sb.from('egt_egitim')
         .select('plan_tarih,sure,gerceklesme')
-        .eq('lokasyon', location)
+        .ilike('lokasyon', `%${location}%`)
         .gte('plan_tarih', from)
         .lt('plan_tarih', to)
         .limit(20000);
@@ -55,9 +57,16 @@ export const fetchEgitimMetrics = async (location: string, year: number): Promis
 export const fetchEgitimLocations = async (): Promise<string[]> => {
     const sb = getEgitimClient();
     if (!sb) return [];
+    // PostgREST satır başına ~1000 limitlediği için sayfalayarak tüm distinct lokasyonları topla
+    const set = new Set<string>();
     try {
-        const { data, error } = await sb.from('egt_egitim').select('lokasyon').limit(20000);
-        if (error) return [];
-        return [...new Set((data || []).map((r: any) => r.lokasyon).filter(Boolean))].sort() as string[];
-    } catch { return []; }
+        for (let page = 0; page < 30; page++) {
+            const fromR = page * 1000, toR = fromR + 999;
+            const { data, error } = await sb.from('egt_egitim').select('lokasyon').range(fromR, toR);
+            if (error || !data || data.length === 0) break;
+            data.forEach((r: any) => { if (r.lokasyon) set.add(r.lokasyon); });
+            if (data.length < 1000) break;
+        }
+    } catch { /* yoksay */ }
+    return [...set].sort();
 };
