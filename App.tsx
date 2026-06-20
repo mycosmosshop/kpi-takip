@@ -427,8 +427,13 @@ const App: React.FC = () => {
                 map = await fetchCmmsMetrics(loc, currentYear);
             }
             const newAylik: { [k: string]: number | null } = { ...kpi.aylik };
-            let filled = 0, na = 0;
+            // Cari aydan sonraki ayları çekme: bulunduğumuz yıl ise yalnızca o aya kadar
+            // (ileri aylardaki mevcut/elle girilmiş değer korunur, ezilmez)
+            const now = new Date();
+            const maxMonth = (currentYear === now.getFullYear()) ? (now.getMonth() + 1) : 12;
+            let filled = 0, na = 0, skipped = 0;
             AYLAR.forEach((ay, i) => {
+                if (i + 1 > maxMonth) { skipped++; return; } // ileri ay: dokunma
                 const rec = map[i + 1];
                 const raw = rec ? (rec as any)[source.metric] : null;
                 if (raw !== null && raw !== undefined) {
@@ -449,7 +454,7 @@ const App: React.FC = () => {
             if (filled === 0) {
                 setNotification({ message: `${srcLabel}: "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı kaynaktakiyle aynı mı?`, type: 'error' });
             } else {
-                setNotification({ message: `${srcLabel}'ten çekildi: ${source.metric} · ${loc} · ${currentYear} → ${filled} ay dolu, ${na} ay veri yok (NA).`, type: 'success' });
+                setNotification({ message: `${srcLabel}'ten çekildi: ${source.metric} · ${loc} · ${currentYear} → ${filled} ay dolu, ${na} ay veri yok (NA)${skipped ? `, ${skipped} ileri ay atlandı (cari aya kadar)` : ''}.`, type: 'success' });
             }
         } catch (e: any) {
             let msg = e?.message || (e instanceof Error ? e.message : 'bilinmeyen hata');

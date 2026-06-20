@@ -120,8 +120,14 @@ export const fetchSupplierEval = async (
         off2 += 1000;
     }
 
+    // Cari aydan sonraki ayları çekme: bulunduğumuz yıl ise yalnızca o aya kadar
+    // (LeanSys'te ileri aylarda puan/termin görünebilir; veriyi değil çekimi sınırlıyoruz)
+    const now = new Date();
+    const maxMonth = (year === now.getFullYear()) ? (now.getMonth() + 1) : 12;
+
     const out: any = {};
     for (let m = 1; m <= 12; m++) {
+        if (m > maxMonth) { out[m] = { iade_ppm: null, td_puan: null, td_termin: null }; continue; }
         const a = agg[m];
         out[m] = {
             iade_ppm: a.sevk > 0 ? Math.round(a.iade / a.sevk * 1e6) : null,
