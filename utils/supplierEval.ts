@@ -37,7 +37,7 @@ const depoToLoc = (depo: any): string | null => {
     return null;
 };
 
-export type TdScope = 'tum' | 'onayli' | 'onayli_otomotiv';
+export type TdScope = 'tum' | 'onayli' | 'otomotiv' | 'onayli_otomotiv';
 export type TdMetric = 'iade_ppm' | 'td_puan' | 'td_termin';
 
 export const fetchSupplierEvalLocations = async (): Promise<string[]> => {
@@ -90,6 +90,7 @@ export const fetchSupplierEval = async (
     const inScope = (nn: string) => {
         const st = String(statusMap[nn] || 'ONAYLI').toUpperCase();
         if (scope === 'tum') return true;
+        if (scope === 'otomotiv') return catMap[nn] === 'Otomotiv'; // durum farketmez
         if (st !== 'ONAYLI') return false;
         if (scope === 'onayli_otomotiv') return catMap[nn] === 'Otomotiv';
         return true; // onayli

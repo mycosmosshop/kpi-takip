@@ -38,6 +38,7 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
 const SCOPES: { v: string; l: string }[] = [
     { v: 'tum', l: 'Tüm tedarikçiler (lokasyon)' },
     { v: 'onayli', l: 'Onaylı tedarikçiler (lokasyon)' },
+    { v: 'otomotiv', l: 'Sadece Otomotiv (lokasyon)' },
     { v: 'onayli_otomotiv', l: 'Onaylı + Otomotiv (lokasyon)' },
 ];
 
