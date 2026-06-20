@@ -92,8 +92,8 @@ export const fetchSupplierEval = async (
         try { statusMap = JSON.parse(blob.supplierStatusMap || '{}'); } catch { }
     }
 
-    // Sistemin hesapladığı aylık skorlar (comp/termin/ppmp) — norm bazlı + key→norm
-    type ScoreRec = { comp: (number | null)[]; termin: (number | null)[]; ppmp: (number | null)[]; compcum: (number | null)[]; termincum: (number | null)[]; ppmpcum: (number | null)[] };
+    // Sistemin hesapladığı aylık değerler (skorlar + ham sevk/iade/tamamlanma) — norm bazlı + key→norm
+    type ScoreRec = { comp: (number | null)[]; termin: (number | null)[]; ppmp: (number | null)[]; sevk: number[]; iade: number[]; tamam: (number | null)[] };
     const scoreByNorm: { [nn: string]: ScoreRec } = {};
     const keyToNorm: { [key: string]: string } = {};
     let scoresPresent = false;
@@ -108,7 +108,7 @@ export const fetchSupplierEval = async (
                     if (!nn) return;
                     scoreByNorm[nn] = {
                         comp: s.comp || [], termin: s.termin || [], ppmp: s.ppmp || [],
-                        compcum: s.compcum || s.comp || [], termincum: s.termincum || s.termin || [], ppmpcum: s.ppmpcum || s.ppmp || [],
+                        sevk: s.sevk || [], iade: s.iade || [], tamam: s.tamam || [],
                     };
                     if (s.key) keyToNorm[String(s.key)] = nn;
                 });
@@ -160,32 +160,8 @@ export const fetchSupplierEval = async (
         };
     }
 
-    // 3) Ham İade PPM → supplier_monthly (Σiade/Σsevk×1M, kapsamdaki tedarikçiler)
-    const agg: { [m: number]: { sevk: number; iade: number; tS: number; tN: number } } = {};
-    for (let m = 1; m <= 12; m++) agg[m] = { sevk: 0, iade: 0, tS: 0, tN: 0 };
-    let off2 = 0;
-    while (true) {
-        const { data, error } = await pt.from('supplier_monthly')
-            .select('supplier_norm,month,sevk,iade,tamamlanma')
-            .eq('firma', firma).eq('year', year).range(off2, off2 + 999);
-        if (error) throw error;
-        if (!data || !data.length) break;
-        data.forEach((r: any) => {
-            const nn = r.supplier_norm;
-            if (!nn || !inScope(nn)) return;
-            const a = agg[r.month];
-            if (!a) return;
-            a.sevk += Number(r.sevk) || 0;
-            a.iade += Number(r.iade) || 0;
-            if (r.tamamlanma != null) { a.tS += Number(r.tamamlanma); a.tN++; }
-        });
-        if (data.length < 1000) break;
-        off2 += 1000;
-    }
-
-    // 4) Skor metrikleri → sistemin aylık/kümülatif comp/termin/ppmp ortalaması (kapsamdaki, veri olan)
     const scoreNorms = Object.keys(scoreByNorm).filter(inScope);
-    const avgMonth = (field: keyof ScoreRec, mIdx: number): number | null => {
+    const avgMonth = (field: 'comp' | 'termin' | 'ppmp', mIdx: number): number | null => {
         let s = 0, n = 0;
         scoreNorms.forEach(nn => {
             const v = scoreByNorm[nn][field][mIdx];
@@ -193,6 +169,44 @@ export const fetchSupplierEval = async (
         });
         return n ? parseFloat((s / n).toFixed(4)) : null;
     };
+
+    // 3) Ham İade PPM + tamamlanma kaynağı:
+    //    Skorlar varsa SİSTEMİN kendi aylık sevk/iade/tamamlanma'sı (GENEL PPM ile birebir);
+    //    yoksa (eski yıl) supplier_monthly (ayrı LeanSys çekimi) yedek olarak.
+    const agg: { [m: number]: { sevk: number; iade: number; tS: number; tN: number } } = {};
+    for (let m = 1; m <= 12; m++) agg[m] = { sevk: 0, iade: 0, tS: 0, tN: 0 };
+    if (scoresPresent) {
+        scoreNorms.forEach(nn => {
+            const rec = scoreByNorm[nn];
+            for (let m = 1; m <= 12; m++) {
+                const a = agg[m];
+                a.sevk += Number(rec.sevk[m - 1]) || 0;
+                a.iade += Number(rec.iade[m - 1]) || 0;
+                const tv = rec.tamam[m - 1];
+                if (tv != null && Number.isFinite(Number(tv))) { a.tS += Number(tv); a.tN++; }
+            }
+        });
+    } else {
+        let off2 = 0;
+        while (true) {
+            const { data, error } = await pt.from('supplier_monthly')
+                .select('supplier_norm,month,sevk,iade,tamamlanma')
+                .eq('firma', firma).eq('year', year).range(off2, off2 + 999);
+            if (error) throw error;
+            if (!data || !data.length) break;
+            data.forEach((r: any) => {
+                const nn = r.supplier_norm;
+                if (!nn || !inScope(nn)) return;
+                const a = agg[r.month];
+                if (!a) return;
+                a.sevk += Number(r.sevk) || 0;
+                a.iade += Number(r.iade) || 0;
+                if (r.tamamlanma != null) { a.tS += Number(r.tamamlanma); a.tN++; }
+            });
+            if (data.length < 1000) break;
+            off2 += 1000;
+        }
+    }
 
     // Cari aydan sonraki ayları çekme: bulunduğumuz yıl ise yalnızca o aya kadar
     const now = new Date();
