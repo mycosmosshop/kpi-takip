@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Kpi, ModalType, TooltipSettings, Status, Dof, AppearanceSettings } from '../types';
 import { AYLAR, THEMES } from '../constants';
 import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../utils/calculations';
-import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon } from './icons';
+import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon, ClipboardDocumentListIcon } from './icons';
 import Trendline from './Trendline';
 
 interface KpiTableProps {
@@ -269,22 +269,22 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                                             e.stopPropagation(); // Prevent cell selection
                                             onOpenModal('dof', { ...activeDof, kpiId: kpi.id, year: year, returnTo: 'table' });
                                         }}
-                                        className="p-0.5 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 animate-dof-icon-pulse"
-                                        title={`Aktif DÖF: ${activeDof.problemTanimi || activeDof.aksiyon}`}
+                                        className="px-1 py-0 text-[9px] font-bold leading-tight rounded bg-purple-600 text-white hover:bg-purple-700 animate-dof-icon-pulse"
+                                        title={`Aktif 8D/DÖF: ${activeDof.problemTanimi || activeDof.aksiyon}`}
                                     >
-                                        <GearIcon className="w-4 h-4" />
+                                        8D
                                     </button>
                                 ) : (
                                     <button
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onOpenModal('action-items', { focusKpiId: kpi.id });
+                                            onOpenModal('action-items', { focusKpiId: kpi.id, focusMonth: ay });
                                         }}
-                                        className="p-0.5 text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Bu KPI için aksiyon ekle (gerekirse 8D)"
+                                        className="p-0.5 text-blue-400 dark:text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 opacity-40 group-hover:opacity-100 transition-opacity"
+                                        title="Bu KPI'nın FR216 aksiyonları (gerekirse 8D başlat)"
                                     >
-                                        <PlusIcon className="w-4 h-4" />
+                                        <ClipboardDocumentListIcon className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
@@ -303,10 +303,10 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                                 e.stopPropagation();
                                 onOpenModal('dof', { ...generalActiveDof, kpiId: kpi.id, year: year, returnTo: 'table' });
                             }}
-                            className="p-0.5 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 animate-dof-icon-pulse"
-                            title={`Aktif DÖF: ${generalActiveDof.problemTanimi || generalActiveDof.aksiyon}`}
+                            className="px-1 py-0 text-[9px] font-bold leading-tight rounded bg-purple-600 text-white hover:bg-purple-700 animate-dof-icon-pulse"
+                            title={`Aktif 8D/DÖF: ${generalActiveDof.problemTanimi || generalActiveDof.aksiyon}`}
                         >
-                            <GearIcon className="w-4 h-4" />
+                            8D
                         </button>
                     ) : (
                         <button
@@ -315,10 +315,10 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                                 e.stopPropagation();
                                 onOpenModal('action-items', { focusKpiId: kpi.id });
                             }}
-                            className="p-0.5 text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Bu KPI için aksiyon ekle (gerekirse 8D)"
+                            className="p-0.5 text-blue-400 dark:text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 opacity-40 group-hover:opacity-100 transition-opacity"
+                            title="Bu KPI'nın FR216 aksiyonları (gerekirse 8D başlat)"
                         >
-                            <PlusIcon className="w-4 h-4" />
+                            <ClipboardDocumentListIcon className="w-4 h-4" />
                         </button>
                     )}
                 </div>

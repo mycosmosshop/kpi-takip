@@ -84,11 +84,20 @@ export const actionRiskInfo = (rank: number, priority: ActionPriority): { score:
 
 const inputCls = 'w-full bg-transparent px-1 py-1 text-xs rounded border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 focus:outline-none';
 
-const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof }) => {
+const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof, focusKpiId }) => {
     const [rows, setRows] = useState<ActionItem[]>(items);
     const [showPicker, setShowPicker] = useState(false);
     const [picked, setPicked] = useState<Set<string>>(new Set());
     const [pickedMonth, setPickedMonth] = useState<{ [id: string]: string }>({});
+    // Bir KPI hücresinden açıldıysa yalnızca o KPI'nın aksiyonlarını göster (filtre)
+    const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+    useEffect(() => { if (isOpen) setKpiFilter(focusKpiId || null); }, [isOpen, focusKpiId]);
+
+    const focusKpiName = useMemo(() => (kpiFilter ? (kpis.find(k => k.id === kpiFilter)?.kpi_adi || '') : ''), [kpiFilter, kpis]);
+    const visibleRows = useMemo(() => {
+        if (!kpiFilter) return rows;
+        return rows.filter(r => r.kpiId === kpiFilter || (focusKpiName && r.kpi && r.kpi.includes(focusKpiName)));
+    }, [rows, kpiFilter, focusKpiName]);
 
     // rows -> yukarı senkron (onChange'i deps'e koymuyoruz; sonsuz döngü olmasın)
     // Not: Aksiyonlar açılınca otomatik satır EKLENMEZ; sadece "Hedef Dışı Çek" / "KPI'dan Ekle" ile gelir.
@@ -208,6 +217,14 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                     </div>
                 )}
 
+                {/* KPI filtresi banner'ı (bir KPI hücresinden açıldıysa) */}
+                {kpiFilter && (
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm">
+                        <span className="text-blue-800 dark:text-blue-200">Yalnızca <strong>{focusKpiName || 'seçili KPI'}</strong> aksiyonları gösteriliyor ({visibleRows.length}).</span>
+                        <button onClick={() => setKpiFilter(null)} className="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 whitespace-nowrap">Tümünü Göster</button>
+                    </div>
+                )}
+
                 {/* Tablo */}
                 <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                     <table className="min-w-[1000px] w-full text-xs">
@@ -219,10 +236,10 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                             </tr>
                         </thead>
                         <tbody>
-                            {rows.length === 0 && (
-                                <tr><td colSpan={13} className="p-6 text-center text-gray-400">Henüz aksiyon yok. "KPI'dan Ekle" veya "Boş Satır" ile başlayın.</td></tr>
+                            {visibleRows.length === 0 && (
+                                <tr><td colSpan={13} className="p-6 text-center text-gray-400">{kpiFilter ? 'Bu KPI için aksiyon yok. "Hedef Dışı Çek" / "KPI\'dan Ekle" ile ekleyin.' : 'Henüz aksiyon yok. "KPI\'dan Ekle" veya "Boş Satır" ile başlayın.'}</td></tr>
                             )}
-                            {rows.map(r => (
+                            {visibleRows.map(r => (
                                 <tr key={r.id} className="border-b border-gray-100 dark:border-gray-700 align-top">
                                     <td className="p-1 min-w-[190px]"><textarea rows={2} value={r.kpi} onChange={e => update(r.id, { kpi: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 min-w-[130px]"><textarea rows={2} value={r.rootCause} onChange={e => update(r.id, { rootCause: e.target.value })} className={inputCls} /></td>
