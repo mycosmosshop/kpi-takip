@@ -142,10 +142,15 @@ export interface Risk {
     riskSeviyesi: RiskLevel;
 }
 
+export type SourceType = 'cmms' | 'egitim';
+export type SourceMetric =
+    | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'  // CMMS (Bakım)
+    | 'egitim_sure' | 'egitim_gerceklesme';                                    // Eğitim
+
 export interface KpiSource {
-    type: 'cmms';
-    metric: 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf';
-    location?: string;   // CMMS lokasyonu (boşsa app lokasyon adı kullanılır)
+    type: SourceType;
+    metric: SourceMetric;
+    location?: string;   // kaynak lokasyonu (boşsa app lokasyon adı kullanılır)
     formula?: string;    // opsiyonel; 'x' = kaynaktan çekilen değer (ör. x/60)
 }
 

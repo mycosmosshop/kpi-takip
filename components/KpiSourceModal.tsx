@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Kpi, KpiSource } from '../types';
+import { Kpi, KpiSource, SourceType, SourceMetric } from '../types';
 import Modal from './Modal';
-import { fetchCmmsLocations, CmmsMetric } from '../utils/cmmsSource';
+import { fetchCmmsLocations } from '../utils/cmmsSource';
+import { fetchEgitimLocations } from '../utils/egitimSource';
 
 interface KpiSourceModalProps {
     isOpen: boolean;
@@ -13,38 +14,84 @@ interface KpiSourceModalProps {
     onClear: (kpiId: string) => void;
 }
 
-const guessMetric = (kpi: Kpi | null): CmmsMetric => {
-    const t = (kpi?.kpi_adi || '').toLowerCase();
-    if (t.includes('mtbf')) return 'mtbf';
-    if (t.includes('mttr')) return 'mttr';
-    if (t.includes('mttf')) return 'mttf';
-    if (t.includes('kullanılab') || t.includes('availab')) return 'availability';
-    if (t.includes('plansız') || t.includes('plansiz')) return 'unplanned';
-    if (t.includes('uyum') || t.includes('pmc')) return 'pmc';
-    if (t.includes('planlı bakım oran') || t.includes('pmr')) return 'pmr';
-    return 'mtbf';
+const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
+    cmms: [
+        { v: 'mtbf', l: 'MTBF — Arızalar arası ort. süre (saat)' },
+        { v: 'mttr', l: 'MTTR — Ort. tamir süresi (saat)' },
+        { v: 'availability', l: 'Kullanılabilirlik (%)' },
+        { v: 'pmr', l: 'PMR — Planlı Bakım Oranı (%)' },
+        { v: 'pmc', l: 'PMC — Planlı Bakım Uyumu (%)' },
+        { v: 'unplanned', l: 'Plansız Bakım (%)' },
+        { v: 'mttf', l: 'MTTF — İlk arızaya kadar süre (saat)' },
+    ],
+    egitim: [
+        { v: 'egitim_sure', l: 'Eğitim Süresi (adam·saat, gerçekleşen)' },
+        { v: 'egitim_gerceklesme', l: 'Gerçekleşen / Planlanan Eğitim (%)' },
+    ],
 };
 
+const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
+    const p = (kpi?.proses || '').toLowerCase();
+    const t = (kpi?.kpi_adi || '').toLowerCase();
+    if (p.includes('eğitim') || p.includes('egitim') || t.includes('eğitim') || t.includes('egitim')) {
+        const metric: SourceMetric = (t.includes('süre') || t.includes('sure') || t.includes('saat')) ? 'egitim_sure' : 'egitim_gerceklesme';
+        return { type: 'egitim', metric };
+    }
+    if (t.includes('mtbf')) return { type: 'cmms', metric: 'mtbf' };
+    if (t.includes('mttr')) return { type: 'cmms', metric: 'mttr' };
+    if (t.includes('mttf')) return { type: 'cmms', metric: 'mttf' };
+    if (t.includes('kullanılab') || t.includes('availab')) return { type: 'cmms', metric: 'availability' };
+    if (t.includes('plansız') || t.includes('plansiz')) return { type: 'cmms', metric: 'unplanned' };
+    if (t.includes('uyum')) return { type: 'cmms', metric: 'pmc' };
+    if (t.includes('planlı bakım oran') || t.includes('pmr')) return { type: 'cmms', metric: 'pmr' };
+    return { type: 'cmms', metric: 'mtbf' };
+};
+
+const norm = (s: string) => (s || '').toLocaleUpperCase('tr').trim();
+
 const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, defaultLocation, year, onPull, onClear }) => {
-    const [metric, setMetric] = useState<CmmsMetric>('mtbf');
+    const [type, setType] = useState<SourceType>('cmms');
+    const [metric, setMetric] = useState<SourceMetric>('mtbf');
     const [location, setLocation] = useState('');
     const [formula, setFormula] = useState('');
     const [busy, setBusy] = useState(false);
-    const [cmmsLocs, setCmmsLocs] = useState<string[]>([]);
+    const [locs, setLocs] = useState<string[]>([]);
+
+    // Seçili kaynağın lokasyon listesini getir ve gerekiyorsa eşleşeni öner
+    const loadLocs = (t: SourceType, currentLoc: string) => {
+        const fn = t === 'egitim' ? fetchEgitimLocations : fetchCmmsLocations;
+        fn().then(ls => {
+            setLocs(ls);
+            if (currentLoc && !ls.includes(currentLoc)) {
+                const match = ls.find(l => norm(l).includes(norm(currentLoc)) || norm(currentLoc).includes(norm(l)));
+                if (match) setLocation(match);
+            }
+        }).catch(() => {});
+    };
 
     useEffect(() => {
         if (!isOpen || !kpi) return;
-        setMetric(kpi.kaynak?.metric || guessMetric(kpi));
-        setLocation(kpi.kaynak?.location || defaultLocation);
+        const g = kpi.kaynak ? { type: kpi.kaynak.type, metric: kpi.kaynak.metric } : guess(kpi);
+        setType(g.type);
+        setMetric(g.metric);
+        const loc0 = kpi.kaynak?.location || defaultLocation;
+        setLocation(loc0);
         setFormula(kpi.kaynak?.formula || '');
-        fetchCmmsLocations().then(setCmmsLocs).catch(() => {});
+        loadLocs(g.type, loc0);
     }, [isOpen, kpi, defaultLocation]);
 
     if (!kpi) return null;
 
+    const onTypeChange = (t: SourceType) => {
+        setType(t);
+        const m = METRICS[t][0].v;
+        setMetric(m);
+        loadLocs(t, location || defaultLocation);
+    };
+
     const doPull = async () => {
         setBusy(true);
-        await onPull(kpi.id, { type: 'cmms', metric, location: location.trim() || undefined, formula: formula.trim() || undefined });
+        await onPull(kpi.id, { type, metric, location: location.trim() || undefined, formula: formula.trim() || undefined });
         setBusy(false);
         onClose();
     };
@@ -60,38 +107,40 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Veri Kaynağı — Bakım Yönetim Sistemi (CMMS)" size="lg" footer={footer}>
+        <Modal isOpen={isOpen} onClose={onClose} title="Veri Kaynağı — Otomatik Çekme" size="lg" footer={footer}>
             <div className="space-y-4">
                 <div className="text-sm bg-gray-50 dark:bg-gray-700/40 rounded-lg p-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100">{kpi.proses} — {kpi.kpi_adi}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Seçilen metrik bu yılın (12 ay) gerçekleşen değerlerini CMMS'ten çekip hücrelere yazar. Veri olmayan ay = NA (boş). Çektikten sonra hücreyi elle değiştirebilirsin.</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Seçilen metrik bu yılın (12 ay) değerlerini kaynaktan çekip hücrelere yazar. Veri olmayan ay = NA (boş). Çektikten sonra hücreyi elle değiştirebilirsin.</div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Metrik</label>
-                        <select value={metric} onChange={e => setMetric(e.target.value as CmmsMetric)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                            <option value="mtbf">MTBF — Arızalar arası ort. süre (saat)</option>
-                            <option value="mttr">MTTR — Ort. tamir süresi (saat)</option>
-                            <option value="availability">Kullanılabilirlik (%)</option>
-                            <option value="pmr">PMR — Planlı Bakım Oranı (%)</option>
-                            <option value="pmc">PMC — Planlı Bakım Uyumu (%)</option>
-                            <option value="unplanned">Plansız Bakım (%)</option>
-                            <option value="mttf">MTTF — İlk arızaya kadar süre (saat)</option>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Kaynak</label>
+                        <select value={type} onChange={e => onTypeChange(e.target.value as SourceType)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                            <option value="cmms">Bakım Yönetim Sistemi (CMMS)</option>
+                            <option value="egitim">Eğitim &amp; Polivalans</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">CMMS Lokasyonu</label>
-                        <input list="cmmsLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
-                        <datalist id="cmmsLocs">{cmmsLocs.map(l => <option key={l} value={l} />)}</datalist>
-                        <p className="text-[11px] text-gray-400 mt-1">CMMS'teki makine lokasyon adıyla eşleşmeli. {cmmsLocs.length > 0 && `Bulunanlar: ${cmmsLocs.join(', ')}`}</p>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Metrik</label>
+                        <select value={metric} onChange={e => setMetric(e.target.value as SourceMetric)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                            {METRICS[type].map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+                        </select>
                     </div>
                 </div>
 
                 <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : 'CMMS'})</label>
+                    <input list="srcLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    <datalist id="srcLocs">{locs.map(l => <option key={l} value={l} />)}</datalist>
+                    <p className="text-[11px] text-gray-400 mt-1">Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</p>
+                </div>
+
+                <div>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Formül (opsiyonel)</label>
-                    <input value={formula} onChange={e => setFormula(e.target.value)} placeholder="x  (örn: x/60 → saati dakikaya, x*1.0)" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 font-mono" />
-                    <p className="text-[11px] text-gray-400 mt-1"><strong>x</strong> = CMMS'ten çekilen değer. Boş bırakırsan değer olduğu gibi yazılır.</p>
+                    <input value={formula} onChange={e => setFormula(e.target.value)} placeholder="x  (örn: x/60, x*1.0)" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 font-mono" />
+                    <p className="text-[11px] text-gray-400 mt-1"><strong>x</strong> = kaynaktan çekilen değer. Boş bırakırsan değer olduğu gibi yazılır.</p>
                 </div>
             </div>
         </Modal>

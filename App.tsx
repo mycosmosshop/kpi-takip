@@ -15,6 +15,7 @@ import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
+import { fetchEgitimMetrics } from './utils/egitimSource';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -381,7 +382,9 @@ const App: React.FC = () => {
         if (!kpi) return;
         const loc = (source.location && source.location.trim()) ? source.location.trim() : currentLocObj.name;
         try {
-            const map = await fetchCmmsMetrics(loc, currentYear);
+            const map: { [month: number]: any } = source.type === 'egitim'
+                ? await fetchEgitimMetrics(loc, currentYear)
+                : await fetchCmmsMetrics(loc, currentYear);
             const newAylik: { [k: string]: number | null } = { ...kpi.aylik };
             let filled = 0, na = 0;
             AYLAR.forEach((ay, i) => {
@@ -401,17 +404,18 @@ const App: React.FC = () => {
                     ? { ...k, aylik: newAylik, kaynak: source, son_guncelleme: new Date().toLocaleString('tr-TR') }
                     : k),
             }));
+            const srcLabel = source.type === 'egitim' ? 'Eğitim' : 'CMMS';
             if (filled === 0) {
-                setNotification({ message: `CMMS'te "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı CMMS'teki makine lokasyonuyla aynı mı? CMMS'te kayıt yapıldı mı?`, type: 'error' });
+                setNotification({ message: `${srcLabel}: "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı kaynaktakiyle aynı mı?`, type: 'error' });
             } else {
-                setNotification({ message: `CMMS'ten çekildi: ${source.metric.toUpperCase()} · ${loc} · ${currentYear} → ${filled} ay dolu, ${na} ay veri yok (NA).`, type: 'success' });
+                setNotification({ message: `${srcLabel}'ten çekildi: ${source.metric} · ${loc} · ${currentYear} → ${filled} ay dolu, ${na} ay veri yok (NA).`, type: 'success' });
             }
         } catch (e: any) {
             let msg = e?.message || (e instanceof Error ? e.message : 'bilinmeyen hata');
             if (e?.code === 'PGRST205' || /cmms_metrics/i.test(String(msg))) {
                 msg = 'CMMS özet tablosu (cmms_metrics) henüz kurulmamış. Bakım Supabase projesinde supabase_cmms_metrics.sql çalıştırılmalı, sonra CMMS uygulamasında bir kayıt yapıp senkronu tetikleyin.';
             }
-            setNotification({ message: `CMMS verisi çekilemedi: ${msg}`, type: 'error' });
+            setNotification({ message: `Kaynak verisi çekilemedi: ${msg}`, type: 'error' });
         }
     }, [kpiData.kpis, currentYear, currentLocObj]);
 
