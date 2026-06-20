@@ -240,7 +240,8 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                 const isSelected = (isRowSelected || isColSelected || isIndividuallySelected) && isAktif;
                 
                 const activeDof = monthlyActiveDofs.get(ay);
-                
+                const monthFailing = isAktif && getSingleMonthStatus(kpi, kpi.aylik[ay]) === 'basarisiz';
+
                 const cellClasses = [
                     'p-0', 'border-b', 'border-gray-200', 'dark:border-gray-700',
                     'text-center', 'transition-colors', 'duration-150', 'relative', 'group'
@@ -283,8 +284,8 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                                             e.stopPropagation();
                                             onOpenModal('action-items', { focusKpiId: kpi.id, focusMonth: ay });
                                         }}
-                                        className="p-0.5 text-blue-400 dark:text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 opacity-40 group-hover:opacity-100 transition-opacity"
-                                        title="Bu KPI'nın FR216 aksiyonları (gerekirse 8D başlat)"
+                                        className={`p-0.5 transition-opacity ${monthFailing ? 'text-red-600 dark:text-red-400 opacity-100 hover:text-red-700' : 'text-blue-400 dark:text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 opacity-40 group-hover:opacity-100'}`}
+                                        title={monthFailing ? 'Başarısız ay — DÖF/aksiyon gerekebilir (tıkla, gerekirse 8D başlat)' : "Bu KPI'nın FR216 aksiyonları (gerekirse 8D başlat)"}
                                     >
                                         <ClipboardDocumentListIcon className="w-4 h-4" />
                                     </button>

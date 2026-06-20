@@ -116,13 +116,14 @@ export const fetchSupplierEval = async (
         } catch { }
     }
     // Tüm tedarikçi metrikleri artık sistemin export'undan (tek doğruluk kaynağı). Yoksa açık hata.
+    const exportCount = Object.keys(scoreByNorm).length;
     if (!scoresPresent) {
-        throw new Error(`Sistemin hesapladığı tedarikçi verileri (${year}) bulunamadı. Onaylı Tedarikçi uygulamasını ${year} dönemiyle açıp (Ctrl+F5) senkronu bekleyin, sonra tekrar çekin.`);
+        throw new Error(`Sistemin hesapladığı tedarikçi verileri (${year}) bulut'ta YOK. Onaylı Tedarikçi uygulamasını ${year} dönemiyle açıp (Ctrl+F5) senkronu bekleyin, sonra tekrar çekin.`);
     }
     // İade PPM / tamamlanma için export'ta ham sevk/iade şart (eski sürüm export'unda olmayabilir)
     const hasSevkExport = Object.keys(scoreByNorm).some(nn => (scoreByNorm[nn].sevk || []).length > 0);
     if ((metric === 'iade_ppm' || metric === 'td_termin') && !hasSevkExport) {
-        throw new Error(`İade PPM/tamamlanma için sevk-iade verisi export'ta yok (export eski). Onaylı Tedarikçi uygulamasını Ctrl+F5 ile yenileyip senkronu bekleyin, sonra tekrar çekin.`);
+        throw new Error(`Export'ta sevk/iade YOK (eski sürüm export). Bulut'taki ${year} export'unda ${exportCount} tedarikçi var ama hiçbirinde sevk dizisi yok → Onaylı sistemi Ctrl+F5 ile yenileyip senkronu bekleyin.`);
     }
 
     // 2) Kapsam: hangi tedarikçiler (norm kümesi)?
