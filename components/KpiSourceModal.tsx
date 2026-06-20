@@ -28,11 +28,28 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'egitim_sure', l: 'Eğitim Süresi (adam·saat, gerçekleşen)' },
         { v: 'egitim_gerceklesme', l: 'Gerçekleşen / Planlanan Eğitim (%)' },
     ],
+    tedarikci: [
+        { v: 'iade_ppm', l: 'İade PPM (Σiade / Σsevk × 1.000.000)' },
+        { v: 'td_puan', l: 'Tedarikçi Değerlendirme Puanı (ort.)' },
+        { v: 'td_termin', l: 'Termin / Tamamlanma Puanı (ort.)' },
+    ],
 };
+
+const SCOPES: { v: string; l: string }[] = [
+    { v: 'tum', l: 'Tüm tedarikçiler (lokasyon)' },
+    { v: 'onayli', l: 'Onaylı tedarikçiler (lokasyon)' },
+    { v: 'onayli_otomotiv', l: 'Onaylı + Otomotiv (lokasyon)' },
+];
 
 const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
     const p = (kpi?.proses || '').toLowerCase();
     const t = (kpi?.kpi_adi || '').toLowerCase();
+    // Tedarikçi değerlendirme KPI'ları (Satınalma prosesi)
+    if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm')) || (p.includes('satınalma') || p.includes('satinalma'))) {
+        if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_termin' };
+        if (t.includes('ppm') || t.includes('iade')) return { type: 'tedarikci', metric: 'iade_ppm' };
+        return { type: 'tedarikci', metric: 'td_puan' };
+    }
     if (p.includes('eğitim') || p.includes('egitim') || t.includes('eğitim') || t.includes('egitim')) {
         const metric: SourceMetric = (t.includes('süre') || t.includes('sure') || t.includes('saat')) ? 'egitim_sure' : 'egitim_gerceklesme';
         return { type: 'egitim', metric };
@@ -66,9 +83,19 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
     };
     const [busy, setBusy] = useState(false);
     const [locs, setLocs] = useState<string[]>([]);
+    const [scope, setScope] = useState<string>('onayli');
 
     // Seçili kaynağın lokasyon listesini getir ve gerekiyorsa eşleşeni öner
     const loadLocs = (t: SourceType, currentLoc: string) => {
+        if (t === 'tedarikci') {
+            const ls = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir'];
+            setLocs(ls);
+            if (currentLoc && !ls.includes(currentLoc)) {
+                const match = ls.find(l => norm(l).includes(norm(currentLoc)) || norm(currentLoc).includes(norm(l)));
+                if (match) setLocation(match);
+            }
+            return;
+        }
         const fn = t === 'egitim' ? fetchEgitimLocations : fetchCmmsLocations;
         fn().then(ls => {
             setLocs(ls);
@@ -84,6 +111,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
         const g = kpi.kaynak ? { type: kpi.kaynak.type, metric: kpi.kaynak.metric } : guess(kpi);
         setType(g.type);
         setMetric(g.metric);
+        setScope(kpi.kaynak?.scope || 'onayli');
         const loc0 = kpi.kaynak?.location || defaultLocation;
         setLocation(loc0);
         setFormula(kpi.kaynak?.formula || '');
@@ -101,7 +129,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
 
     const doPull = async () => {
         setBusy(true);
-        await onPull(kpi.id, { type, metric, location: location.trim() || undefined, formula: formula.trim() || undefined });
+        await onPull(kpi.id, { type, metric, location: location.trim() || undefined, scope: type === 'tedarikci' ? scope : undefined, formula: formula.trim() || undefined });
         setBusy(false);
         onClose();
     };
@@ -130,6 +158,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                         <select value={type} onChange={e => onTypeChange(e.target.value as SourceType)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
                             <option value="cmms">Bakım Yönetim Sistemi (CMMS)</option>
                             <option value="egitim">Eğitim &amp; Polivalans</option>
+                            <option value="tedarikci">Tedarikçi Değerlendirme</option>
                         </select>
                     </div>
                     <div>
@@ -141,11 +170,21 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : 'CMMS'})</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : type === 'tedarikci' ? 'Teslim yeri' : 'CMMS'})</label>
                     <input list="srcLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
                     <datalist id="srcLocs">{locs.map(l => <option key={l} value={l} />)}</datalist>
-                    <p className="text-[11px] text-gray-400 mt-1">Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">{type === 'tedarikci' ? 'Tedarikçinin mal verdiği (teslim) lokasyon. Boş = tüm lokasyonlar.' : <>Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</>}</p>
                 </div>
+
+                {type === 'tedarikci' && (
+                    <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Kapsam (kimlerin ortalaması)</label>
+                        <select value={scope} onChange={e => setScope(e.target.value)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                            {SCOPES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
+                        </select>
+                        <p className="text-[11px] text-gray-400 mt-1">Seçilen lokasyon + kapsam + yıl ({year}) için aya göre hesaplanır (supplier_monthly + kategori/durum). Ay boşsa NA.</p>
+                    </div>
+                )}
 
                 <div>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Formül (opsiyonel)</label>

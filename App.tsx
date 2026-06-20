@@ -16,6 +16,7 @@ import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
+import { fetchSupplierEval, TdScope } from './utils/supplierEval';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -415,9 +416,16 @@ const App: React.FC = () => {
         if (!kpi) return;
         const loc = (source.location && source.location.trim()) ? source.location.trim() : currentLocObj.name;
         try {
-            const map: { [month: number]: any } = source.type === 'egitim'
-                ? await fetchEgitimMetrics(loc, currentYear)
-                : await fetchCmmsMetrics(loc, currentYear);
+            let map: { [month: number]: any };
+            if (source.type === 'tedarikci') {
+                const firma = (currentLocObj.company === 'ultech') ? 'ULTECH' : 'SANIFOAM';
+                const scope = (source.scope as TdScope) || 'onayli';
+                map = await fetchSupplierEval(firma, currentYear, source.location && source.location.trim() ? source.location.trim() : '__ALL__', scope);
+            } else if (source.type === 'egitim') {
+                map = await fetchEgitimMetrics(loc, currentYear);
+            } else {
+                map = await fetchCmmsMetrics(loc, currentYear);
+            }
             const newAylik: { [k: string]: number | null } = { ...kpi.aylik };
             let filled = 0, na = 0;
             AYLAR.forEach((ay, i) => {
@@ -437,7 +445,7 @@ const App: React.FC = () => {
                     ? { ...k, aylik: newAylik, kaynak: source, son_guncelleme: new Date().toLocaleString('tr-TR') }
                     : k),
             }));
-            const srcLabel = source.type === 'egitim' ? 'Eğitim' : 'CMMS';
+            const srcLabel = source.type === 'egitim' ? 'Eğitim' : source.type === 'tedarikci' ? 'Tedarikçi Değ.' : 'CMMS';
             if (filled === 0) {
                 setNotification({ message: `${srcLabel}: "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı kaynaktakiyle aynı mı?`, type: 'error' });
             } else {

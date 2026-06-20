@@ -142,15 +142,17 @@ export interface Risk {
     riskSeviyesi: RiskLevel;
 }
 
-export type SourceType = 'cmms' | 'egitim';
+export type SourceType = 'cmms' | 'egitim' | 'tedarikci';
 export type SourceMetric =
     | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'  // CMMS (Bakım)
-    | 'egitim_sure' | 'egitim_gerceklesme';                                    // Eğitim
+    | 'egitim_sure' | 'egitim_gerceklesme'                                     // Eğitim
+    | 'iade_ppm' | 'td_puan' | 'td_termin';                                    // Tedarikçi Değerlendirme
 
 export interface KpiSource {
     type: SourceType;
     metric: SourceMetric;
     location?: string;   // kaynak lokasyonu (boşsa app lokasyon adı kullanılır)
+    scope?: string;      // tedarikçi kapsamı: 'tum' | 'onayli' | 'onayli_otomotiv'
     formula?: string;    // opsiyonel; 'x' = kaynaktan çekilen değer (ör. x/60)
 }
 
