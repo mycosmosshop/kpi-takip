@@ -2,34 +2,31 @@
 import { Kpi, Status, ReviewPeriod } from '../types';
 import { AYLAR } from '../constants';
 
+// Bir ay aktif mi? TEK kontrol = "Veri Girilmeyecek Aylar" (pasifAylar).
+// Gözden Geçirme Periyodu artık hücreyi kilitlemez; yalnızca bu listeyi ön-doldurmak için preset olarak kullanılır
+// (KpiModal'da periyot seçilince + eski veri için tek seferlik migrasyonda).
 export const isMonthActive = (kpi: Kpi, monthIndex: number): boolean => {
-    const period = kpi.gozdenGecirmePeriyodu;
-    const monthName = AYLAR[monthIndex];
+    return !(kpi.pasifAylar?.includes(AYLAR[monthIndex]));
+};
 
-    if (kpi.pasifAylar?.includes(monthName)) {
-        return false;
+// Bir periyodun pasifleştireceği ayları döndürür (periyot = "Veri Girilmeyecek Aylar" preset'i).
+export const derivePasifAylarFromPeriod = (period?: string): string[] => {
+    if (!period || period === 'aylik') return [];
+    const off: string[] = [];
+    for (let i = 0; i < 12; i++) {
+        const m = i + 1;
+        let active = true;
+        switch (period) {
+            case '2aylik': active = m % 2 === 0; break;
+            case '3aylik': active = m % 3 === 0; break;
+            case '4aylik': active = m % 4 === 0; break;
+            case '6aylik': active = m % 6 === 0; break;
+            case 'yillik': active = m === 12; break;
+            default: active = true;
+        }
+        if (!active) off.push(AYLAR[i]);
     }
-
-    if (!period || period === 'aylik') {
-        return true;
-    }
-    
-    const monthNumber = monthIndex + 1;
-
-    switch (period) {
-        case '2aylik':
-            return monthNumber % 2 === 0;
-        case '3aylik':
-            return monthNumber % 3 === 0;
-        case '4aylik':
-            return monthNumber % 4 === 0;
-        case '6aylik':
-            return monthNumber % 6 === 0;
-        case 'yillik':
-            return monthNumber === 12;
-        default:
-            return true;
-    }
+    return off;
 };
 
 

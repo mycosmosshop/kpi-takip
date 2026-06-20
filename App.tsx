@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation, KpiSource } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS } from './constants';
-import { calculateAverage, determineStatus } from './utils/calculations';
+import { calculateAverage, determineStatus, derivePasifAylarFromPeriod } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
 import { exportFr100 } from './utils/fr100Export';
 import { exportFr216 } from './utils/fr216Export';
@@ -107,6 +107,39 @@ const App: React.FC = () => {
             }
         } catch (e) { /* yok say */ }
         localStorage.setItem('kpi_locmigrate_v1', '1');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Tek seferlik: eski periyot-bazlı pasif ayları "Veri Girilmeyecek Aylar"a (pasifAylar) taşı.
+    // isMonthActive artık yalnız pasifAylar'a bakıyor; bu migrasyon mevcut görünümü korur.
+    useEffect(() => {
+        if (localStorage.getItem('kpi_pasifmigrate_v1')) return;
+        try {
+            setDataByLocation(prev => {
+                let changed = false;
+                const next: typeof prev = {};
+                for (const loc of Object.keys(prev)) {
+                    const years = prev[loc] || {};
+                    const ny: any = {};
+                    for (const yr of Object.keys(years)) {
+                        const yd: any = (years as any)[yr];
+                        if (!yd || !Array.isArray(yd.kpis)) { ny[yr] = yd; continue; }
+                        const kpis = yd.kpis.map((k: any) => {
+                            const per = k.gozdenGecirmePeriyodu;
+                            if (per && per !== 'aylik' && (!k.pasifAylar || k.pasifAylar.length === 0)) {
+                                changed = true;
+                                return { ...k, pasifAylar: derivePasifAylarFromPeriod(per) };
+                            }
+                            return k;
+                        });
+                        ny[yr] = { ...yd, kpis };
+                    }
+                    next[loc] = ny;
+                }
+                return changed ? next : prev;
+            });
+        } catch (e) { /* yok say */ }
+        localStorage.setItem('kpi_pasifmigrate_v1', '1');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

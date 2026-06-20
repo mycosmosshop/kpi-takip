@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Kpi, Comparison, CalculationMethod, ReviewPeriod } from '../types';
 import Modal from './Modal';
 import { AYLAR } from '../constants';
+import { derivePasifAylarFromPeriod } from '../utils/calculations';
 import { FormulaEditor } from './KpiDetailView';
 
 interface KpiModalProps {
@@ -138,7 +139,7 @@ const KpiModal: React.FC<KpiModalProps> = ({ isOpen, onClose, onSave, kpiData })
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gözden Geçirme Periyodu</label>
-                        <select name="gozdenGecirmePeriyodu" value={kpi.gozdenGecirmePeriyodu} onChange={handleChange} className="mt-1 block w-full form-select">
+                        <select name="gozdenGecirmePeriyodu" value={kpi.gozdenGecirmePeriyodu} onChange={(e) => { const p = e.target.value as ReviewPeriod; setKpi(prev => ({ ...prev, gozdenGecirmePeriyodu: p, pasifAylar: derivePasifAylarFromPeriod(p) })); }} className="mt-1 block w-full form-select">
                             <option value="aylik">Aylık</option>
                             <option value="2aylik">2 Aylık</option>
                             <option value="3aylik">3 Aylık</option>
@@ -167,7 +168,7 @@ const KpiModal: React.FC<KpiModalProps> = ({ isOpen, onClose, onSave, kpiData })
 
                 <div className="p-4 border dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Veri Girilmeyecek Aylar</label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Fabrika tatili vb. nedenlerle veri girilmeyecek ayları seçin. Bu aylar tablodan pasifleştirilir.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Veri girilmeyecek ayları seçin — bu aylar tabloda pasifleştirilir (kilitli). Aktif aylar = işaretli OLMAYANLAR. "Gözden Geçirme Periyodu" seçince bu liste otomatik ön-doldurulur; istediğin ayı işaretleyip kaldırabilirsin.</p>
                     <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-2">
                         {AYLAR.map(ay => (
                             <label key={ay} className="flex items-center space-x-2 text-sm">
