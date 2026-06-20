@@ -204,6 +204,7 @@ export type ActionPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export interface ActionItem {
     id: string;
     kpiId?: string;       // bağlı KPI (opsiyonel)
+    month?: string;       // bağlı ay (ör. "Ocak") — her hücre ayrı aksiyon; 8D bu aya bağlanır
     kpi: string;          // KPI metni (ör. "Müşteri Şikayetleri ≤ 3,5 Ortalama: 5,33")
     rootCause: string;    // Root Cause
     action: string;       // Action

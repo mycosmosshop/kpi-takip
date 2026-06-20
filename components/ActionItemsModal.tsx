@@ -15,8 +15,9 @@ interface ActionItemsModalProps {
     nextMeeting: string;
     onChangeNextMeeting: (v: string) => void;
     onExport: () => void;
-    onStartDof: (kpiId: string, actionItemId: string) => void;
+    onStartDof: (kpiId: string, actionItemId: string, month?: string) => void;
     focusKpiId?: string;
+    focusMonth?: string;
 }
 
 const opSym = (c: string) => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
@@ -48,6 +49,7 @@ const newId = () => `ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 const makeFromKpi = (kpi: Kpi, month?: string): ActionItem => ({
     id: newId(),
     kpiId: kpi.id,
+    month: month || undefined,
     kpi: buildKpiText(kpi, month),
     rootCause: '',
     action: '',
@@ -84,20 +86,28 @@ export const actionRiskInfo = (rank: number, priority: ActionPriority): { score:
 
 const inputCls = 'w-full bg-transparent px-1 py-1 text-xs rounded border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 focus:outline-none';
 
-const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof, focusKpiId }) => {
+const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, items, onChange, kpis, year, nextMeeting, onChangeNextMeeting, onExport, onStartDof, focusKpiId, focusMonth }) => {
     const [rows, setRows] = useState<ActionItem[]>(items);
     const [showPicker, setShowPicker] = useState(false);
     const [picked, setPicked] = useState<Set<string>>(new Set());
     const [pickedMonth, setPickedMonth] = useState<{ [id: string]: string }>({});
-    // Bir KPI hücresinden açıldıysa yalnızca o KPI'nın aksiyonlarını göster (filtre)
+    // Bir KPI hücresinden açıldıysa yalnızca o KPI+AY'ın aksiyonlarını göster (filtre)
     const [kpiFilter, setKpiFilter] = useState<string | null>(null);
-    useEffect(() => { if (isOpen) setKpiFilter(focusKpiId || null); }, [isOpen, focusKpiId]);
+    const [monthFilter, setMonthFilter] = useState<string | null>(null);
+    useEffect(() => { if (isOpen) { setKpiFilter(focusKpiId || null); setMonthFilter(focusMonth || null); } }, [isOpen, focusKpiId, focusMonth]);
 
     const focusKpiName = useMemo(() => (kpiFilter ? (kpis.find(k => k.id === kpiFilter)?.kpi_adi || '') : ''), [kpiFilter, kpis]);
     const visibleRows = useMemo(() => {
         if (!kpiFilter) return rows;
-        return rows.filter(r => r.kpiId === kpiFilter || (focusKpiName && r.kpi && r.kpi.includes(focusKpiName)));
-    }, [rows, kpiFilter, focusKpiName]);
+        return rows.filter(r => {
+            const kpiOk = r.kpiId === kpiFilter || (focusKpiName && r.kpi && r.kpi.includes(focusKpiName));
+            if (!kpiOk) return false;
+            if (!monthFilter) return true;
+            // Ay filtresi: month alanı varsa ona bak; yoksa (eski kayıt) metinde ►Ay= geçiyor mu
+            if (r.month) return r.month === monthFilter;
+            return r.kpi.includes(`►${monthFilter}`) || r.kpi.includes(`►${monthFilter.slice(0, 3)}`);
+        });
+    }, [rows, kpiFilter, monthFilter, focusKpiName]);
 
     // rows -> yukarı senkron (onChange'i deps'e koymuyoruz; sonsuz döngü olmasın)
     // Not: Aksiyonlar açılınca otomatik satır EKLENMEZ; sadece "Hedef Dışı Çek" / "KPI'dan Ekle" ile gelir.
@@ -120,7 +130,15 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
         setShowPicker(true);
     };
     const addPicked = () => {
-        const toAdd = kpis.filter(k => picked.has(k.id)).map(k => makeFromKpi(k, pickedMonth[k.id] || undefined));
+        // Her hücre ayrı: ay seçildiyse o ay; "Ortalama" seçiliyse başarısız aylar ayrı ayrı; hiç yoksa genel
+        const toAdd: ActionItem[] = [];
+        kpis.filter(k => picked.has(k.id)).forEach(k => {
+            const m = pickedMonth[k.id];
+            if (m) { toAdd.push(makeFromKpi(k, m)); return; }
+            const f = failMonths(k);
+            if (f.length) f.forEach(x => toAdd.push(makeFromKpi(k, x.month)));
+            else toAdd.push(makeFromKpi(k));
+        });
         if (toAdd.length) setRows(prev => [...prev, ...toAdd]);
         setShowPicker(false);
     };
@@ -128,14 +146,23 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
         const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
     });
 
-    // Henüz eklenmemiş hedef dışı (ay-bazlı veya genel) KPI'lar
-    const offTarget = useMemo(() => {
-        const existing = new Set(rows.map(r => r.kpiId).filter(Boolean));
-        return kpis.filter(k => !existing.has(k.id) && isOffTarget(k));
-    }, [kpis, rows]);
+    // Hedef dışı HÜCRELER (kpi+ay): her başarısız ay ayrı satır; ayı olmayan genel başarısızlık tek satır
+    const offCellsAll = useMemo(() => {
+        const out: { kpi: Kpi; month?: string }[] = [];
+        kpis.forEach(k => {
+            const f = failMonths(k);
+            if (f.length) f.forEach(x => out.push({ kpi: k, month: x.month }));
+            else if (k.durum === 'basarisiz' || k.durum === 'marjinal') out.push({ kpi: k });
+        });
+        return out;
+    }, [kpis]);
+    const offTargetCells = useMemo(() => {
+        const existing = new Set(rows.map(r => `${r.kpiId || ''}|${r.month || ''}`));
+        return offCellsAll.filter(c => !existing.has(`${c.kpi.id}|${c.month || ''}`));
+    }, [offCellsAll, rows]);
     const pullOffTarget = () => {
-        if (!offTarget.length) return;
-        setRows(prev => [...prev, ...offTarget.map(k => makeFromKpi(k))]);
+        if (!offTargetCells.length) return;
+        setRows(prev => [...prev, ...offTargetCells.map(c => makeFromKpi(c.kpi, c.month))]);
     };
 
     const stats = useMemo(() => {
@@ -155,10 +182,10 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
             <div className="space-y-3">
                 {/* Üst araç çubuğu */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={pullOffTarget} disabled={!offTarget.length}
-                        title="Ay bazında hedef dışı olan (veya genel başarısız/marjinal) KPI'ları tek tıkla çek; satır metni hedef dışı ayı gösterir (►Ay=değer)"
-                        className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md text-white ${offTarget.length ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'}`}>
-                        <ClipboardCheckIcon className="w-4 h-4" /> Hedef Dışı Çek ({offTarget.length})
+                    <button onClick={pullOffTarget} disabled={!offTargetCells.length}
+                        title="Hedef dışı her AY ayrı aksiyon olarak çekilir (►Ay=değer); her hücre tek tek ele alınır"
+                        className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md text-white ${offTargetCells.length ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'}`}>
+                        <ClipboardCheckIcon className="w-4 h-4" /> Hedef Dışı Çek ({offTargetCells.length})
                     </button>
                     <button onClick={openPicker} title="KPI listesinden seçerek ekle (başarılılar dahil)" className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                         <ClipboardCheckIcon className="w-4 h-4" /> KPI'dan Ekle
@@ -220,8 +247,8 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                 {/* KPI filtresi banner'ı (bir KPI hücresinden açıldıysa) */}
                 {kpiFilter && (
                     <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm">
-                        <span className="text-blue-800 dark:text-blue-200">Yalnızca <strong>{focusKpiName || 'seçili KPI'}</strong> aksiyonları gösteriliyor ({visibleRows.length}).</span>
-                        <button onClick={() => setKpiFilter(null)} className="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 whitespace-nowrap">Tümünü Göster</button>
+                        <span className="text-blue-800 dark:text-blue-200">Yalnızca <strong>{focusKpiName || 'seçili KPI'}{monthFilter ? ` · ${monthFilter}` : ''}</strong> aksiyonları gösteriliyor ({visibleRows.length}).</span>
+                        <button onClick={() => { setKpiFilter(null); setMonthFilter(null); }} className="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 whitespace-nowrap">Tümünü Göster</button>
                     </div>
                 )}
 
@@ -266,8 +293,8 @@ const ActionItemsModal: React.FC<ActionItemsModalProps> = ({ isOpen, onClose, it
                                     <td className="p-1 min-w-[100px]"><textarea rows={2} value={r.notes} onChange={e => update(r.id, { notes: e.target.value })} className={inputCls} /></td>
                                     <td className="p-1 w-20 whitespace-nowrap">
                                         <div className="flex items-center justify-center gap-1.5">
-                                            <button onClick={() => r.kpiId && onStartDof(r.kpiId, r.id)} disabled={!r.kpiId}
-                                                title={r.kpiId ? '8D / DÖF başlat' : 'KPI bağlantısı gerekli'}
+                                            <button onClick={() => r.kpiId && onStartDof(r.kpiId, r.id, r.month)} disabled={!r.kpiId}
+                                                title={r.kpiId ? (r.month ? `8D / DÖF başlat (${r.month})` : '8D / DÖF başlat') : 'KPI bağlantısı gerekli'}
                                                 className={`px-2 py-1 rounded text-[11px] font-bold border ${r.kpiId ? 'text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/30' : 'text-gray-300 border-gray-200 dark:border-gray-700 cursor-not-allowed'}`}>
                                                 8D
                                             </button>

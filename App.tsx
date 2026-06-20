@@ -1412,8 +1412,9 @@ const App: React.FC = () => {
                     nextMeeting={currentActionData.nextMeeting}
                     onChangeNextMeeting={handleChangeNextMeeting}
                     onExport={handleExportFr216}
-                    onStartDof={(kpiId) => handleOpenModal('dof', { kpiId, year: kpiData.yil, returnTo: 'action-items' })}
+                    onStartDof={(kpiId, _aiId, month) => handleOpenModal('dof', { kpiId, year: kpiData.yil, month, returnTo: 'action-items' })}
                     focusKpiId={modal.data?.focusKpiId}
+                    focusMonth={modal.data?.focusMonth}
                 />
             )}
             {modal.type === 'trend-chart' && (
