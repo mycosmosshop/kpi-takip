@@ -43,6 +43,7 @@ export type TdScope = 'tum' | 'onayli' | 'otomotiv' | 'onayli_otomotiv' | 'filtr
 export type TdMetric = 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin';
 export type SupplierFilter = { id: number; name: string; period: string; count: number; selectedSuppliers: string[] };
 
+// Sistemin hesapladığı (supplierComputedScores) skorlara dayanan metrikler
 const SCORE_METRICS: TdMetric[] = ['td_puan', 'td_terminpuan', 'td_ppmpuan'];
 
 export const fetchSupplierEvalLocations = async (): Promise<string[]> => {
@@ -92,7 +93,8 @@ export const fetchSupplierEval = async (
     }
 
     // Sistemin hesapladığı aylık skorlar (comp/termin/ppmp) — norm bazlı + key→norm
-    const scoreByNorm: { [nn: string]: { comp: (number | null)[]; termin: (number | null)[]; ppmp: (number | null)[] } } = {};
+    type ScoreRec = { comp: (number | null)[]; termin: (number | null)[]; ppmp: (number | null)[]; compcum: (number | null)[]; termincum: (number | null)[]; ppmpcum: (number | null)[] };
+    const scoreByNorm: { [nn: string]: ScoreRec } = {};
     const keyToNorm: { [key: string]: string } = {};
     let scoresPresent = false;
     if (blob) {
@@ -104,7 +106,10 @@ export const fetchSupplierEval = async (
                 yObj.suppliers.forEach((s: any) => {
                     const nn = String(s.norm || normName(s.key));
                     if (!nn) return;
-                    scoreByNorm[nn] = { comp: s.comp || [], termin: s.termin || [], ppmp: s.ppmp || [] };
+                    scoreByNorm[nn] = {
+                        comp: s.comp || [], termin: s.termin || [], ppmp: s.ppmp || [],
+                        compcum: s.compcum || s.comp || [], termincum: s.termincum || s.termin || [], ppmpcum: s.ppmpcum || s.ppmp || [],
+                    };
                     if (s.key) keyToNorm[String(s.key)] = nn;
                 });
             }
@@ -178,9 +183,9 @@ export const fetchSupplierEval = async (
         off2 += 1000;
     }
 
-    // 4) Skor metrikleri → sistemin aylık comp/termin/ppmp ortalaması (kapsamdaki, veri olan aylar)
+    // 4) Skor metrikleri → sistemin aylık/kümülatif comp/termin/ppmp ortalaması (kapsamdaki, veri olan)
     const scoreNorms = Object.keys(scoreByNorm).filter(inScope);
-    const avgMonth = (field: 'comp' | 'termin' | 'ppmp', mIdx: number): number | null => {
+    const avgMonth = (field: keyof ScoreRec, mIdx: number): number | null => {
         let s = 0, n = 0;
         scoreNorms.forEach(nn => {
             const v = scoreByNorm[nn][field][mIdx];
@@ -195,11 +200,11 @@ export const fetchSupplierEval = async (
 
     const out: any = {};
     for (let m = 1; m <= 12; m++) {
-        if (m > maxMonth) { out[m] = { iade_ppm: null, td_puan: null, td_terminpuan: null, td_ppmpuan: null, td_termin: null }; continue; }
         const a = agg[m];
+        if (m > maxMonth) { out[m] = { iade_ppm: null, td_puan: null, td_terminpuan: null, td_ppmpuan: null, td_termin: null }; continue; }
         out[m] = {
             iade_ppm: a.sevk > 0 ? Math.round(a.iade / a.sevk * 1e6) : null,
-            td_puan: avgMonth('comp', m - 1),
+            td_puan: avgMonth('comp', m - 1),       // o ayın bileşik puanı
             td_terminpuan: avgMonth('termin', m - 1),
             td_ppmpuan: avgMonth('ppmp', m - 1),
             td_termin: a.tN ? parseFloat((a.tS / a.tN).toFixed(4)) : null,

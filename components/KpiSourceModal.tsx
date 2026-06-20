@@ -30,9 +30,9 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'egitim_gerceklesme', l: 'Gerçekleşen / Planlanan Eğitim (%)' },
     ],
     tedarikci: [
-        { v: 'td_puan', l: 'Tedarikçi Değerlendirme Puanı (bileşik)' },
-        { v: 'td_terminpuan', l: 'Değerlendirme — Termine göre (puan)' },
-        { v: 'td_ppmpuan', l: 'Değerlendirme — İade PPM\'e göre (puan)' },
+        { v: 'td_puan', l: 'Tedarikçi Değerlendirme Puanı (aylık bileşik)' },
+        { v: 'td_terminpuan', l: 'Değerlendirme — Termine göre (aylık)' },
+        { v: 'td_ppmpuan', l: 'Değerlendirme — İade PPM\'e göre (aylık)' },
         { v: 'iade_ppm', l: 'İade PPM (ham, Σiade / Σsevk × 1.000.000)' },
         { v: 'td_termin', l: 'Tamamlanma Oranı (ort.)' },
     ],
