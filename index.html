@@ -9,6 +9,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <style>
+    /* Tema (dark/light) geçişinde tüm geçiş/animasyonları kapat → tablo "yanıp sönme" olmaz */
+    .kpi-no-transition, .kpi-no-transition * { transition: none !important; animation: none !important; }
     /* For custom scrollbars */
     ::-webkit-scrollbar {
       width: 8px;

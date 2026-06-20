@@ -195,8 +195,12 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const root = document.documentElement;
+        // Tema değişirken tüm geçiş/animasyonları geçici kapat → tablo "yanıp sönmesi" olmaz
+        root.classList.add('kpi-no-transition');
         if (darkMode) root.classList.add('dark'); else root.classList.remove('dark');
         root.style.colorScheme = darkMode ? 'dark' : 'light';
+        const id = requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('kpi-no-transition')));
+        return () => cancelAnimationFrame(id);
     }, [darkMode]);
 
 
