@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Kpi, KpiSource, SourceType, SourceMetric } from '../types';
 import Modal from './Modal';
 import { fetchCmmsLocations } from '../utils/cmmsSource';
@@ -54,6 +54,16 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
     const [metric, setMetric] = useState<SourceMetric>('mtbf');
     const [location, setLocation] = useState('');
     const [formula, setFormula] = useState('');
+    const formulaRef = useRef<HTMLInputElement>(null);
+    const insertToken = (tok: string) => {
+        const el = formulaRef.current;
+        if (!el) { setFormula(f => f + tok); return; }
+        const s = el.selectionStart ?? formula.length;
+        const e = el.selectionEnd ?? formula.length;
+        const next = formula.slice(0, s) + tok + formula.slice(e);
+        setFormula(next);
+        requestAnimationFrame(() => { el.focus(); const pos = s + tok.length; try { el.setSelectionRange(pos, pos); } catch { } });
+    };
     const [busy, setBusy] = useState(false);
     const [locs, setLocs] = useState<string[]>([]);
 
@@ -139,8 +149,15 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
 
                 <div>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Formül (opsiyonel)</label>
-                    <input value={formula} onChange={e => setFormula(e.target.value)} placeholder="x  (örn: x/60, x*1.0)" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 font-mono" />
-                    <p className="text-[11px] text-gray-400 mt-1"><strong>x</strong> = kaynaktan çekilen değer. Boş bırakırsan değer olduğu gibi yazılır.</p>
+                    <div className="flex flex-wrap items-center gap-1 mb-1">
+                        <button type="button" onClick={() => insertToken('x')} className="px-2.5 py-1 text-xs font-bold rounded bg-blue-600 text-white hover:bg-blue-700" title="Çekilen değeri ekle">x = değer</button>
+                        {['+', '-', '*', '/', '(', ')'].map(op => (
+                            <button key={op} type="button" onClick={() => insertToken(op)} className="px-2 py-1 text-xs font-mono rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">{op}</button>
+                        ))}
+                        <button type="button" onClick={() => setFormula('')} className="px-2 py-1 text-xs rounded text-red-600 hover:text-red-700" title="Formülü temizle">Temizle</button>
+                    </div>
+                    <input ref={formulaRef} value={formula} onChange={e => setFormula(e.target.value)} placeholder="x  (örn: x/60, x*1.0)" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 font-mono" />
+                    <p className="text-[11px] text-gray-400 mt-1"><strong>x</strong> = kaynaktan çekilen değer. "<strong>x = değer</strong>" butonuyla ekle. Boş bırakırsan değer olduğu gibi yazılır.</p>
                 </div>
             </div>
         </Modal>
