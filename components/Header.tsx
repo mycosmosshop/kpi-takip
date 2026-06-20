@@ -89,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
 
     return (
         <header className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md no-print">
-            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v4.0</span>
+            <span className="absolute top-2 right-4 text-xs text-gray-400 dark:text-gray-500 font-mono">v4.1</span>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">KPI Takip</h1>

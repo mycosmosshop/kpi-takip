@@ -68,7 +68,7 @@ export const fetchSupplierFilters = async (year: number): Promise<SupplierFilter
     if (!Array.isArray(arr)) return [];
     const y = String(year).trim();
     return arr
-        .filter(f => { const p = String((f && f.period) || '').trim(); return !p || p === y; })
+        .filter(f => { const p = String((f && f.period) || '').trim(); const m = p.match(/(20\d{2})/); return !p || p === y || (m && m[1] === y); })
         .map(f => ({
             id: Number(f.id), name: String(f.name || 'Filtre'), period: String((f.period || '')).trim(),
             count: (f.selectedSuppliers || []).length, selectedSuppliers: (f.selectedSuppliers || []).map(String),
