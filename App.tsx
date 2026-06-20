@@ -16,7 +16,7 @@ import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
-import { fetchSupplierEval, TdScope } from './utils/supplierEval';
+import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -420,7 +420,14 @@ const App: React.FC = () => {
             if (source.type === 'tedarikci') {
                 const firma = (currentLocObj.company === 'ultech') ? 'ULTECH' : 'SANIFOAM';
                 const scope = (source.scope as TdScope) || 'onayli';
-                map = await fetchSupplierEval(firma, currentYear, source.location && source.location.trim() ? source.location.trim() : '__ALL__', scope);
+                let filterKeys: string[] | undefined;
+                if (scope === 'filtre' && source.filterId != null) {
+                    const fl = await fetchSupplierFilters(currentYear);
+                    filterKeys = fl.find(f => f.id === source.filterId)?.selectedSuppliers;
+                    if (!filterKeys) throw new Error(`Kayıtlı filtre (${source.filterName || source.filterId}) bulunamadı. Onaylı sistemde silinmiş olabilir.`);
+                }
+                const locArg = scope === 'filtre' ? '__ALL__' : (source.location && source.location.trim() ? source.location.trim() : '__ALL__');
+                map = await fetchSupplierEval(firma, currentYear, locArg, scope, source.metric as TdMetric, { filterKeys });
             } else if (source.type === 'egitim') {
                 map = await fetchEgitimMetrics(loc, currentYear);
             } else {

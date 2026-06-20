@@ -3,6 +3,7 @@ import { Kpi, KpiSource, SourceType, SourceMetric } from '../types';
 import Modal from './Modal';
 import { fetchCmmsLocations } from '../utils/cmmsSource';
 import { fetchEgitimLocations } from '../utils/egitimSource';
+import { fetchSupplierFilters, SupplierFilter } from '../utils/supplierEval';
 
 interface KpiSourceModalProps {
     isOpen: boolean;
@@ -29,9 +30,11 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'egitim_gerceklesme', l: 'Gerçekleşen / Planlanan Eğitim (%)' },
     ],
     tedarikci: [
-        { v: 'iade_ppm', l: 'İade PPM (Σiade / Σsevk × 1.000.000)' },
-        { v: 'td_puan', l: 'Tedarikçi Değerlendirme Puanı (ort.)' },
-        { v: 'td_termin', l: 'Termin / Tamamlanma Puanı (ort.)' },
+        { v: 'td_puan', l: 'Tedarikçi Değerlendirme Puanı (bileşik)' },
+        { v: 'td_terminpuan', l: 'Değerlendirme — Termine göre (puan)' },
+        { v: 'td_ppmpuan', l: 'Değerlendirme — İade PPM\'e göre (puan)' },
+        { v: 'iade_ppm', l: 'İade PPM (ham, Σiade / Σsevk × 1.000.000)' },
+        { v: 'td_termin', l: 'Tamamlanma Oranı (ort.)' },
     ],
 };
 
@@ -40,6 +43,7 @@ const SCOPES: { v: string; l: string }[] = [
     { v: 'onayli', l: 'Onaylı tedarikçiler (lokasyon)' },
     { v: 'otomotiv', l: 'Sadece Otomotiv (lokasyon)' },
     { v: 'onayli_otomotiv', l: 'Onaylı + Otomotiv (lokasyon)' },
+    { v: 'filtre', l: 'Onaylı sistemdeki kayıtlı filtre' },
 ];
 
 const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
@@ -47,7 +51,8 @@ const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
     const t = (kpi?.kpi_adi || '').toLowerCase();
     // Tedarikçi değerlendirme KPI'ları (Satınalma prosesi)
     if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm')) || (p.includes('satınalma') || p.includes('satinalma'))) {
-        if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_termin' };
+        if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_terminpuan' };
+        if (t.includes('ppm') && (t.includes('göre') || t.includes('gore') || t.includes('puan'))) return { type: 'tedarikci', metric: 'td_ppmpuan' };
         if (t.includes('ppm') || t.includes('iade')) return { type: 'tedarikci', metric: 'iade_ppm' };
         return { type: 'tedarikci', metric: 'td_puan' };
     }
@@ -85,12 +90,15 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
     const [busy, setBusy] = useState(false);
     const [locs, setLocs] = useState<string[]>([]);
     const [scope, setScope] = useState<string>('onayli');
+    const [filters, setFilters] = useState<SupplierFilter[]>([]);
+    const [filterId, setFilterId] = useState<number | undefined>(undefined);
 
     // Seçili kaynağın lokasyon listesini getir ve gerekiyorsa eşleşeni öner
     const loadLocs = (t: SourceType, currentLoc: string) => {
         if (t === 'tedarikci') {
             const ls = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir'];
             setLocs(ls);
+            fetchSupplierFilters(year).then(setFilters).catch(() => setFilters([]));
             if (currentLoc && !ls.includes(currentLoc)) {
                 const match = ls.find(l => norm(l).includes(norm(currentLoc)) || norm(currentLoc).includes(norm(l)));
                 if (match) setLocation(match);
@@ -113,6 +121,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
         setType(g.type);
         setMetric(g.metric);
         setScope(kpi.kaynak?.scope || 'onayli');
+        setFilterId(kpi.kaynak?.filterId);
         const loc0 = kpi.kaynak?.location || defaultLocation;
         setLocation(loc0);
         setFormula(kpi.kaynak?.formula || '');
@@ -129,8 +138,17 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
     };
 
     const doPull = async () => {
+        const useFilter = type === 'tedarikci' && scope === 'filtre';
+        const sel = filters.find(f => f.id === filterId);
         setBusy(true);
-        await onPull(kpi.id, { type, metric, location: location.trim() || undefined, scope: type === 'tedarikci' ? scope : undefined, formula: formula.trim() || undefined });
+        await onPull(kpi.id, {
+            type, metric,
+            location: useFilter ? undefined : (location.trim() || undefined),
+            scope: type === 'tedarikci' ? scope : undefined,
+            filterId: useFilter ? filterId : undefined,
+            filterName: useFilter ? sel?.name : undefined,
+            formula: formula.trim() || undefined,
+        });
         setBusy(false);
         onClose();
     };
@@ -170,12 +188,14 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : type === 'tedarikci' ? 'Teslim yeri' : 'CMMS'})</label>
-                    <input list="srcLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
-                    <datalist id="srcLocs">{locs.map(l => <option key={l} value={l} />)}</datalist>
-                    <p className="text-[11px] text-gray-400 mt-1">{type === 'tedarikci' ? 'Tedarikçinin mal verdiği (teslim) lokasyon. Boş = tüm lokasyonlar.' : <>Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</>}</p>
-                </div>
+                {!(type === 'tedarikci' && scope === 'filtre') && (
+                    <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : type === 'tedarikci' ? 'Teslim yeri' : 'CMMS'})</label>
+                        <input list="srcLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                        <datalist id="srcLocs">{locs.map(l => <option key={l} value={l} />)}</datalist>
+                        <p className="text-[11px] text-gray-400 mt-1">{type === 'tedarikci' ? 'Tedarikçinin mal verdiği (teslim) lokasyon. Boş = tüm lokasyonlar.' : <>Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</>}</p>
+                    </div>
+                )}
 
                 {type === 'tedarikci' && (
                     <div>
@@ -183,7 +203,17 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                         <select value={scope} onChange={e => setScope(e.target.value)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
                             {SCOPES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                         </select>
-                        <p className="text-[11px] text-gray-400 mt-1">Seçilen lokasyon + kapsam + yıl ({year}) için aya göre hesaplanır (supplier_monthly + kategori/durum). Ay boşsa NA.</p>
+                        {scope === 'filtre' ? (
+                            <div className="mt-2">
+                                <select value={filterId ?? ''} onChange={e => setFilterId(e.target.value ? Number(e.target.value) : undefined)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                                    <option value="">— Kayıtlı filtre seç —</option>
+                                    {filters.map(f => <option key={f.id} value={f.id}>{f.name} ({f.count} tedarikçi){f.period ? ` · ${f.period}` : ''}</option>)}
+                                </select>
+                                <p className="text-[11px] text-gray-400 mt-1">{filters.length ? `Onaylı sistemde ${year} dönemine ait kayıtlı filtreler. Seçilen kümenin aylık ortalaması çekilir.` : `Bu yıl (${year}) için kayıtlı filtre bulunamadı. Onaylı Tedarikçi uygulamasında filtre kaydedip senkronu bekleyin.`}</p>
+                            </div>
+                        ) : (
+                            <p className="text-[11px] text-gray-400 mt-1">Seçilen lokasyon + kapsam + yıl ({year}) için aya göre hesaplanır. Puanlar onaylı sistemin hesapladığı aylık bileşik/termin/PPM puanlarıdır. Ay boşsa NA.</p>
+                        )}
                     </div>
                 )}
 
