@@ -115,8 +115,14 @@ export const fetchSupplierEval = async (
             }
         } catch { }
     }
-    if (SCORE_METRICS.indexOf(metric) >= 0 && !scoresPresent) {
-        throw new Error(`Sistemin hesapladığı tedarikçi puanları (${year}) bulunamadı. Onaylı Tedarikçi uygulamasını ${year} dönemiyle açıp verinin senkronlanmasını bekleyin (puanlar orada hesaplanır), sonra tekrar çekin.`);
+    // Tüm tedarikçi metrikleri artık sistemin export'undan (tek doğruluk kaynağı). Yoksa açık hata.
+    if (!scoresPresent) {
+        throw new Error(`Sistemin hesapladığı tedarikçi verileri (${year}) bulunamadı. Onaylı Tedarikçi uygulamasını ${year} dönemiyle açıp (Ctrl+F5) senkronu bekleyin, sonra tekrar çekin.`);
+    }
+    // İade PPM / tamamlanma için export'ta ham sevk/iade şart (eski sürüm export'unda olmayabilir)
+    const hasSevkExport = Object.keys(scoreByNorm).some(nn => (scoreByNorm[nn].sevk || []).length > 0);
+    if ((metric === 'iade_ppm' || metric === 'td_termin') && !hasSevkExport) {
+        throw new Error(`İade PPM/tamamlanma için sevk-iade verisi export'ta yok (export eski). Onaylı Tedarikçi uygulamasını Ctrl+F5 ile yenileyip senkronu bekleyin, sonra tekrar çekin.`);
     }
 
     // 2) Kapsam: hangi tedarikçiler (norm kümesi)?
@@ -170,43 +176,20 @@ export const fetchSupplierEval = async (
         return n ? parseFloat((s / n).toFixed(4)) : null;
     };
 
-    // 3) Ham İade PPM + tamamlanma kaynağı:
-    //    Skorlar varsa SİSTEMİN kendi aylık sevk/iade/tamamlanma'sı (GENEL PPM ile birebir);
-    //    yoksa (eski yıl) supplier_monthly (ayrı LeanSys çekimi) yedek olarak.
+    // 3) Ham İade PPM + tamamlanma → SİSTEMİN kendi aylık sevk/iade/tamamlanma'sı (export).
+    //    GENEL PPM ile birebir; supplier_monthly (ayrı/eksik LeanSys çekimi) ARTIK KULLANILMIYOR.
     const agg: { [m: number]: { sevk: number; iade: number; tS: number; tN: number } } = {};
     for (let m = 1; m <= 12; m++) agg[m] = { sevk: 0, iade: 0, tS: 0, tN: 0 };
-    if (scoresPresent) {
-        scoreNorms.forEach(nn => {
-            const rec = scoreByNorm[nn];
-            for (let m = 1; m <= 12; m++) {
-                const a = agg[m];
-                a.sevk += Number(rec.sevk[m - 1]) || 0;
-                a.iade += Number(rec.iade[m - 1]) || 0;
-                const tv = rec.tamam[m - 1];
-                if (tv != null && Number.isFinite(Number(tv))) { a.tS += Number(tv); a.tN++; }
-            }
-        });
-    } else {
-        let off2 = 0;
-        while (true) {
-            const { data, error } = await pt.from('supplier_monthly')
-                .select('supplier_norm,month,sevk,iade,tamamlanma')
-                .eq('firma', firma).eq('year', year).range(off2, off2 + 999);
-            if (error) throw error;
-            if (!data || !data.length) break;
-            data.forEach((r: any) => {
-                const nn = r.supplier_norm;
-                if (!nn || !inScope(nn)) return;
-                const a = agg[r.month];
-                if (!a) return;
-                a.sevk += Number(r.sevk) || 0;
-                a.iade += Number(r.iade) || 0;
-                if (r.tamamlanma != null) { a.tS += Number(r.tamamlanma); a.tN++; }
-            });
-            if (data.length < 1000) break;
-            off2 += 1000;
+    scoreNorms.forEach(nn => {
+        const rec = scoreByNorm[nn];
+        for (let m = 1; m <= 12; m++) {
+            const a = agg[m];
+            a.sevk += Number(rec.sevk[m - 1]) || 0;
+            a.iade += Number(rec.iade[m - 1]) || 0;
+            const tv = rec.tamam[m - 1];
+            if (tv != null && Number.isFinite(Number(tv))) { a.tS += Number(tv); a.tN++; }
         }
-    }
+    });
 
     // Cari aydan sonraki ayları çekme: bulunduğumuz yıl ise yalnızca o aya kadar
     const now = new Date();
