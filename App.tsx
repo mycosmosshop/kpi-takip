@@ -18,6 +18,7 @@ import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
+import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
 import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
@@ -460,10 +461,13 @@ const App: React.FC = () => {
                     na++;
                 }
             });
+            // Hesabın nasıl yapıldığı Açıklama'ya yazılır (kullanıcının kendi
+            // yazdığı korunur; yalnızca işaretçinin altındaki blok tazelenir).
+            const yeniAciklama = aciklamaGuncelle(kpi.aciklama, kaynakAciklamasi(source, loc, currentYear));
             updateCurrentYearData(prev => ({
                 ...prev,
                 kpis: prev.kpis.map(k => k.id === kpiId
-                    ? { ...k, aylik: newAylik, kaynak: source, son_guncelleme: new Date().toLocaleString('tr-TR') }
+                    ? { ...k, aylik: newAylik, kaynak: source, aciklama: yeniAciklama, son_guncelleme: new Date().toLocaleString('tr-TR') }
                     : k),
             }));
             const srcLabel = source.type === 'egitim' ? 'Eğitim'
