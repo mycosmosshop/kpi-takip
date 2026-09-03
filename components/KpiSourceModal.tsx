@@ -5,6 +5,7 @@ import { fetchCmmsLocations } from '../utils/cmmsSource';
 import { fetchEgitimLocations } from '../utils/egitimSource';
 import { fetchSiparisDepolar } from '../utils/siparisSource';
 import { fetchSupplierFilters, SupplierFilter } from '../utils/supplierEval';
+import { kaynakTahmini } from '../utils/kaynakTahmin';
 
 interface KpiSourceModalProps {
     isOpen: boolean;
@@ -49,32 +50,6 @@ const SCOPES: { v: string; l: string }[] = [
     { v: 'onayli_otomotiv', l: 'Onaylı + Otomotiv (lokasyon)' },
     { v: 'filtre', l: 'Onaylı sistemdeki kayıtlı filtre' },
 ];
-
-const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
-    const p = (kpi?.proses || '').toLowerCase();
-    const t = (kpi?.kpi_adi || '').toLowerCase();
-    // Tedarikçi değerlendirme KPI'ları (Satınalma prosesi)
-    if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm')) || (p.includes('satınalma') || p.includes('satinalma'))) {
-        if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_terminpuan' };
-        if (t.includes('ppm') && (t.includes('göre') || t.includes('gore') || t.includes('puan'))) return { type: 'tedarikci', metric: 'td_ppmpuan' };
-        if (t.includes('ppm') || t.includes('iade')) return { type: 'tedarikci', metric: 'iade_ppm' };
-        return { type: 'tedarikci', metric: 'td_puan' };
-    }
-    if (p.includes('eğitim') || p.includes('egitim') || t.includes('eğitim') || t.includes('egitim')) {
-        const metric: SourceMetric = (t.includes('süre') || t.includes('sure') || t.includes('saat')) ? 'egitim_sure' : 'egitim_gerceklesme';
-        return { type: 'egitim', metric };
-    }
-    // "Siparişlerin Tamamlanma Yüzdesi": sevk raporu 0157 (İrsaliye/Sipariş)
-    if (t.includes('sipariş') || t.includes('siparis')) return { type: 'siparis', metric: 'siparis_tamamlanma' };
-    if (t.includes('mtbf')) return { type: 'cmms', metric: 'mtbf' };
-    if (t.includes('mttr')) return { type: 'cmms', metric: 'mttr' };
-    if (t.includes('mttf')) return { type: 'cmms', metric: 'mttf' };
-    if (t.includes('kullanılab') || t.includes('availab')) return { type: 'cmms', metric: 'availability' };
-    if (t.includes('plansız') || t.includes('plansiz')) return { type: 'cmms', metric: 'unplanned' };
-    if (t.includes('uyum')) return { type: 'cmms', metric: 'pmc' };
-    if (t.includes('planlı bakım oran') || t.includes('pmr')) return { type: 'cmms', metric: 'pmr' };
-    return { type: 'cmms', metric: 'mtbf' };
-};
 
 const norm = (s: string) => (s || '').toLocaleUpperCase('tr').trim();
 
@@ -126,7 +101,10 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
 
     useEffect(() => {
         if (!isOpen || !kpi) return;
-        const g = kpi.kaynak ? { type: kpi.kaynak.type, metric: kpi.kaynak.metric } : guess(kpi);
+        // Tahmin tutmazsa eski varsayilan (CMMS/MTBF) korunur — pencere hep
+        // bir secimle acilir; tahminin null'u yalnizca SIMGE RENGI icindir.
+        const g = kpi.kaynak ? { type: kpi.kaynak.type, metric: kpi.kaynak.metric }
+            : (kaynakTahmini(kpi) ?? { type: 'cmms' as SourceType, metric: 'mtbf' as SourceMetric });
         setType(g.type);
         setMetric(g.metric);
         setScope(kpi.kaynak?.scope || 'onayli');

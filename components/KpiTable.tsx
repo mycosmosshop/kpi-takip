@@ -5,6 +5,7 @@ import { AYLAR, THEMES } from '../constants';
 import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../utils/calculations';
 import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon, ClipboardDocumentListIcon } from './icons';
 import Trendline from './Trendline';
+import { kaynakTahmini, KAYNAK_ADI } from '../utils/kaynakTahmin';
 
 const opLbl = (c: string) => (c === '>=' ? '≥' : c === '<=' ? '≤' : c === '>' ? '>' : c === '<' ? '<' : '=');
 
@@ -158,6 +159,14 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
     const finalRowColor = isRowSelected ? 'bg-blue-200 dark:bg-blue-800' : baseRowColor;
     const highlightColor = 'bg-sky-200 dark:bg-sky-700';
     const rowBgClass = isRecentlyUpdated ? highlightColor : finalRowColor;
+    // Otomatik cekilebilir mi? Bagli kaynak varsa evet; yoksa KPI adindan tahmin.
+    const otoKaynak = kpi.kaynak ?? kaynakTahmini(kpi);
+    const otoVar = !!otoKaynak;
+    const otoBaslik = kpi.kaynak
+        ? `Bağlı kaynak: ${KAYNAK_ADI[kpi.kaynak.type]} · ${kpi.kaynak.metric} (tıkla → çek)`
+        : otoKaynak
+            ? `Otomatik çekilebilir: ${KAYNAK_ADI[otoKaynak.type]} (tıkla → kaynağı bağla ve çek)`
+            : 'Bu KPI elle girilir — bağlanabilecek otomatik kaynak yok';
 
     const { monthlyActiveDofs, generalActiveDof } = useMemo(() => {
         const monthlyDofs = new Map<string, Dof>();
@@ -331,8 +340,11 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
                     {kpi.son_guncelleme}
                 </td>
             )}
+            {/* Simge rengi: YESIL = bu KPI otomatik cekilebilir (kaynak bagli ya da
+                adindan taniniyor), GRI = elle girilir. Renk yalnizca "bagli mi"ya
+                bakarsa hic baglanmamis ama cekilebilen KPI'lar da gri gorunur. */}
             <td className={`sticky-col-right p-2 border-b border-gray-200 dark:border-gray-700 text-center ${themeClasses.tdAvg}`}>
-                <button onClick={() => onOpenModal('kpi-source', kpi)} title={kpi.kaynak ? `Bağlı kaynak: ${kpi.kaynak.type === 'egitim' ? 'Eğitim' : kpi.kaynak.type === 'tedarikci' ? 'Tedarikçi Değ.' : 'CMMS'} · ${kpi.kaynak.metric}` : 'Dış kaynaktan veri çek (Bakım/Eğitim/Tedarikçi)'} className={`p-1 ${kpi.kaynak ? 'text-green-600 hover:text-green-800' : 'text-gray-400 hover:text-gray-600'}`}><ExternalLinkIcon className="w-5 h-5"/></button>
+                <button onClick={() => onOpenModal('kpi-source', kpi)} title={otoBaslik} className={`p-1 ${otoVar ? 'text-green-600 hover:text-green-800' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}><ExternalLinkIcon className="w-5 h-5"/></button>
                 <button onClick={() => onOpenModal('kpi', kpi)} className="p-1 text-blue-600 hover:text-blue-800"><EditIcon className="w-5 h-5"/></button>
                 <button onClick={onDelete} className="p-1 text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5"/></button>
             </td>
