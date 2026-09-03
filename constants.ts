@@ -19,8 +19,17 @@ export const DEFAULT_LOCATIONS: KpiLocation[] = [
     { id: 'adana',     name: 'Adana',     company: 'sanifoam' },
     { id: 'bursa',     name: 'Bursa',     company: 'sanifoam' },
     { id: 'adapazari', name: 'Adapazarı', company: 'sanifoam' },
+    { id: 'ankara',    name: 'Ankara',    company: 'sanifoam' },
     { id: 'ultech1',   name: 'Ultech1',   company: 'ultech' },
     { id: 'ultech2',   name: 'Ultech2',   company: 'ultech' },
+];
+
+// Sonradan eklenen varsayılanlar. Lokasyon listesi localStorage/bulutta
+// tutulduğu için DEFAULT_LOCATIONS'a eklemek mevcut kullanıcıda görünmez;
+// bunlar bayrağı ilk kez işlenirken listeye EKLENİR. Kullanıcı sonradan
+// silerse geri gelmez (bkz. utils/lokasyonGoc.ts).
+export const YENI_VARSAYILAN_LOKASYONLAR: { bayrak: string; loc: KpiLocation }[] = [
+    { bayrak: 'kpi_loc_ankara_v1', loc: { id: 'ankara', name: 'Ankara', company: 'sanifoam' } },
 ];
 
 export const THEMES: Record<AppearanceTheme, Record<string, string>> = {

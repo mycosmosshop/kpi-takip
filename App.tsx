@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation, KpiSource } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS } from './constants';
+import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS, YENI_VARSAYILAN_LOKASYONLAR } from './constants';
+import { lokasyonGocUygula } from './utils/lokasyonGoc';
 import { calculateAverage, determineStatus, derivePasifAylarFromPeriod } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
 import { exportFr100 } from './utils/fr100Export';
@@ -820,12 +821,19 @@ const App: React.FC = () => {
                 setCloudStatus(authed ? 'connected' : 'offline');
                 const cloudLocs = await cloudFetchMeta('locations');
                 if (cancelled) return;
-                if (Array.isArray(cloudLocs) && cloudLocs.length) {
-                    setLocations(cloudLocs);
-                    locHashRef.current = hashOf(cloudLocs);
-                } else {
-                    locHashRef.current = hashOf(locations);
+                // Yeni varsayilan lokasyonlar (or. Ankara) mevcut listeye BIR KEZ
+                // eklenir; bulut listesi geldiyse onun uzerine uygulanir ki
+                // bulut eski hali geri yazmasin.
+                const taban = (Array.isArray(cloudLocs) && cloudLocs.length) ? cloudLocs : locations;
+                const goc = lokasyonGocUygula(taban, YENI_VARSAYILAN_LOKASYONLAR,
+                    (b) => localStorage.getItem(b) === '1');
+                goc.islenenBayraklar.forEach(b => { try { localStorage.setItem(b, '1'); } catch { /* yok say */ } });
+                if (goc.eklenen.length || (Array.isArray(cloudLocs) && cloudLocs.length)) {
+                    setLocations(goc.liste);
                 }
+                // Goc bir sey eklediyse hash'i ESKI liste ile birak: degisiklik
+                // bulut senkronunda yukari itilsin.
+                locHashRef.current = goc.eklenen.length ? hashOf(taban) : hashOf(goc.liste);
             } catch { if (!cancelled) setCloudStatus('offline'); }
         })();
         return () => { cancelled = true; };
