@@ -17,6 +17,7 @@ import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
+import { fetchSiparisMetrics } from './utils/siparisSource';
 import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
@@ -435,6 +436,9 @@ const App: React.FC = () => {
                 map = await fetchSupplierEval(firma, currentYear, locArg, scope, source.metric as TdMetric, { filterKeys });
             } else if (source.type === 'egitim') {
                 map = await fetchEgitimMetrics(loc, currentYear);
+            } else if (source.type === 'siparis') {
+                // Sipariş tamamlanma: LeanSys/Mikro sevk raporu (0157) → siparis_tamamlanma
+                map = await fetchSiparisMetrics(loc, currentYear);
             } else {
                 map = await fetchCmmsMetrics(loc, currentYear);
             }
@@ -462,7 +466,9 @@ const App: React.FC = () => {
                     ? { ...k, aylik: newAylik, kaynak: source, son_guncelleme: new Date().toLocaleString('tr-TR') }
                     : k),
             }));
-            const srcLabel = source.type === 'egitim' ? 'Eğitim' : source.type === 'tedarikci' ? 'Tedarikçi Değ.' : 'CMMS';
+            const srcLabel = source.type === 'egitim' ? 'Eğitim'
+                : source.type === 'tedarikci' ? 'Tedarikçi Değ.'
+                : source.type === 'siparis' ? 'Sipariş Tamamlanma' : 'CMMS';
             if (filled === 0) {
                 setNotification({ message: `${srcLabel}: "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı kaynaktakiyle aynı mı?`, type: 'error' });
             } else {

@@ -3,6 +3,7 @@ import { Kpi, KpiSource, SourceType, SourceMetric } from '../types';
 import Modal from './Modal';
 import { fetchCmmsLocations } from '../utils/cmmsSource';
 import { fetchEgitimLocations } from '../utils/egitimSource';
+import { fetchSiparisDepolar } from '../utils/siparisSource';
 import { fetchSupplierFilters, SupplierFilter } from '../utils/supplierEval';
 
 interface KpiSourceModalProps {
@@ -36,6 +37,9 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'iade_ppm', l: 'İade PPM (ham, Σiade / Σsevk × 1.000.000)' },
         { v: 'td_termin', l: 'Tamamlanma Oranı (ort.)' },
     ],
+    siparis: [
+        { v: 'siparis_tamamlanma', l: 'Sipariş Tamamlanma (%) — Σirsaliye / Σsipariş' },
+    ],
 };
 
 const SCOPES: { v: string; l: string }[] = [
@@ -60,6 +64,8 @@ const guess = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } => {
         const metric: SourceMetric = (t.includes('süre') || t.includes('sure') || t.includes('saat')) ? 'egitim_sure' : 'egitim_gerceklesme';
         return { type: 'egitim', metric };
     }
+    // "Siparişlerin Tamamlanma Yüzdesi": sevk raporu 0157 (İrsaliye/Sipariş)
+    if (t.includes('sipariş') || t.includes('siparis')) return { type: 'siparis', metric: 'siparis_tamamlanma' };
     if (t.includes('mtbf')) return { type: 'cmms', metric: 'mtbf' };
     if (t.includes('mttr')) return { type: 'cmms', metric: 'mttr' };
     if (t.includes('mttf')) return { type: 'cmms', metric: 'mttf' };
@@ -105,7 +111,10 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
             }
             return;
         }
-        const fn = t === 'egitim' ? fetchEgitimLocations : fetchCmmsLocations;
+        // Sipariş kaynağında liste DEPO adlarıdır ("ANKARA ÜRÜN DEPO"); lokasyon
+        // adı depo adının içinde geçtiği için önek eşleşmesiyle süzülür.
+        const fn = t === 'siparis' ? fetchSiparisDepolar
+            : t === 'egitim' ? fetchEgitimLocations : fetchCmmsLocations;
         fn().then(ls => {
             setLocs(ls);
             if (currentLoc && !ls.includes(currentLoc)) {
@@ -178,6 +187,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                             <option value="cmms">Bakım Yönetim Sistemi (CMMS)</option>
                             <option value="egitim">Eğitim &amp; Polivalans</option>
                             <option value="tedarikci">Tedarikçi Değerlendirme</option>
+                            <option value="siparis">Sipariş Tamamlanma (sevk raporu)</option>
                         </select>
                     </div>
                     <div>

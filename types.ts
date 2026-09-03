@@ -142,11 +142,12 @@ export interface Risk {
     riskSeviyesi: RiskLevel;
 }
 
-export type SourceType = 'cmms' | 'egitim' | 'tedarikci';
+export type SourceType = 'cmms' | 'egitim' | 'tedarikci' | 'siparis';
 export type SourceMetric =
     | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'  // CMMS (Bakım)
     | 'egitim_sure' | 'egitim_gerceklesme'                                     // Eğitim
-    | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin';   // Tedarikçi Değerlendirme
+    | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin'    // Tedarikçi Değerlendirme
+    | 'siparis_tamamlanma';                                                    // Sipariş tamamlanma (sevk raporu 0157)
 
 export interface KpiSource {
     type: SourceType;
