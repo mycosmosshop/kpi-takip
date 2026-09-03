@@ -476,8 +476,12 @@ const App: React.FC = () => {
             }
         } catch (e: any) {
             let msg = e?.message || (e instanceof Error ? e.message : 'bilinmeyen hata');
-            if (e?.code === 'PGRST205' || /cmms_metrics/i.test(String(msg))) {
-                msg = 'CMMS özet tablosu (cmms_metrics) henüz kurulmamış. Bakım Supabase projesinde supabase_cmms_metrics.sql çalıştırılmalı, sonra CMMS uygulamasında bir kayıt yapıp senkronu tetikleyin.';
+            // PGRST205 = "tablo yok". Kaynak tipine BAKMADAN CMMS mesajı basmak,
+            // sipariş kaynağının eksik tablosunu CMMS arızası gibi gösteriyordu.
+            if (e?.code === 'PGRST205') {
+                msg = source.type === 'cmms'
+                    ? 'CMMS özet tablosu (cmms_metrics) bu Bakım Supabase projesinde yok. supabase_cmms_metrics.sql çalıştırılmalı, sonra CMMS uygulamasında bir kayıt yapıp senkronu tetikleyin.'
+                    : `Kaynak tablosu bulunamadı (${msg}).`;
             }
             setNotification({ message: `Kaynak verisi çekilemedi: ${msg}`, type: 'error' });
         }
