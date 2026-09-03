@@ -8,10 +8,15 @@
 // desen pol_seviye_egitim / pol_egitim_eslesme icin kullaniliyor. Tek satir
 // oldugu icin de Supabase sismiyor.
 //
-// KURAL (kaynakta uygulanır): yalnızca SİPARİŞE BAĞLI satırlar (siparis > 0).
-// Sipariş miktarı 0 olan satırlar sevkiyattır ama sipariş değildir; irsaliyesini
-// paya ekleyip paydaya bir şey koymamak oranı şişirir — ölçüm: Ankara Mayıs 2026
-// bu satırlar dahil edilince %110,97 (imkânsız), hariç tutulunca %88,23.
+// HESAP (kaynakta yapılır): SİPARİŞ SATIRI bazında.
+//   yüzde = Σ min(o sipariş satırının toplam sevki, sipariş miktarı)
+//           / Σ sipariş miktarı × 100
+// Raporun sütun toplamı kullanılmaz: bir sipariş satırı birden çok irsaliyeye
+// bölününce rapor sipariş miktarını her satırda tekrar gösterir. Ölçülen örnek:
+// sipariş satırı 708052 → 224 adet sipariş, 25 ayrı irsaliye, toplam sevk 224
+// (tam teslim); sütun toplamı bunu 224×25 = 5.600'e karşı 224 sayıp %4 diyordu.
+// Fazla sevk sipariş miktarıyla sınırlanır, yoksa başka satırların eksiğini
+// kapatıp yüzdeyi 100'ün üzerine çıkarır (ölçüm: sınırlamasız Şubat %104,17).
 //
 // Lokasyon → depo eşleşmesi ÖNEK iledir ("Ankara" → "ANKARA ÜRÜN DEPO",
 // "ANKARA ÜRETİM DEPO"...). Bir lokasyonun birden çok deposu olabilir; ay

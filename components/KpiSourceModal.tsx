@@ -39,7 +39,7 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'td_termin', l: 'Tamamlanma Oranı (ort.)' },
     ],
     siparis: [
-        { v: 'siparis_tamamlanma', l: 'Sipariş Tamamlanma (%) — Σirsaliye / Σsipariş' },
+        { v: 'siparis_tamamlanma', l: 'Sipariş Tamamlanma (%) — sipariş satırı bazında sevk/sipariş' },
     ],
 };
 
