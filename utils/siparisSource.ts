@@ -1,7 +1,12 @@
 // Sipariş tamamlanma köprüsü: siparis_tamamlanma tablosundan aylık yüzde.
 //
 // Kaynak zinciri: LeanSys/Mikro sevk raporu (0157) → LeanSys_Agent /siptamam
-// → Supabase siparis_tamamlanma (depo, year, month, siparis, irsaliye, satir).
+// → Supabase egt_ayar['siparis_tamamlanma'] = [{depo,year,month,siparis,irsaliye,satir}]
+//
+// NEDEN AYRI TABLO DEGIL: yeni tablo acmak Supabase SQL Editor'de elle DDL
+// calistirmayi gerektiriyor. egt_ayar (anahtar → JSON) zaten var ve aynı
+// desen pol_seviye_egitim / pol_egitim_eslesme icin kullaniliyor. Tek satir
+// oldugu icin de Supabase sismiyor.
 //
 // KURAL (kaynakta uygulanır): yalnızca SİPARİŞE BAĞLI satırlar (siparis > 0).
 // Sipariş miktarı 0 olan satırlar sevkiyattır ama sipariş değildir; irsaliyesini
@@ -56,26 +61,40 @@ export const aylikTamamlanma = (
     return out;
 };
 
+// Depo adi lokasyonu iceriyor mu?
+// OLCUM: LeanSys'teki depo adlari Turkce karaktersiz yazilmis —
+// "CERKEZKOY URUN DEPO", "ANKARA URUN DEPO" (ama "BANT ÜRÜN DEPO" var).
+// Uygulamadaki lokasyon ise "Çerkezköy". Duz karsilastirma bunu kacirir,
+// o yuzden iki taraf da buyuk harfe cevrilip Turkce harfler sadelestirilir.
+const TR: { [k: string]: string } = { 'Ç': 'C', 'Ö': 'O', 'Ü': 'U', 'İ': 'I', 'I': 'I', 'Ş': 'S', 'Ğ': 'G' };
+const buyuk = (x: string) =>
+    (x || '').toLocaleUpperCase('tr').trim().replace(/[ÇÖÜİIŞĞ]/g, c => TR[c]);
+export const depoEslesir = (depo: string, location: string) =>
+    !location || location === '__ALL__' || buyuk(depo).includes(buyuk(location));
+
+// egt_ayar'daki tek satiri okur; dizi degilse bos doner.
+const satirlariOku = async (): Promise<SiparisSatir[]> => {
+    const sb = getSiparisClient();
+    if (!sb) throw new Error('Supabase istemcisi yüklenemedi.');
+    const { data, error } = await sb.from('egt_ayar').select('deger').eq('anahtar', 'siparis_tamamlanma').limit(1);
+    if (error) throw error;
+    const d = data && data.length ? (data[0] as any).deger : null;
+    const ham = typeof d === 'string' ? JSON.parse(d) : d;
+    return Array.isArray(ham) ? ham as SiparisSatir[] : [];
+};
+
 export const fetchSiparisMetrics = async (
     location: string,
     year: number,
 ): Promise<{ [month: number]: { siparis_tamamlanma: number | null } }> => {
-    const sb = getSiparisClient();
-    if (!sb) throw new Error('Supabase istemcisi yüklenemedi.');
-    let q = sb.from('siparis_tamamlanma')
-        .select('depo,year,month,siparis,irsaliye,satir')
-        .eq('year', year)
-        .limit(5000);
-    // "__ALL__" tüm depolar; aksi hâlde lokasyon ADI depo adının içinde geçmeli.
-    if (location && location !== '__ALL__') q = q.ilike('depo', `%${location}%`);
-    const { data, error } = await q;
-    if (error) throw error;
-    if (!data || !data.length) {
+    const hepsi = await satirlariOku();
+    const secili = hepsi.filter(r => Number(r.year) === year && depoEslesir(r.depo, location));
+    if (!secili.length) {
         throw new Error(
-            `siparis_tamamlanma tablosunda ${year} / "${location}" için kayıt yok. ` +
+            `${year} / "${location}" için sipariş kaydı yok. ` +
             `LeanSys ajanında /siptamam tazelemesini çalıştırın (Mikro sevk raporu 0157).`);
     }
-    const tam = aylikTamamlanma(data as SiparisSatir[]);
+    const tam = aylikTamamlanma(secili);
     const out: { [month: number]: { siparis_tamamlanma: number | null } } = {};
     for (let m = 1; m <= 12; m++) out[m] = { siparis_tamamlanma: tam[m].siparis_tamamlanma };
     return out;
@@ -83,10 +102,8 @@ export const fetchSiparisMetrics = async (
 
 // Tablodaki depo adlarını getir (lokasyon eşleştirme listesi için)
 export const fetchSiparisDepolar = async (): Promise<string[]> => {
-    const sb = getSiparisClient();
-    if (!sb) return [];
     try {
-        const { data } = await sb.from('siparis_tamamlanma').select('depo').limit(5000);
-        return [...new Set((data || []).map((r: any) => String(r.depo || '').trim()).filter(Boolean))].sort() as string[];
+        const hepsi = await satirlariOku();
+        return [...new Set(hepsi.map(r => String(r.depo || '').trim()).filter(Boolean))].sort() as string[];
     } catch { return []; }
 };
