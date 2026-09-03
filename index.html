@@ -698,6 +698,15 @@
       box-shadow: none !important;          /* bazı UI kitleri çizgi gölgesi ekliyor */
     }
     
+    /* 3b) Sticky baslik, gövdedeki position:relative hücrelerin ALTINDA kalıyordu.
+       Ay ve Ortalama hücreleri 'relative' (fill-right düğmesi için); ikisi de
+       konumlandırılmış ve z-index'siz olunca DOM'da sonra gelen tbody kazanıyor
+       ve aşağı kaydırınca ay başlıkları kayboluyordu. Sol/sağ sabit sütunlar
+       z-30 taşıdığı için görünür kalıyor, aradaki aylar kayboluyordu.
+       25: gövdedeki sticky sütunların (20) üstünde, başlığın sabit
+       sütunlarının (30) altında — yana kaydırınca sıra bozulmasın. */
+    .kpi-table thead th { z-index: 25; }
+
     /* 4) İçe giren satır metni: zoom’da sütunu taşırmasın, taşarsa üç nokta ile kesilsin */
     .kpi-table .cell,
     .kpi-table .process-col,
