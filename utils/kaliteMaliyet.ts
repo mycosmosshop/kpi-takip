@@ -17,11 +17,16 @@ export interface MaliyetSatir {
     yer: string; yil: number; ay: number; tip: string;
     tutar: number; hatali: number; kayit: number;
     eslesmeyen?: number; sifirfiyat?: number;
+    // Birim fiyat hangi kademeden geldi (bkz. _kmaliyet_refresh.ps1):
+    fAy?: number;      // o ayın alım/satış fiyatı
+    fAy2?: number;     // aynı ay, farklı hareket cinsi
+    fYakin?: number;   // en yakın ay (TAHMİNİ — 12 ay sınırı)
 }
 
 export interface MaliyetOzet {
     toplam: number; ic: number; dis: number; ted: number; diger: number;
     kayit: number; eslesmeyen: number; sifirfiyat: number;
+    fAy: number; fAy2: number; fYakin: number;
     onceki: number | null;   // önceki ayın toplamı (yoksa null — 0 değil)
 }
 
@@ -32,7 +37,8 @@ const ayToplami = (
 ): { o: MaliyetOzet; varMi: boolean } => {
     const o: MaliyetOzet = {
         toplam: 0, ic: 0, dis: 0, ted: 0, diger: 0,
-        kayit: 0, eslesmeyen: 0, sifirfiyat: 0, onceki: null,
+        kayit: 0, eslesmeyen: 0, sifirfiyat: 0,
+        fAy: 0, fAy2: 0, fYakin: 0, onceki: null,
     };
     let varMi = false;
     (satirlar || []).forEach(r => {
@@ -48,6 +54,7 @@ const ayToplami = (
         o.kayit += say(r.kayit);
         o.eslesmeyen += say(r.eslesmeyen);
         o.sifirfiyat += say(r.sifirfiyat);
+        o.fAy += say(r.fAy); o.fAy2 += say(r.fAy2); o.fYakin += say(r.fYakin);
     });
     return { o, varMi };
 };
@@ -72,7 +79,20 @@ export interface MaliyetDetay {
     yer: string; yil: number; ay: number; tip: string;
     no: string; tarih: string; stok: string; cari: string; hataTipi: string;
     miktar: number; birimFiyat: number | null; tutar: number;
+    fiyatKaynagi?: string;   // 'ay' | 'ay2' | 'yakin' | 'yok'
+    fiyatAyFarki?: number;   // yakın ay ise kaç ay uzakta
 }
+
+// Fiyatın nereden geldiğini okunur yazar. "Tahmini" olanı gizlemek,
+// denetimde savunulamayan bir tutar bırakırdı.
+export const fiyatKaynakMetni = (d: MaliyetDetay): string => {
+    switch (d.fiyatKaynagi) {
+        case 'ay': return 'o ayın alım/satış fiyatı';
+        case 'ay2': return 'aynı ay, farklı hareket cinsi';
+        case 'yakin': return `en yakın ay fiyatı (${say(d.fiyatAyFarki)} ay uzak — tahmini)`;
+        default: return 'birim fiyat bulunamadı';
+    }
+};
 
 export const maliyetDetayFiltre = (
     satirlar: MaliyetDetay[], lokasyon: string, yil: number, ay: number,

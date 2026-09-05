@@ -151,6 +151,7 @@ export const yggBolumleri = (
     // Kalite maliyeti: lokasyonun bu yılki aylık TL'si (kaynak: egt_ayar)
     const maliyetAylik: MaliyetAy[] = [];
     let maliyetToplam = 0, maliyetIc = 0, maliyetDis = 0, maliyetTed = 0, maliyetEslesmeyen = 0;
+    let maliyetFAy = 0, maliyetFAy2 = 0, maliyetFYakin = 0;
     if (maliyet && maliyet.length) {
         for (let a = 1; a <= 12; a++) {
             const m: MaliyetAy = { ay: a, ic: 0, dis: 0, ted: 0, diger: 0 };
@@ -165,6 +166,9 @@ export const yggBolumleri = (
                 else if (tipEslesir(r.tip || '', 'ted')) m.ted += t;
                 else m.diger += t;
                 maliyetEslesmeyen += Number(r.eslesmeyen) || 0;
+                maliyetFAy += Number(r.fAy) || 0;
+                maliyetFAy2 += Number(r.fAy2) || 0;
+                maliyetFYakin += Number(r.fYakin) || 0;
             });
             if (varMi) maliyetAylik.push(m);
             maliyetIc += m.ic; maliyetDis += m.dis; maliyetTed += m.ted;
@@ -358,6 +362,9 @@ export const yggBolumleri = (
                     ? [`${yil} kalite maliyeti (uygunsuzluk × birim fiyat): `
                         + `toplam ${sayi(maliyetToplam)} TL — iç ${sayi(maliyetIc)} TL, `
                         + `dış ${sayi(maliyetDis)} TL, tedarikçi ${sayi(maliyetTed)} TL.`,
+                       `Birim fiyat kaynağı: ${maliyetFAy} kayıt o ayın alım/satış fiyatı`
+                       + (maliyetFAy2 ? `, ${maliyetFAy2} kayıt aynı ay farklı hareket cinsi` : '')
+                       + (maliyetFYakin ? `, ${maliyetFYakin} kayıt en yakın ay fiyatı (tahmini)` : '') + '.',
                        ...(maliyetEslesmeyen
                            ? [`${maliyetEslesmeyen} uygunsuzluk kaydının birim fiyatı bulunamadığı `
                               + `için maliyete katılmamıştır (tutar bu kadar eksiktir).`]

@@ -16,8 +16,8 @@ import {
 } from '../utils/aylikKalite';
 import { musteriPpmAy, onayliListeCoz, OnayliKayit } from '../utils/musteriPpm';
 import { readSupplierSync } from '../utils/supplierEval';
-import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay }
-    from '../utils/kaliteMaliyet';
+import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay,
+    fiyatKaynakMetni } from '../utils/kaliteMaliyet';
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta } from '../utils/cloudSync';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
@@ -168,13 +168,18 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                     : ` · önceki ay ${tl(km.onceki)}${km.toplam > km.onceki ? ' ▲' : km.toplam < km.onceki ? ' ▼' : ' ='}`)
                 + (km.eslesmeyen ? ` · ${km.eslesmeyen} kaydın birim fiyatı bulunamadı (maliyete girmedi)` : '')
                 + (km.sifirfiyat ? ` · ${km.sifirfiyat} kayıtta birim fiyat 0` : '')
+                + `\nFiyat kaynağı: ${km.fAy} kayıt o ayın alım/satış fiyatı`
+                + (km.fAy2 ? `, ${km.fAy2} kayıt aynı ay farklı hareket cinsi` : '')
+                + (km.fYakin ? `, ${km.fYakin} kayıt en yakın ay fiyatı (tahmini, en çok 12 ay)` : '')
+                + (km.eslesmeyen ? `, ${km.eslesmeyen} kayıt fiyatsız` : '') + '.'
                 + (kmDetay.length
                     ? '\nEn yüksek maliyetli kayıtlar:\n' + kmDetay.slice(0, 8).map(x =>
                         `• ${x.no} · ${x.tarih} · ${x.stok || '(stok yok)'}`
                         + (x.cari ? ` · ${x.cari}` : '')
                         + (x.hataTipi ? ` · ${x.hataTipi}` : '')
                         + ` · ${sayi(x.miktar)} adet × ${x.birimFiyat === null ? 'birim fiyat yok' : sayi(x.birimFiyat) + ' TL'}`
-                        + ` = ${tl(x.tutar)}`).join('\n')
+                        + ` = ${tl(x.tutar)}`
+                        + (x.fiyatKaynagi && x.fiyatKaynagi !== 'ay' ? ` [${fiyatKaynakMetni(x)}]` : '')).join('\n')
                     : '');
 
         return {
