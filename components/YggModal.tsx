@@ -7,8 +7,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
-import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
-import { aylikKaliteAnahtar, yerEslesir as yerEslesirYerel } from '../utils/aylikKalite';
+import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliyet';
+import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
     PafKalem, PafKategori, pafOzet, PAF_KATALOG, PAF_ADI, PAF_GRUP_ADI,
 } from '../utils/paf';
@@ -87,19 +87,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [pafAcik, setPafAcik] = useState(false);
 
     // ERP'den gelen yıllık başarısızlık maliyetleri (uygunsuzluk × birim fiyat)
-    const erpPaf = useMemo(() => {
-        const t: Record<string, number> = {};
-        (maliyet || []).forEach(r => {
-            if (Number(r.yil) !== yil) return;
-            if (!yerEslesirYerel(r.yer || '', lokasyon)) return;
-            const tut = Number(r.tutar) || 0;
-            const tip = String(r.tip || '').toLocaleUpperCase('tr');
-            if (tip.indexOf('IÇ') === 0 || tip.indexOf('İÇ') === 0) t.i_hurda = (t.i_hurda || 0) + tut;
-            else if (tip.indexOf('DIS') === 0 || tip.indexOf('DIŞ') === 0) t.x_iade = (t.x_iade || 0) + tut;
-            else if (tip.indexOf('TEDARIKÇ') === 0 || tip.indexOf('TEDARIKC') === 0) t.i_tedarikci = (t.i_tedarikci || 0) + tut;
-        });
-        return t;
-    }, [maliyet, yil, lokasyon]);
+    // ERP başarısızlık maliyetleri (yıl toplamı) — eşleme utils/kaliteMaliyet'te.
+    const erpPaf = useMemo(
+        () => erpPafKalemleri(maliyet || [], lokasyon, yil),
+        [maliyet, yil, lokasyon]);
 
     // Öncelik: YGG'de elle girilen → aylık raporlardan toplanan → ERP
     const pafListe = useMemo<PafKalem[]>(() => PAF_KATALOG.map(t => {

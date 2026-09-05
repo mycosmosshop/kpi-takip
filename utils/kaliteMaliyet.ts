@@ -116,6 +116,28 @@ const egtOku = async (anahtar: string): Promise<any[]> => {
 export const maliyetDetayCek = async (): Promise<MaliyetDetay[]> =>
     egtOku('kalite_maliyet_detay') as Promise<MaliyetDetay[]>;
 
+// ERP'den gelen başarısızlık maliyetlerinin PAF kalemlerine eşlenmesi.
+// TEK yerde: iki ayrı yerde yazıldığında YGG tarafı Türkçe İ yüzünden
+// ("Dis" → "DİS") dış başarısızlığı 0 gösteriyordu.
+//
+// Tedarikçi kaynaklı hata BİZİM tesisimizde yakalanır → İÇ başarısızlık
+// kalemidir; dış başarısızlık hatanın MÜŞTERİDE ortaya çıkmasıdır.
+export const erpPafKalemleri = (
+    satirlar: MaliyetSatir[], lokasyon: string, yil: number, ay?: number,
+): { [id: string]: number } => {
+    const t: { [id: string]: number } = {};
+    (satirlar || []).forEach(r => {
+        if (say(r.yil) !== yil) return;
+        if (ay !== undefined && say(r.ay) !== ay) return;
+        if (!yerEslesir(r.yer || '', lokasyon)) return;
+        const tut = say(r.tutar);
+        if (tipEslesir(r.tip || '', 'ic')) t.i_hurda = (t.i_hurda || 0) + tut;
+        else if (tipEslesir(r.tip || '', 'dis')) t.x_iade = (t.x_iade || 0) + tut;
+        else if (tipEslesir(r.tip || '', 'ted')) t.i_tedarikci = (t.i_tedarikci || 0) + tut;
+    });
+    return t;
+};
+
 export const maliyetCek = async (): Promise<MaliyetSatir[]> => {
     const sb = (window as any).supabase;
     if (!sb || !sb.createClient) throw new Error('Supabase istemcisi yüklenemedi.');

@@ -17,7 +17,7 @@ import {
 import { musteriPpmAy, onayliListeCoz, OnayliKayit } from '../utils/musteriPpm';
 import { readSupplierSync } from '../utils/supplierEval';
 import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay,
-    fiyatKaynakMetni } from '../utils/kaliteMaliyet';
+    fiyatKaynakMetni, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
 import { yggMailGonder, yggMailDurumOku, KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI }
     from '../utils/yggMail';
@@ -395,15 +395,10 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     const pafKalemDeger = (id: string): number | null => {
         const k = pafKalemler.find(x => x.id === id);
         if (k && k.tutar !== null && k.tutar !== undefined) return Number(k.tutar);
-        const km = maliyet ? maliyetOzet(maliyet, lokasyon, yil, ay) : null;
-        if (!km) return null;
-        if (id === 'i_hurda') return Math.round(km.ic);
-        // Tedarikçi kaynaklı hata BİZDE yakalanır → iç başarısızlık.
-        // Önceden dış başarısızlığa ekleniyordu; dış, hatanın MÜŞTERİDE
-        // ortaya çıkması demektir.
-        if (id === 'i_tedarikci') return Math.round(km.ted);
-        if (id === 'x_iade') return Math.round(km.dis);
-        return null;
+        // Eşleme utils/kaliteMaliyet'te (YGG ile AYNI fonksiyon): tedarikçi
+        // kaynaklı hata iç başarısızlıktır, dış = müşteride ortaya çıkan.
+        const e = erpPafKalemleri(maliyet || [], lokasyon, yil, ay)[id];
+        return e === undefined ? null : Math.round(e);
     };
 
     const pafListe = useMemo<PafKalem[]>(() => PAF_KATALOG.map(t => {
