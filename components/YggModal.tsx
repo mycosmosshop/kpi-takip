@@ -8,6 +8,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
+import { aylikKaliteAnahtar } from '../utils/aylikKalite';
+import { PafKalem, pafOzet } from '../utils/paf';
 import { katilimciCoz, YggKatilimci } from '../utils/ygg';
 // adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
 import { adGecer } from '../utils/aylikKalite';
@@ -46,6 +48,37 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
     // uydurma tutar yazmaz.
     const [maliyet, setMaliyet] = useState<MaliyetSatir[] | undefined>(undefined);
+    // Yıl boyu PAF kalemleri: 12 aylık Kalite Raporu kaydından toplanır.
+    // Önleme/değerleme kalemleri orada elle giriliyor; YGG onları toplar.
+    const [pafKalemler, setPafKalemler] = useState<PafKalem[]>([]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let iptal = false;
+        Promise.all(Array.from({ length: 12 }, (_, i) =>
+            cloudFetchMeta(aylikKaliteAnahtar(lokasyonId || lokasyon, yil, i + 1)).catch(() => null)))
+            .then(liste => {
+                if (iptal) return;
+                const toplam = new Map<string, number>();
+                const notlar = new Map<string, string>();
+                liste.forEach(v => {
+                    const k = (v && Array.isArray(v.pafKalemler)) ? v.pafKalemler as PafKalem[] : [];
+                    k.forEach(x => {
+                        // Girilmemiş (null) kalem toplanmaz; 0 TL ile
+                        // "girilmedi" ayrı kalsın.
+                        if (x.tutar === null || x.tutar === undefined) return;
+                        toplam.set(x.id, (toplam.get(x.id) || 0) + Number(x.tutar));
+                        if (x.not) notlar.set(x.id, x.not);
+                    });
+                });
+                setPafKalemler(Array.from(toplam.entries())
+                    .map(([id, tutar]) => ({ id, tutar, not: notlar.get(id) || '' })));
+            })
+            .catch(() => { if (!iptal) setPafKalemler([]); });
+        return () => { iptal = true; };
+    }, [isOpen, lokasyon, lokasyonId, yil]);
+
+    const pafToplam = useMemo(() => pafOzet(pafKalemler), [pafKalemler]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -58,8 +91,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // olur ve eski kayıtlar kaybolurdu.
     const anahtar = yggAnahtar(lokasyonId || lokasyon, yil);
     const standart = useMemo(
-        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet),
-        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet]);
+        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafKalemler, pafToplam),
+        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafKalemler, pafToplam]);
     const otoHarita = useMemo(() => new Map(standart.map(b => [b.id, b.otomatik])), [standart]);
     // Madde grafikleri (bakım, tedarikçi, maliyet…) — canlı, kaydedilmez.
     const grafikHarita = useMemo(

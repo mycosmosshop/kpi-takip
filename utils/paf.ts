@@ -10,6 +10,28 @@
 
 export type PafKategori = 'onleme' | 'degerlendirme' | 'ic' | 'dis';
 
+// İki ana grup: UYGUNLUK maliyeti bir yatırımdır (önleme + değerleme),
+// UYGUNSUZLUK maliyeti kayıptır (iç + dış başarısızlık). Önleme/değerlemeye
+// harcanan birim, başarısızlık maliyetini katlayarak düşürür — 1-10-100:
+// kendi tesisinde 1 TL olan hata müşteride 10, son kullanıcıda 100 olur.
+export type PafGrup = 'uygunluk' | 'uygunsuzluk';
+
+export const PAF_GRUP: Record<PafKategori, PafGrup> = {
+    onleme: 'uygunluk', degerlendirme: 'uygunluk', ic: 'uygunsuzluk', dis: 'uygunsuzluk',
+};
+
+export const PAF_GRUP_ADI: Record<PafGrup, string> = {
+    uygunluk: 'Uygunluk maliyeti (yatırım)',
+    uygunsuzluk: 'Uygunsuzluk maliyeti (kayıp)',
+};
+
+// IATF 16949 bu maliyetleri ayrı bir madde numarasıyla zorunlu tutmaz;
+// 9.1.1.1 (proses izleme) ve 9.3.2.1 (YGG girdileri — garanti, saha
+// performansı, düşük kalite maliyeti) üzerinden fiilen ister.
+export const PAF_IATF_NOTU = 'IATF 16949’da kalite maliyeti ayrı bir madde numarasıyla '
+    + 'zorunlu tutulmaz; md. 9.1.1.1 (proses izleme) ve md. 9.3.2.1 (yönetimin gözden '
+    + 'geçirmesi girdileri: garanti, saha performansı, düşük kalite maliyeti) üzerinden istenir.';
+
 export const PAF_ADI: Record<PafKategori, string> = {
     onleme: 'Önleme maliyetleri',
     degerlendirme: 'Değerlendirme (ölçme/kontrol) maliyetleri',
@@ -47,19 +69,23 @@ export const PAF_KATALOG: PafKalemTanim[] = [
     { id: 'i_hurda', kategori: 'ic', ad: 'Hurda ve fire (ürün maliyeti)', kaynak: 'erp', nereden: 'uygunsuzluk kayıtları × birim fiyat — ERP’den otomatik' },
     { id: 'i_yeniden', kategori: 'ic', ad: 'Yeniden işleme / tamir işçiliği', kaynak: 'elle', nereden: 'yeniden işleme süresi × saatlik maliyet' },
     { id: 'i_sorting', kategori: 'ic', ad: '%100 ayıklama (sorting)', kaynak: 'elle', nereden: 'ayıklama personeli saati × saatlik maliyet' },
-    { id: 'i_durus', kategori: 'ic', ad: 'Kalite kaynaklı duruş', kaynak: 'elle', nereden: 'duruş süresi × makine saat maliyeti (CMMS/üretim kayıtları)' },
+    { id: 'i_durus', kategori: 'ic', ad: 'Kalite kaynaklı duruş / hat kaybı', kaynak: 'elle', nereden: 'duruş süresi × makine saat maliyeti (CMMS/üretim kayıtları)' },
+    { id: 'i_ikinci_kalite', kategori: 'ic', ad: 'İkinci kalite satışı (fiyat farkı)', kaynak: 'elle', nereden: 'normal satış fiyatı − ikinci kalite satış fiyatı × miktar' },
 
     // ── DIŞ BAŞARISIZLIK: müşteride ortaya çıkan hatalar ──
     { id: 'x_iade', kategori: 'dis', ad: 'Müşteri iadeleri (ürün maliyeti)', kaynak: 'erp', nereden: 'dış başarısızlık uygunsuzlukları × birim fiyat — ERP’den otomatik' },
     { id: 'x_sikayet', kategori: 'dis', ad: 'Şikayet işleme ve 8D çalışmaları', kaynak: 'elle', nereden: 'kalite personeli saati × saatlik maliyet' },
     { id: 'x_navlun', kategori: 'dis', ad: 'Ek / acil nakliye', kaynak: 'elle', nereden: 'ekstra navlun faturaları (tedarikçi değerlendirmede ekstra navlun kaydı)' },
-    { id: 'x_garanti', kategori: 'dis', ad: 'Garanti, ceza ve müşteride ayıklama', kaynak: 'elle', nereden: 'müşteri borç dekontları (debit note)' },
+    { id: 'x_garanti', kategori: 'dis', ad: 'Garanti / rücu ve müşteri cezaları', kaynak: 'elle', nereden: 'müşteri borç dekontları (debit note), garanti dosyaları' },
+    { id: 'x_musteri_sorting', kategori: 'dis', ad: 'Müşteride ayıklama (sorting) ve saha müdahalesi', kaynak: 'elle', nereden: 'sorting firması faturası + giden personel yol/konaklama ve saati' },
+    { id: 'x_geri_cagirma', kategori: 'dis', ad: 'Geri çağırma ve imaj kaybı', kaynak: 'elle', nereden: 'geri çağırma lojistiği + kaybedilen sipariş/müşteri (varsa; yoksa 0 girin)' },
 ];
 
 export interface PafKalem { id: string; tutar: number | null; not?: string; }
 
 export interface PafOzet {
     kategori: Record<PafKategori, number>;
+    grup: Record<PafGrup, number>;
     toplam: number;
     yuzde: Record<PafKategori, number | null>;   // toplam 0 ise null (0'a bölme yok)
     uygunlukPayi: number | null;    // önleme + değerlendirme
@@ -86,6 +112,10 @@ export const pafOzet = (kalemler: PafKalem[]): PafOzet => {
     const oran = (v: number): number | null => toplam > 0 ? (v / toplam) * 100 : null;
     return {
         kategori, toplam, girilen, eksik,
+        grup: {
+            uygunluk: kategori.onleme + kategori.degerlendirme,
+            uygunsuzluk: kategori.ic + kategori.dis,
+        },
         yuzde: {
             onleme: oran(kategori.onleme), degerlendirme: oran(kategori.degerlendirme),
             ic: oran(kategori.ic), dis: oran(kategori.dis),
@@ -189,5 +219,74 @@ export const pafTabloHtml = (kalemler: PafKalem[], o: PafOzet): string => {
           (LeanSys'te bu kalemlerin tutarı yoktur). ${o.eksik} kalem girilmemiştir —
           girilmeyen kalem 0 TL sayılmaz, toplam bu kadar eksiktir.
         </div>
+      </div>`;
+};
+
+// ── PAF GRAFİĞİ ──
+// Dört kategori yan yana + uygunluk/uygunsuzluk dengesi. Kütüphane yok:
+// satır içi HTML/CSS, hem ekranda hem yazdırmada aynı görünür.
+const RENK: Record<PafKategori, string> = {
+    onleme: '#0d9488',        // yatırım: yeşil-mavi
+    degerlendirme: '#2563eb', // ölçme: mavi
+    ic: '#f59e0b',            // iç kayıp: turuncu
+    dis: '#dc2626',           // dış kayıp: kırmızı
+};
+
+export const pafGrafikHtml = (o: PafOzet): string => {
+    if (o.toplam <= 0) {
+        return '<div style="font-size:9pt;color:#999;padding:6px 0">'
+            + 'Kalite maliyeti kalemi girilmediği için grafik çizilmedi.</div>';
+    }
+    const enBuyuk = Math.max(o.kategori.onleme, o.kategori.degerlendirme,
+        o.kategori.ic, o.kategori.dis, 1);
+    const sutun = (k: PafKategori) => {
+        const y = Math.max((o.kategori[k] / enBuyuk) * 100, 1);
+        return `<div style="flex:1;text-align:center;min-width:0">
+            <div style="font-size:8pt;color:#555;height:12px">${esc(tl(o.kategori[k]))}</div>
+            <div style="height:80px;display:flex;align-items:flex-end">
+              <div style="width:62%;margin:0 auto;height:${y}%;background:${RENK[k]};border-radius:3px 3px 0 0"
+                title="${esc(PAF_ADI[k])}"></div>
+            </div>
+            <div style="font-size:8.5pt;color:#333;border-top:1px solid #ccc;padding-top:2px">
+              ${esc(PAF_ADI[k].replace(' maliyetleri', '').replace(' (ölçme/kontrol)', ''))}</div>
+            <div style="font-size:8pt;color:#888">
+              ${o.yuzde[k] === null ? '' : esc(o.yuzde[k]!.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%')}</div>
+          </div>`;
+    };
+
+    // Uygunluk / uygunsuzluk dengesi: tek çubukta iki pay.
+    const uy = o.toplam > 0 ? (o.grup.uygunluk / o.toplam) * 100 : 0;
+    const denge = `<div style="margin-top:8px">
+        <div style="font-size:8.5pt;color:#333;margin-bottom:2px">
+          Uygunluk (yatırım) ${esc(tl(o.grup.uygunluk))} · Uygunsuzluk (kayıp) ${esc(tl(o.grup.uygunsuzluk))}</div>
+        <div style="display:flex;height:16px;border-radius:3px;overflow:hidden;background:#eee">
+          <div style="width:${uy}%;background:#0d9488"></div>
+          <div style="width:${100 - uy}%;background:#dc2626"></div>
+        </div>
+        <div style="display:flex;font-size:8pt;color:#666;margin-top:2px">
+          <div style="flex:1">◼ yatırım %${esc(uy.toLocaleString('tr-TR', { maximumFractionDigits: 1 }))}</div>
+          <div style="flex:1;text-align:right">kayıp %${esc((100 - uy).toLocaleString('tr-TR', { maximumFractionDigits: 1 }))} ◼</div>
+        </div>
+      </div>`;
+
+    // 1-10-100: iç hata 1 birimse müşteride 10, sahada 100. Dış başarısızlık
+    // varsa bunun "iç'te yakalansaydı" karşılığı gösterilir — kayıptan çok
+    // FIRSATI görünür kılar.
+    const icEsdeger = o.kategori.dis > 0 ? o.kategori.dis / 10 : null;
+    const kural = `<div style="font-size:8pt;color:#666;margin-top:6px;line-height:1.5">
+        <b>1-10-100:</b> kendi tesisinde 1 TL olan hata müşteride 10, son kullanıcıda 100 TL'ye çıkar.
+        ${icEsdeger === null ? 'Bu dönem dış başarısızlık maliyeti yok.'
+            : `Bu dönemki ${esc(tl(o.kategori.dis))} dış başarısızlık, hata kendi tesisimizde `
+            + `yakalansaydı yaklaşık ${esc(tl(icEsdeger))} olacaktı.`}
+        <br>${esc(PAF_IATF_NOTU)}
+      </div>`;
+
+    return `<div style="margin:6px 0 10px">
+        <div style="font-size:9.5pt;font-weight:600;margin-bottom:4px">
+          Kalite maliyeti dağılımı — toplam ${esc(tl(o.toplam))}</div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          ${sutun('onleme')}${sutun('degerlendirme')}${sutun('ic')}${sutun('dis')}
+        </div>
+        ${denge}${kural}
       </div>`;
 };

@@ -18,6 +18,8 @@ import type { MaliyetAy } from './yggGrafik.ts';   // type: Node strip-types deg
 // yanlış KPI'ya bağlamıştı.
 import { adGecer, tipEslesir, yerEslesir } from './aylikKalite.ts';
 import { hedefTablosu, hedefTabloHtml, hedefAksiyonlari } from './yggHedef.ts';
+import { pafGrafikHtml, pafTabloHtml, PAF_IATF_NOTU } from './paf.ts';
+import type { PafKalem, PafOzet } from './paf.ts';
 import type { MaliyetSatir } from './kaliteMaliyet.ts';
 
 export interface YggAksiyon {
@@ -87,6 +89,9 @@ export const yggBolumleri = (
     aksiyonlar: ActionItem[],
     multiYearData: MultiYearKpiData,
     maliyet?: MaliyetSatir[],
+    // Yıl boyu PAF kalemleri (12 aylık kalite raporundan toplanır)
+    pafKalemler?: PafKalem[],
+    pafToplam?: PafOzet,
 ): YggBolum[] => {
     const d = durumSay(kpis);
     const basarisizlar = kpis.filter(k => k.durum === 'basarisiz');
@@ -370,13 +375,28 @@ export const yggBolumleri = (
                               + `için maliyete katılmamıştır (tutar bu kadar eksiktir).`]
                            : [])]
                     : ['Kalite maliyeti verisi çekilmemiş (LeanSys ajanı /kmaliyet).']),
+                ...(pafToplam && pafToplam.girilen > 0
+                    ? [`PAF kırılımı (${yil} kalite raporlarından): uygunluk (yatırım) `
+                        + `${sayi(pafToplam.grup.uygunluk)} TL — önleme ${sayi(pafToplam.kategori.onleme)} TL, `
+                        + `değerleme ${sayi(pafToplam.kategori.degerlendirme)} TL; uygunsuzluk (kayıp) `
+                        + `${sayi(pafToplam.grup.uygunsuzluk)} TL — iç ${sayi(pafToplam.kategori.ic)} TL, `
+                        + `dış ${sayi(pafToplam.kategori.dis)} TL.`,
+                       ...(pafToplam.eksik ? [`${pafToplam.eksik} PAF kalemi girilmemiştir; `
+                           + 'toplam bu kadar eksiktir.'] : [])]
+                    : ['PAF kalemleri (önleme/değerleme) girilmemiş — aylık Kalite Raporu’nda '
+                        + 'doldurulunca bu maddede toplanır.']),
                 ...maliyetKpi.map(kpiSatir),
             ],
             `İç ve dış kalite maliyetleri gözden geçirilmiştir. İç başarısızlık (hurda, yeniden `
             + `işleme, fire) ve dış başarısızlık (iade, müşteri şikayeti, nakliye) maliyetleri `
             + `uygunsuzluk kayıtlarının birim fiyatlarla değerlenmesiyle hesaplanmış, bütçeye/ciroya `
-            + `oranı değerlendirilmiş; FR100 ve FR001 formlarına işlenmiştir.`,
-            maliyetGrafikHtml(maliyetAylik, yil)),
+            + `oranı değerlendirilmiş; FR100 ve FR001 formlarına işlenmiştir. Maliyetler PAF `
+            + `modeline göre ayrılmıştır: uygunluk maliyeti (önleme + değerleme) bir YATIRIM, `
+            + `uygunsuzluk maliyeti (iç + dış başarısızlık) bir KAYIPTIR; önlemeye ayrılan pay `
+            + `başarısızlık maliyetini katlayarak düşürür (1-10-100 kuralı). ${PAF_IATF_NOTU}`,
+            maliyetGrafikHtml(maliyetAylik, yil)
+            + (pafToplam && pafToplam.girilen > 0
+                ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam) : '')),
 
         B('iatf_b', '9.3.2.1 b)', 'Süreç etkinliğinin ölçümü',
             Array.from(prosesler.entries()).map(([p, list]) => {

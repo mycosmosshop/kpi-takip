@@ -26,6 +26,7 @@ import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
 import {
     PAF_KATALOG, PAF_ADI, PafKalem, PafKategori, pafOzet, pafAksiyonlari, pafTabloHtml,
+    pafGrafikHtml,
 } from '../utils/paf';
 
 interface Props {
@@ -245,18 +246,91 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         };
     }, [kayitlar, onayli, maliyet, maliyetDetay, kpis, lokasyon, yil, ay]);
 
+    // Rapor satırları KANIT ve AYLIK TAKİP aksiyonuyla dolu gelir: denetimde
+    // kanıt istendiğinde nereden indirileceği ve ay boyunca nasıl izleneceği
+    // yazılı olsun. Sorumlu varsayılanı lokasyon kalite mühendisi; termin
+    // rapor ayının son günü. Hepsi düzenlenebilir, satır silinebilir.
+    const SORUMLU = 'Lokasyon Kalite Mühendisi';
+    const aySonu = (): string => {
+        const d = new Date(yil, ay, 0);       // ay 1-12 → o ayın son günü
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
     const bos = { otomatik: '', ozet: '', aksiyon: '', sorumlu: '', termin: '', durum: '', silinebilir: true };
+    const V = (ozet: string, aksiyon: string) => ({
+        ...bos, ozet, aksiyon, sorumlu: SORUMLU, termin: aySonu(), durum: 'Devam ediyor',
+    });
+
     const varsayilan = (): RaporSatir[] => ([
-        { id: 'musteri_ppm', kriter: 'Müşteri İade PPM', ...bos },
-        { id: 'musteri_ilk3', kriter: 'İade PPM ilk 3 Müşteri (önceki aya ait trend)', ...bos },
-        { id: 'ic_ppm', kriter: 'İç Hurda PPM', ...bos },
-        { id: 'ic_ilk3', kriter: 'İç Hurda PPM ilk 3 ürün (önceki aya ait trend)', ...bos },
-        { id: 'ic_ayrinti', kriter: 'İç uygunsuzluk kayıtları (no, sebep, miktar, karar, yapılan işlem)', ...bos },
-        { id: 'musteri_dof', kriter: 'Müşteri DÖF / Şikayet Sayısı (şikayet açan müşteriler)', ...bos },
-        { id: 'tedarikci_ppm', kriter: 'Tedarikçi PPM (uygunsuzluk kayıtlarından)', ...bos },
-        { id: 'tedarikci_dof', kriter: 'Tedarikçi DÖF / şikayet', ...bos },
-        { id: 'kalite_maliyet', kriter: 'Kalite Maliyeti (uygunsuzluk × birim fiyat)', ...bos },
-        { id: 'diger', kriter: 'Diğer Konu(lar) (altyapı eksikleri, denetim konuları, müşteri ziyaretleri, iç testler, dış lab sonuçları vb…)', ...bos },
+        {
+            id: 'musteri_ppm', kriter: 'Müşteri İade PPM',
+            ...V('Müşteri iade PPM’i onaylı listedeki müşteri sevk/iade verisinden hesaplandı. '
+                + 'Hedef aşımı varsa ilgili müşteri için DÖF açılır.',
+                'Kanıt: Onaylı sistemden ilgili ayın müşteri sevk-iade dökümü PDF olarak indirilip '
+                + 'rapora eklenir (denetimde istenmeden hazır bulunur). '
+                + 'Takip: iade bildirimleri hafta içinde izlenir, ay sonunda PPM KPI formuna işlenir.'),
+        },
+        {
+            id: 'musteri_ilk3', kriter: 'İade PPM ilk 3 Müşteri (önceki aya ait trend)',
+            ...V('İadesi olan ilk 3 müşteri ve önceki aya göre değişim değerlendirildi.',
+                'Kanıt: müşteri bazlı iade dökümü (bu rapordan Yazdır/PDF ile alınır). '
+                + 'Takip: iki ay üst üste artan müşteride müşteriye özel aksiyon planı açılır.'),
+        },
+        {
+            id: 'ic_ppm', kriter: 'İç Hurda PPM',
+            ...V('İç hurda PPM’i KPI takip formundaki aylık veriden okundu; hedefle karşılaştırıldı.',
+                'Kanıt: KPI Takip aylık veri girişi ekranı ve uygunsuzluk kayıtları çıktısı. '
+                + 'Takip: hurda kayıtları haftalık gözden geçirilir, ay sonunda PPM hesaplanıp '
+                + 'KPI formuna işlenir; hedef aşımında kök neden çalışması başlatılır.'),
+        },
+        {
+            id: 'ic_ilk3', kriter: 'İç Hurda PPM ilk 3 ürün (önceki aya ait trend)',
+            ...V('En çok hurda veren ilk 3 ürün ve önceki aya göre değişim değerlendirildi.',
+                'Kanıt: ürün bazlı hurda dökümü. Takip: ilk 3 ürün için kök neden (5N1K / balık kılçığı) '
+                + 'çalışması yürütülür, kontrol planı ve P-FMEA gözden geçirilir.'),
+        },
+        {
+            id: 'ic_ayrinti', kriter: 'İç uygunsuzluk kayıtları (no, sebep, miktar, karar, yapılan işlem)',
+            ...V('İç uygunsuzluk kayıtları no, sebep, miktar ve karar bazında listelendi; '
+                + 'açık kayıtlar takibe alındı.',
+                'Kanıt: uygunsuzluk formları (U-seri/sıra no) ve kapatma kayıtları. '
+                + 'Takip: açık kayıtlar haftalık gözden geçirilir; kapatma tarihi girilmemiş kayıtlar '
+                + 'ay sonuna kadar kapatılır.'),
+        },
+        {
+            id: 'musteri_dof', kriter: 'Müşteri DÖF / Şikayet Sayısı (şikayet açan müşteriler)',
+            ...V('Müşteri kaynaklı uygunsuzluklar ve şikayet açan müşteriler değerlendirildi.',
+                'Kanıt: 8D/DÖF dosyaları ve müşteri yazışmaları. '
+                + 'Takip: açık DÖF’ler haftalık izlenir, 8D’ler müşteri terminine göre kapatılır; '
+                + 'kalıcı önlemin etkinliği bir sonraki ay doğrulanır.'),
+        },
+        {
+            id: 'tedarikci_ppm', kriter: 'Tedarikçi PPM (uygunsuzluk kayıtlarından)',
+            ...V('Tedarikçi kaynaklı uygunsuzlukların PPM’i, tedarikçi ve hata tipi kırılımıyla değerlendirildi.',
+                'Kanıt: uygunsuzluk kayıtları ve tedarikçiye açılan DÖF. '
+                + 'Takip: tekrarlayan uygunsuzlukta giriş kontrol sıklığı artırılır ve tedarikçi '
+                + 'değerlendirme puanına işlenir.'),
+        },
+        {
+            id: 'tedarikci_dof', kriter: 'Tedarikçi DÖF / şikayet',
+            ...V('Tedarikçiye açılan DÖF’ler, kararlar ve yapılan işlemler gözden geçirildi.',
+                'Kanıt: tedarikçiye gönderilen DÖF ve cevapları (8D). '
+                + 'Takip: cevap süresi izlenir; süresinde cevap vermeyen tedarikçi değerlendirmede '
+                + 'puan kaybeder, gerekirse saha denetimi planlanır.'),
+        },
+        {
+            id: 'kalite_maliyet', kriter: 'Kalite Maliyeti (PAF: önleme · değerleme · iç · dış)',
+            ...V('Kalite maliyeti PAF kırılımıyla değerlendirildi; uygunluk (yatırım) ve '
+                + 'uygunsuzluk (kayıp) payları karşılaştırıldı.',
+                'Kanıt: PAF tablosu ve kalem kaynak belgeleri (faturalar, saat kayıtları, '
+                + 'kalibrasyon ve laboratuvar faturaları). '
+                + 'Takip: kalemler ay sonunda güncellenir; uygunsuzluk payı artarsa önleme '
+                + 'faaliyetine bütçe kaydırılır (1-10-100).'),
+        },
+        {
+            id: 'diger', kriter: 'Diğer Konu(lar) (altyapı eksikleri, denetim konuları, müşteri ziyaretleri, iç testler, dış lab sonuçları vb…)',
+            ...V('', 'Kanıt: ilgili yazışma, denetim raporu veya test sonucu. '
+                + 'Takip: konu kapanana kadar aylık kalite raporunda izlenir.'),
+        },
     ]);
 
     // Kayıtlı satırları oku. Okunamazsa BOŞ göstermeyip hatayı söyle:
@@ -420,7 +494,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <table><thead><tr><th>Kriter</th><th>Özet Açıklama</th><th>Aksiyon</th>
             <th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
             <tbody>${tr}</tbody></table>
-            ${paf.toplam > 0 || paf.girilen > 0 ? pafTabloHtml(pafListe, paf) : ''}
+            ${paf.toplam > 0 || paf.girilen > 0 ? pafGrafikHtml(paf) + pafTabloHtml(pafListe, paf) : ''}
             <p style="margin-top:16px;font-size:9pt;color:#666">Gri kutulardaki özetler
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
             listesinden ve KPI tablosundan ${new Date().toLocaleString('tr-TR')} tarihinde
@@ -673,6 +747,10 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Grafik: yazdırma ve mail ile AYNI üreticiden. */}
+                        <div className="mt-2 p-2 rounded bg-white dark:bg-gray-800"
+                            dangerouslySetInnerHTML={{ __html: pafGrafikHtml(paf) }} />
 
                         {pafOneriler.length > 0 && (
                             <div className="mt-2 p-2 rounded border border-amber-300 dark:border-amber-700
