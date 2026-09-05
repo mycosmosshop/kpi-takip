@@ -12,7 +12,7 @@ import { Kpi } from '../types';
 import {
     UygKayit, uygunsuzluklariCek, ilkN, sayimlar, ppmParti, kpiAra,
     aylikKaliteAnahtar, aylikKaliteAnahtarCoz, aylikBirlestir, RaporSatir,
-    uygAyrinti, uygSatirMetni,
+    uygAyrinti, uygSatirMetni, sebepKirilimi, sebepMetni, yapilanIslemler,
 } from '../utils/aylikKalite';
 import { musteriPpmAy, onayliListeCoz, OnayliKayit } from '../utils/musteriPpm';
 import { readSupplierSync } from '../utils/supplierEval';
@@ -154,22 +154,54 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         + (o ? ` (önceki ay ${sayi(o.iade)}${x.iade > o.iade ? ' ▲' : x.iade < o.iade ? ' ▼' : ' ='})` : ' (önceki ay kaydı yok)');
                 }).join(' | ');
 
+        // PPM'in SEBEBİ: hata tipi ve kaynağı olmadan "4.688 ppm" satırı
+        // aksiyona dönüşmüyor.
+        const sebepler = (hangi: 'ic' | 'dis' | 'ted'): string => {
+            const tip = sebepKirilimi(kayitlar, lokasyon, yil, ay, hangi, 'hataTipi');
+            if (!tip.length) return '';
+            const kaynak = sebepKirilimi(kayitlar, lokasyon, yil, ay, hangi, 'hataKaynagi');
+            const urun = sebepKirilimi(kayitlar, lokasyon, yil, ay, hangi, 'stokAdi', 3);
+            const makine = sebepKirilimi(kayitlar, lokasyon, yil, ay, hangi, 'makine', 3);
+            return `\nHata tipi: ${sebepMetni(tip)}`
+                + (kaynak.length ? `\nHata kaynağı: ${sebepMetni(kaynak)}` : '')
+                + (urun.length ? `\nEn çok etkilenen ürün: ${sebepMetni(urun)}` : '')
+                + (makine.length && hangi === 'ic' ? `\nMakine/proses: ${sebepMetni(makine)}` : '');
+        };
+
+        const neYapildi = (hangi: 'ic' | 'dis' | 'ted'): string => {
+            const l = yapilanIslemler(kayitlar, lokasyon, yil, ay, hangi);
+            return l.length ? `\nKayıtlar ve yapılan işlem:\n• ${l.join('\n• ')}` : '';
+        };
+
         // ── İç Hurda PPM: KPI (Türkçe'ye dayanıklı arama), yoksa ERP ──
         const icKpi = kpiAra<Kpi>(kpis, ['iç ppm', 'ic ppm', 'hurda'], ['tedarikçi', 'tedarikci']);
         const icErp = ppmParti(kayitlar, lokasyon, yil, ay, 'ic');
-        const icPpm = kpiAyMetni(icKpi, ay)
+        const icTemel = kpiAyMetni(icKpi, ay)
             || (icErp.kayit === 0 ? 'İlgili KPI tanımlı değil; bu ay iç uygunsuzluk kaydı da yok.'
                 : `İlgili KPI tanımlı değil. Uygunsuzluk kayıtlarından: `
                 + `${icErp.ppm === null ? 'PPM hesaplanamadı (parti hacmi yok)' : sayi(icErp.ppm) + ' ppm'}`
                 + ` (${sayi(icErp.hatali)} hatalı / ${sayi(icErp.parti)} parti hacmi, ${icErp.kayit} kayıt).`);
+        // KPI değeri gelse bile SEBEP uygunsuzluk kayıtlarından eklenir.
+        // KPI değeri gelse bile sebep uygunsuzluk kayıtlarından çıkar; kayıt
+        // yoksa bunu AÇIKÇA söyle — yoksa “neden sebep yazmıyor?” sorusu kalır.
+        const icPpm = icTemel
+            + (icErp.kayit
+                ? sebepler('ic') + neYapildi('ic') + `\n(${icErp.kayit} iç uygunsuzluk kaydından)`
+                : `\nSebep kırılımı yok: ${lokasyon} lokasyonunda ${AYLAR[ay - 1]} ${yil} için `
+                + 'iç başarısızlık uygunsuzluk kaydı bulunmuyor'
+                + (icKpi ? ' (PPM değeri KPI tablosundan geliyor).' : '.'));
 
         // ── Tedarikçi PPM: uygunsuzluk kayıtlarından ──
         const tedErp = ppmParti(kayitlar, lokasyon, yil, ay, 'ted');
         const tedOnc = ppmParti(kayitlar, lokasyon, ay === 1 ? yil - 1 : yil, ay === 1 ? 12 : ay - 1, 'ted');
+        const tedFirma = sebepKirilimi(kayitlar, lokasyon, yil, ay, 'ted', 'cariAdi');
         const tedPpm = tedErp.kayit === 0 ? 'Bu ay tedarikçi kaynaklı uygunsuzluk kaydı yok.'
             : `${tedErp.ppm === null ? 'PPM hesaplanamadı (parti hacmi yok)' : sayi(tedErp.ppm) + ' ppm'}`
             + ` (Hatalı/Parti Hacmi) · ${sayi(tedErp.hatali)} hatalı / ${sayi(tedErp.parti)} parti · ${tedErp.kayit} kayıt`
-            + (tedOnc.ppm === null ? ' · önceki ay kaydı yok' : ` · önceki ay ${sayi(tedOnc.ppm)} ppm`);
+            + (tedOnc.ppm === null ? ' · önceki ay kaydı yok' : ` · önceki ay ${sayi(tedOnc.ppm)} ppm`)
+            + (tedFirma.length ? `\nTedarikçi: ${sebepMetni(tedFirma)}` : '')
+            + sebepler('ted')
+            + neYapildi('ted');
 
         // ── Kalite maliyeti ──
         const km = maliyet ? maliyetOzet(maliyet, lokasyon, yil, ay) : null;

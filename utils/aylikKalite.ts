@@ -195,6 +195,63 @@ export const uygSatirMetni = (r: UygSatir): string =>
     + (r.sonuc ? ` · yapılan işlem: ${r.sonuc}` : '')
     + ` · ${r.kapali ? 'kapatıldı ' + r.kapatma : 'AÇIK'}`;
 
+// PPM'in SEBEBİ: kaydı bir alana göre gruplar (hata tipi, hata kaynağı,
+// tedarikçi, ürün, makine, karar). "4.688 ppm" tek başına aksiyon üretmez;
+// hangi hatadan, kimden ve ne kadar geldiği bilinmeli.
+export interface SebepSatir { ad: string; miktar: number; kayit: number; pay: number | null; }
+
+export type UygAlan = 'hataTipi' | 'hataKaynagi' | 'cariAdi' | 'stokAdi'
+    | 'makine' | 'karar' | 'uygunsuzlukTuru';
+
+export const sebepKirilimi = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+    hangi: 'ic' | 'dis' | 'ted', alan: UygAlan, n = 5,
+): SebepSatir[] => {
+    const grup = new Map<string, { miktar: number; kayit: number }>();
+    let toplam = 0;
+    (kayitlar || []).forEach((k: any) => {
+        if (!tipiOlan(k, hangi)) return;
+        if (!yerEslesir(k.tespitYeri || '', lokasyon)) return;
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        if (!t || t.yil !== yil || t.ay !== ay) return;
+        // Alanı BOŞ olan kayıt "(belirtilmemiş)" olarak sayılır; sessizce
+        // düşürülse toplam paylar %100'ü tutmaz ve eksik veri görünmez.
+        const ad = String(k[alan] || '').trim() || '(belirtilmemiş)';
+        const mik = Number(k.hataliMiktar) || 0;
+        const v = grup.get(ad) || { miktar: 0, kayit: 0 };
+        v.miktar += mik; v.kayit++;
+        grup.set(ad, v);
+        toplam += mik;
+    });
+    return Array.from(grup.entries())
+        .map(([ad, v]) => ({
+            ad, miktar: v.miktar, kayit: v.kayit,
+            // Toplam 0 iken pay hesaplanmaz (0'a bölme); miktarı 0 olan
+            // kayıtlar da vardır (kayıt sayısı yine gösterilir).
+            pay: toplam > 0 ? (v.miktar / toplam) * 100 : null,
+        }))
+        .sort((a, b) => b.miktar - a.miktar || b.kayit - a.kayit)
+        .slice(0, n);
+};
+
+export const sebepMetni = (satirlar: SebepSatir[]): string =>
+    satirlar.map(r => `${r.ad} — ${r.miktar.toLocaleString('tr-TR')} adet`
+        + (r.pay === null ? '' : ` (%${r.pay.toLocaleString('tr-TR', { maximumFractionDigits: 1 })})`)
+        + `, ${r.kayit} kayıt`).join(' | ');
+
+// "Ne yapıldı?": karar ve sonuç alanları dolu olan kayıtlar.
+export const yapilanIslemler = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+    hangi: 'ic' | 'dis' | 'ted', n = 5,
+): string[] =>
+    uygAyrinti(kayitlar, lokasyon, yil, ay, hangi, n)
+        .map(r => `${r.no}${r.cari ? ' · ' + r.cari : ''}`
+            + (r.hataTipi ? ` · ${r.hataTipi}` : '')
+            + ` · ${r.miktar.toLocaleString('tr-TR')} adet`
+            + (r.karar ? ` · karar: ${r.karar}` : '')
+            + (r.sonuc ? ` · yapılan: ${r.sonuc}` : ' · yapılan işlem yazılmamış')
+            + ` · ${r.kapali ? 'kapatıldı' : 'AÇIK'}`);
+
 export const sayimlar = (
     kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
 ): { ic: number; dis: number; ted: number; icMiktar: number; disMiktar: number; tedMiktar: number; musteriler: string[]; tedarikciler: string[] } => {
