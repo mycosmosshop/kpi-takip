@@ -8,8 +8,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
-import { aylikKaliteAnahtar } from '../utils/aylikKalite';
-import { PafKalem, pafOzet } from '../utils/paf';
+import { aylikKaliteAnahtar, yerEslesir as yerEslesirYerel } from '../utils/aylikKalite';
+import {
+    PafKalem, PafKategori, pafOzet, PAF_KATALOG, PAF_ADI, PAF_GRUP_ADI,
+} from '../utils/paf';
 import { katilimciCoz, YggKatilimci } from '../utils/ygg';
 // adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
 import { adGecer } from '../utils/aylikKalite';
@@ -78,7 +80,50 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         return () => { iptal = true; };
     }, [isOpen, lokasyon, lokasyonId, yil]);
 
-    const pafToplam = useMemo(() => pafOzet(pafKalemler), [pafKalemler]);
+    // YGG'de ELLE girilen yıllık tutarlar (aylık toplamı ezer): önleme ve
+    // değerleme kalemleri aylık raporda doldurulmadıysa yıl sonunda buradan
+    // girilebilsin — aksi hâlde madde boş kalıyordu.
+    const [pafYillik, setPafYillik] = useState<PafKalem[]>([]);
+    const [pafAcik, setPafAcik] = useState(false);
+
+    // ERP'den gelen yıllık başarısızlık maliyetleri (uygunsuzluk × birim fiyat)
+    const erpPaf = useMemo(() => {
+        const t: Record<string, number> = {};
+        (maliyet || []).forEach(r => {
+            if (Number(r.yil) !== yil) return;
+            if (!yerEslesirYerel(r.yer || '', lokasyon)) return;
+            const tut = Number(r.tutar) || 0;
+            const tip = String(r.tip || '').toLocaleUpperCase('tr');
+            if (tip.indexOf('IÇ') === 0 || tip.indexOf('İÇ') === 0) t.i_hurda = (t.i_hurda || 0) + tut;
+            else if (tip.indexOf('DIS') === 0 || tip.indexOf('DIŞ') === 0) t.x_iade = (t.x_iade || 0) + tut;
+            else if (tip.indexOf('TEDARIKÇ') === 0 || tip.indexOf('TEDARIKC') === 0) t.i_tedarikci = (t.i_tedarikci || 0) + tut;
+        });
+        return t;
+    }, [maliyet, yil, lokasyon]);
+
+    // Öncelik: YGG'de elle girilen → aylık raporlardan toplanan → ERP
+    const pafListe = useMemo<PafKalem[]>(() => PAF_KATALOG.map(t => {
+        const elle = pafYillik.find(x => x.id === t.id);
+        if (elle && elle.tutar !== null && elle.tutar !== undefined) return elle;
+        const aylik = pafKalemler.find(x => x.id === t.id);
+        if (aylik && aylik.tutar !== null && aylik.tutar !== undefined) return aylik;
+        const e = erpPaf[t.id];
+        return { id: t.id, tutar: (e === undefined ? null : Math.round(e)), not: elle?.not || aylik?.not || '' };
+    }), [pafYillik, pafKalemler, erpPaf]);
+
+    const pafToplam = useMemo(() => pafOzet(pafListe), [pafListe]);
+
+    const pafGuncelle = (id: string, alan: 'tutar' | 'not', v: string) => setPafYillik(p => {
+        const yeni = [...p];
+        const i = yeni.findIndex(x => x.id === id);
+        const mevcut = i >= 0 ? yeni[i] : { id, tutar: null as number | null, not: '' };
+        const guncel = alan === 'tutar'
+            // Boş bırakmak "0 TL" değil "girilmedi" demektir.
+            ? { ...mevcut, tutar: v.trim() === '' ? null : Number(v.replace(',', '.')) }
+            : { ...mevcut, not: v };
+        if (i >= 0) yeni[i] = guncel; else yeni.push(guncel);
+        return yeni;
+    });
 
     useEffect(() => {
         if (!isOpen) return;
@@ -91,8 +136,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // olur ve eski kayıtlar kaybolurdu.
     const anahtar = yggAnahtar(lokasyonId || lokasyon, yil);
     const standart = useMemo(
-        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafKalemler, pafToplam),
-        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafKalemler, pafToplam]);
+        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe, pafToplam),
+        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe, pafToplam]);
     const otoHarita = useMemo(() => new Map(standart.map(b => [b.id, b.otomatik])), [standart]);
     // Madde grafikleri (bakım, tedarikçi, maliyet…) — canlı, kaydedilmez.
     const grafikHarita = useMemo(
@@ -136,6 +181,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 const o = v || {};
                 const sil = Array.isArray(o.silinenler) ? o.silinenler : [];
                 setSilinenler(sil);
+                setPafYillik(Array.isArray(o.pafYillik) ? o.pafYillik as PafKalem[] : []);
                 setBolumler(yggBirlestir(standart, Array.isArray(o.bolumler) ? o.bolumler : null, sil));
                 setKatilanlar(o.katilanlar || '');
                 // Eski kayıtta yalnızca metin vardı; göç edilmezse
@@ -156,7 +202,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const kaydet = async () => {
         setDurum('kaydediliyor'); setHata('');
         try {
-            await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, katilimcilar, tarih, guncelleme: new Date().toISOString() });
+            await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, katilimcilar,
+                pafYillik, tarih, guncelleme: new Date().toISOString() });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
         } catch (e: any) { setHata(String(e?.message || e)); setDurum('hata'); }
     };
@@ -342,6 +389,14 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                     <input value={ara} onChange={e => setAra(e.target.value)}
                         placeholder="🔍 Raporda ara — madde, başlık, metin, veri satırı, aksiyon…"
                         className={alan + ' flex-1'} />
+                    <button onClick={() => setPafAcik(v => !v)}
+                        className="px-3 py-2 text-sm rounded border border-emerald-300 dark:border-emerald-700
+                            text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30
+                            whitespace-nowrap">
+                        💰 Kalite maliyeti (PAF)
+                        {pafToplam.toplam > 0
+                            ? ` — ${pafToplam.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : ''}
+                    </button>
                     {ara.trim() && (
                         <>
                             <span className={'text-xs whitespace-nowrap '
@@ -357,6 +412,90 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         </>
                     )}
                 </div>
+                {pafAcik && (
+                    <div className="mb-3 p-3 rounded border border-emerald-300 dark:border-emerald-700
+                        bg-emerald-50/50 dark:bg-emerald-900/20">
+                        <div className="font-semibold text-sm mb-1">
+                            💰 {yil} kalite maliyeti — PAF (önleme · değerleme · iç · dış)
+                        </div>
+                        <div className="text-[11px] text-gray-600 dark:text-gray-300 mb-2">
+                            İç/dış başarısızlık ve tedarikçi kaynaklı tutarlar ERP'den (uygunsuzluk ×
+                            birim fiyat) otomatik gelir. <b>Önleme ve değerleme kalemlerinin tutarı
+                            ERP'de yoktur</b> — yıllık toplamı buraya girin; aylık Kalite Raporu'nda
+                            girdiyseniz oradan toplanır ve burada görünür. Buraya yazdığınız değer
+                            aylık toplamı ezer. Boş bırakılan kalem <b>0 TL sayılmaz</b>, eksik sayılır.
+                        </div>
+                        <div className="overflow-auto" style={{ maxHeight: '45vh' }}>
+                            <table className="w-full border-collapse text-xs">
+                                <thead className="sticky top-0 bg-emerald-100/80 dark:bg-emerald-900/50">
+                                    <tr>
+                                        <th className="p-1 text-left">Kalem</th>
+                                        <th className="p-1 text-right w-32">Yıllık tutar (TL)</th>
+                                        <th className="p-1 text-left w-1/4">Not</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(['onleme', 'degerlendirme', 'ic', 'dis'] as PafKategori[]).map(kat => (
+                                        <React.Fragment key={kat}>
+                                            <tr className="bg-white/70 dark:bg-gray-800/60">
+                                                <td className="p-1 font-semibold">{PAF_ADI[kat]}</td>
+                                                <td className="p-1 text-right font-semibold tabular-nums">
+                                                    {pafToplam.kategori[kat].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                                </td>
+                                                <td className="p-1 text-gray-600 dark:text-gray-300">
+                                                    {pafToplam.yuzde[kat] === null ? '' :
+                                                        pafToplam.yuzde[kat]!.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%'}
+                                                </td>
+                                            </tr>
+                                            {PAF_KATALOG.filter(t => t.kategori === kat).map(t => {
+                                                const k = pafListe.find(x => x.id === t.id);
+                                                return (
+                                                    <tr key={t.id} className="border-b border-emerald-200/50 dark:border-emerald-800/40">
+                                                        <td className="p-1 pl-4">
+                                                            {t.ad}
+                                                            {t.kaynak === 'erp' && (
+                                                                <span className="ml-1 text-[10px] px-1 rounded bg-blue-100 text-blue-800">ERP</span>
+                                                            )}
+                                                            <div className="text-[10px] text-gray-500">{t.nereden}</div>
+                                                        </td>
+                                                        <td className="p-1">
+                                                            <input type="text" inputMode="decimal"
+                                                                className={mini + ' w-full text-right tabular-nums'}
+                                                                placeholder="girilmedi"
+                                                                value={k?.tutar === null || k?.tutar === undefined ? '' : String(k.tutar)}
+                                                                onChange={e => pafGuncelle(t.id, 'tutar', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-1">
+                                                            <input className={mini + ' w-full'} value={k?.not || ''}
+                                                                placeholder="kaynak / açıklama"
+                                                                onChange={e => pafGuncelle(t.id, 'not', e.target.value)} />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ))}
+                                    <tr className="bg-emerald-200/60 dark:bg-emerald-900/50">
+                                        <td className="p-1 font-bold">TOPLAM</td>
+                                        <td className="p-1 text-right font-bold tabular-nums">
+                                            {pafToplam.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                        </td>
+                                        <td className="p-1 text-[11px]">
+                                            {PAF_GRUP_ADI.uygunluk} {pafToplam.grup.uygunluk.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                            {' · '}{PAF_GRUP_ADI.uygunsuzluk} {pafToplam.grup.uygunsuzluk.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                            {pafToplam.eksik > 0 && <span className="text-amber-700"> · {pafToplam.eksik} kalem girilmedi</span>}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="text-[11px] text-gray-600 dark:text-gray-300 mt-2">
+                            Girilen tutarlar <b>9.3.2.1 a)</b> maddesinde tablo ve grafik olarak görünür;
+                            YGG kaydıyla birlikte saklanır.
+                        </div>
+                    </div>
+                )}
+
                 {durum === 'hata' && (
                     <div className="mb-3 p-3 rounded bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                         Okunamadı: {hata}. <b>Kaydetmeyin</b> — kaydederseniz eski içeriğin üzerine yazılır.

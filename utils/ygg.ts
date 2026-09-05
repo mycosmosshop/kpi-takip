@@ -383,8 +383,9 @@ export const yggBolumleri = (
                         + `dış ${sayi(pafToplam.kategori.dis)} TL.`,
                        ...(pafToplam.eksik ? [`${pafToplam.eksik} PAF kalemi girilmemiştir; `
                            + 'toplam bu kadar eksiktir.'] : [])]
-                    : ['PAF kalemleri (önleme/değerleme) girilmemiş — aylık Kalite Raporu’nda '
-                        + 'doldurulunca bu maddede toplanır.']),
+                    : ['PAF kalemleri (önleme/değerleme) girilmemiş — YGG ekranındaki '
+                        + '“💰 Kalite maliyeti (PAF)” düğmesinden yıllık tutarları girin; aylık '
+                        + 'Kalite Raporu’nda girilenler de burada toplanır.']),
                 ...maliyetKpi.map(kpiSatir),
             ],
             `İç ve dış kalite maliyetleri gözden geçirilmiştir. İç başarısızlık (hurda, yeniden `

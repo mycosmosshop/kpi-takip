@@ -66,7 +66,10 @@ export const PAF_KATALOG: PafKalemTanim[] = [
     { id: 'd_tetkik', kategori: 'degerlendirme', ad: 'İç tetkik, ürün ve proses denetimleri', kaynak: 'elle', nereden: 'tetkikçi saati × saatlik maliyet' },
 
     // ── İÇ BAŞARISIZLIK: müşteriye ULAŞMADAN yakalanan hatalar ──
-    { id: 'i_hurda', kategori: 'ic', ad: 'Hurda ve fire (ürün maliyeti)', kaynak: 'erp', nereden: 'uygunsuzluk kayıtları × birim fiyat — ERP’den otomatik' },
+    { id: 'i_hurda', kategori: 'ic', ad: 'Hurda ve fire (ürün maliyeti)', kaynak: 'erp', nereden: 'iç başarısızlık uygunsuzlukları × birim fiyat — ERP’den otomatik' },
+    // Tedarikçiden gelen hatalı malzeme BİZİM tesisimizde yakalanır: iç
+    // başarısızlıktır. Dış başarısızlık, hatanın MÜŞTERİDE ortaya çıkmasıdır.
+    { id: 'i_tedarikci', kategori: 'ic', ad: 'Tedarikçi kaynaklı hatalı malzeme (tesiste yakalanan)', kaynak: 'erp', nereden: 'tedarikçi tipli uygunsuzluklar × birim fiyat — ERP’den otomatik (tedarikçiden tazmin edilen tutar varsa notta belirtin)' },
     { id: 'i_yeniden', kategori: 'ic', ad: 'Yeniden işleme / tamir işçiliği', kaynak: 'elle', nereden: 'yeniden işleme süresi × saatlik maliyet' },
     { id: 'i_sorting', kategori: 'ic', ad: '%100 ayıklama (sorting)', kaynak: 'elle', nereden: 'ayıklama personeli saati × saatlik maliyet' },
     { id: 'i_durus', kategori: 'ic', ad: 'Kalite kaynaklı duruş / hat kaybı', kaynak: 'elle', nereden: 'duruş süresi × makine saat maliyeti (CMMS/üretim kayıtları)' },

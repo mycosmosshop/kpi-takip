@@ -398,7 +398,11 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         const km = maliyet ? maliyetOzet(maliyet, lokasyon, yil, ay) : null;
         if (!km) return null;
         if (id === 'i_hurda') return Math.round(km.ic);
-        if (id === 'x_iade') return Math.round(km.dis + km.ted);   // tedarikçi kaynaklı iade de dış
+        // Tedarikçi kaynaklı hata BİZDE yakalanır → iç başarısızlık.
+        // Önceden dış başarısızlığa ekleniyordu; dış, hatanın MÜŞTERİDE
+        // ortaya çıkması demektir.
+        if (id === 'i_tedarikci') return Math.round(km.ted);
+        if (id === 'x_iade') return Math.round(km.dis);
         return null;
     };
 
