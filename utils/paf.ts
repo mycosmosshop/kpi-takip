@@ -132,11 +132,13 @@ export interface PafAksiyon { konu: string; sorumlu: string; termin: string; dur
 
 // PAF DENGESİNE göre aksiyon önerileri. Yalnızca veriden çıkan durumlar
 // için üretilir; kalem girilmemişse öneri de üretilmez.
-export const pafAksiyonlari = (o: PafOzet, yil: number, ay: number): PafAksiyon[] => {
+export const pafAksiyonlari = (
+    o: PafOzet, yil: number, ay: number, sorumlu = '',
+): PafAksiyon[] => {
     const a: PafAksiyon[] = [];
     if (o.toplam <= 0) return a;
     const termin = `${yil}-${String(Math.min(12, ay + 2)).padStart(2, '0')}-28`;
-    const ekle = (konu: string) => a.push({ konu, sorumlu: '', termin, durum: 'Planlandı' });
+    const ekle = (konu: string) => a.push({ konu, sorumlu, termin, durum: 'Planlandı' });
     const y = (v: number | null) => v === null ? '—' : v.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%';
 
     if ((o.basarisizlikPayi ?? 0) > 50) {

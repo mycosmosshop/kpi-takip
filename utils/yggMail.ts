@@ -28,6 +28,10 @@ export interface YggMailIstek {
     alicilar: string[];
     cc: string[];
     html: string;
+    // true ise yerel görev HTML'i PDF'e çevirip EK olarak gönderir
+    // (gövdede kısa bilgi kalır). Üretilemezse HTML gövdeyle gider.
+    pdf?: boolean;
+    dosyaAdi?: string;
 }
 
 export interface YggMailDurum {

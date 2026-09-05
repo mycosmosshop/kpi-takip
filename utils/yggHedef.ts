@@ -165,7 +165,9 @@ export interface HedefAksiyon { konu: string; sorumlu: string; termin: string; d
 
 // Termin: gelecek yılın ilk çeyrek sonu — YGG'de alınan aksiyonların
 // olağan takip dönemi. Kullanıcı değiştirebilir.
-export const hedefAksiyonlari = (satirlar: HedefSatiri[], yil: number): HedefAksiyon[] =>
+export const hedefAksiyonlari = (
+    satirlar: HedefSatiri[], yil: number, varsayilanSorumlu = '',
+): HedefAksiyon[] =>
     satirlar
         .filter(s => s.tuttu === false)      // veri yoksa (null) aksiyon açılmaz
         .sort((a, b) => (b.buGercek ?? 0) - (a.buGercek ?? 0))
@@ -173,7 +175,9 @@ export const hedefAksiyonlari = (satirlar: HedefSatiri[], yil: number): HedefAks
             konu: `${s.kpi.kpi_adi}: ${yil} gerçekleşen ${sayi(s.buGercek)} ${s.kpi.birim} `
                 + `(hedef ${sayi(s.buHedef)}) — ${aksiyonMetni(s.kpi)}. `
                 + `${yil + 1} hedefi: ${sayi(s.yeniHedef)}.`,
-            sorumlu: String(s.kpi.sorumlu || ''),   // yoksa BOŞ — isim uydurulmaz
+            // KPI'nın kendi sorumlusu varsa o, yoksa lokasyonun kalite
+            // mühendisi. Kadroda da yoksa BOŞ kalır — isim uydurulmaz.
+            sorumlu: String(s.kpi.sorumlu || varsayilanSorumlu || ''),
             termin: `${yil + 1}-03-31`,
             durum: 'Planlandı',
         }));

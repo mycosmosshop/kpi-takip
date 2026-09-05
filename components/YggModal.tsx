@@ -13,6 +13,7 @@ import {
     PafKalem, PafKategori, pafOzet, PAF_KATALOG, PAF_ADI, PAF_GRUP_ADI,
 } from '../utils/paf';
 import { katilimciCoz, YggKatilimci } from '../utils/ygg';
+import { yggKatilimcilari } from '../utils/kadro';
 // adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
 import { adGecer } from '../utils/aylikKalite';
 import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../utils/yggMail';
@@ -181,9 +182,15 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 setKatilanlar(o.katilanlar || '');
                 // Eski kayıtta yalnızca metin vardı; göç edilmezse
                 // katılımcılar boş görünürdü.
-                setKatilimcilar(Array.isArray(o.katilimcilar) && o.katilimcilar.length
+                const kayitli = Array.isArray(o.katilimcilar) && o.katilimcilar.length
                     ? o.katilimcilar as YggKatilimci[]
-                    : katilimciCoz(o.katilanlar || ''));
+                    : katilimciCoz(o.katilanlar || '');
+                // Hiç kayıt yoksa lokasyonun kadrosuyla başlat (utils/kadro.ts);
+                // kullanıcı düzenleyip silebilir, kayıtlı liste bir daha ezilmez.
+                setKatilimcilar(kayitli.length ? kayitli
+                    : yggKatilimcilari(lokasyonId || lokasyon).map((k, i) => ({
+                        id: 'kd_' + i, ad: k.ad, gorev: k.gorev, eposta: k.eposta,
+                    })));
                 setTarih(o.tarih || '');
                 setDurum('hazir');
             })
@@ -232,7 +239,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const katSil = (id: string) => setKatilimcilar(k => k.filter(x => x.id !== id));
 
     // ── Mail ──
-    const mailAlicilar = adresListesi(katilimcilar.map(k => k.eposta));
+    // Yalnızca kutucuğu işaretli katılımcılara gider (eski kayıtlarda
+    // alan yok: tanımsız = işaretli sayılır).
+    const mailAlicilar = adresListesi(
+        katilimcilar.filter(k => k.gonder !== false).map(k => k.eposta));
     const mailCcListe = adresListesi(mailCc);
 
     useEffect(() => {
@@ -262,6 +272,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 alicilar: mailAlicilar,
                 cc: mailCcListe,
                 html: raporHtml().replace('<h1>', not + '<h1>'),
+                pdf: true,
+                dosyaAdi: `YGG_${lokasyon}_${yil}`.replace(/[^\w\-]+/g, '_'),
             });
             setMailAcik(false);
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
@@ -521,7 +533,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                 <tr className="bg-white/60 dark:bg-gray-800/60">
                                     <th className="p-1 text-left">Ad Soyad</th>
                                     <th className="p-1 text-left w-1/3">Görev</th>
-                                    <th className="p-1 text-left w-1/3">E-posta (mail buraya gider)</th>
+                                    <th className="p-1 text-left w-1/3">E-posta</th>
+                                    <th className="p-1 text-center w-16" title="İşaretli olanlara rapor PDF olarak gönderilir">
+                                        📄 Gönder</th>
                                     <th className="w-6"></th>
                                 </tr>
                             </thead>
@@ -535,20 +549,30 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                         <td className="p-1"><input className={mini + ' w-full'} value={k.eposta} type="email"
                                             onChange={e => katGuncelle(k.id, 'eposta', e.target.value)} placeholder="ad@sanifoam.com.tr" /></td>
                                         <td className="p-1 text-center">
+                                            <input type="checkbox" className="w-4 h-4 accent-blue-600"
+                                                checked={k.gonder !== false && !!k.eposta.trim()}
+                                                disabled={!k.eposta.trim()}
+                                                title={k.eposta.trim()
+                                                    ? 'Rapor bu kişiye PDF olarak gönderilsin'
+                                                    : 'E-posta yazılmadan gönderilemez'}
+                                                onChange={e => setKatilimcilar(liste => liste.map(x =>
+                                                    x.id === k.id ? { ...x, gonder: e.target.checked } : x))} />
+                                        </td>
+                                        <td className="p-1 text-center">
                                             <button onClick={() => katSil(k.id)}
                                                 className="text-red-600 hover:text-red-800">✕</button>
                                         </td>
                                     </tr>
                                 ))}
                                 {katilimcilar.length === 0 && (
-                                    <tr><td colSpan={4} className="p-2 text-center text-gray-500">
+                                    <tr><td colSpan={5} className="p-2 text-center text-gray-500">
                                         Katılımcı eklenmedi. “＋ Katılımcı ekle” ile başlayın.
                                     </td></tr>
                                 )}
                             </tbody>
                         </table>
                         <div className="text-[11px] text-gray-600 dark:text-gray-300 mt-1">
-                            {mailAlicilar.length} geçerli e-posta
+                            {mailAlicilar.length} kişiye PDF olarak gönderilecek
                             {mailDurum?.sonGonderim && ` · son gönderim: ${mailDurum.sonGonderim}`}
                             {mailDurum?.istekDurum === 'kuyrukta' && ' · gönderim isteği kuyrukta'}
                         </div>

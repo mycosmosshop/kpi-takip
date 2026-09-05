@@ -17,6 +17,7 @@ import type { MaliyetAy } from './yggGrafik.ts';   // type: Node strip-types deg
 // bulamıyor ('İ'.toUpperCase() !== 'I') — aynı tuzak aylık raporda iki satırı
 // yanlış KPI'ya bağlamıştı.
 import { adGecer, tipEslesir, yerEslesir } from './aylikKalite.ts';
+import { kaliteSorumlusu } from './kadro.ts';
 import { hedefTablosu, hedefTabloHtml, hedefAksiyonlari } from './yggHedef.ts';
 import { pafGrafikHtml, pafTabloHtml, PAF_IATF_NOTU } from './paf.ts';
 import type { PafKalem, PafOzet } from './paf.ts';
@@ -41,6 +42,9 @@ export interface YggBolum {
 
 export interface YggKatilimci {
     id: string; ad: string; gorev: string; eposta: string;
+    // Rapor bu kişiye gönderilsin mi? Tanımsız = evet (eski kayıtlar
+    // gönderim dışı kalmasın). Kutucuk kaldırılırsa false olur.
+    gonder?: boolean;
 }
 
 // Eski kayıtlarda katılımcılar tek metin alanıydı ("Ali Veli, Ayşe Yılmaz").
@@ -131,7 +135,7 @@ export const yggBolumleri = (
     // Yeni yıl hedefleri: Yıl Karşılaştırma ekranıyla AYNI formül.
     const hedefler = hedefTablosu(kpis, multiYearData, yil);
     const tutmayanlar = hedefler.filter(h => h.tuttu === false);
-    const hedefAks = hedefAksiyonlari(hedefler, yil).map((a, i) => ({
+    const hedefAks = hedefAksiyonlari(hedefler, yil, kaliteSorumlusu(lokasyon)).map((a, i) => ({
         id: 'oneri_' + i, konu: a.konu, sorumlu: a.sorumlu, termin: a.termin, durum: a.durum,
     }));
 

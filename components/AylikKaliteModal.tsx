@@ -21,6 +21,7 @@ import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFil
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
 import { yggMailGonder, yggMailDurumOku, KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI }
     from '../utils/yggMail';
+import { kaliteSorumlusu } from '../utils/kadro';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
@@ -250,7 +251,8 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     // kanıt istendiğinde nereden indirileceği ve ay boyunca nasıl izleneceği
     // yazılı olsun. Sorumlu varsayılanı lokasyon kalite mühendisi; termin
     // rapor ayının son günü. Hepsi düzenlenebilir, satır silinebilir.
-    const SORUMLU = 'Lokasyon Kalite Mühendisi';
+    // Lokasyonun kalite mühendisi (utils/kadro.ts). Kadroda yoksa genel ifade kalır.
+    const SORUMLU = kaliteSorumlusu(lokasyonId || lokasyon);
     const aySonu = (): string => {
         const d = new Date(yil, ay, 0);       // ay 1-12 → o ayın son günü
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -422,7 +424,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     });
 
     // PAF dengesinden çıkan aksiyonlar rapora SATIR olarak eklenir.
-    const pafOneriler = useMemo(() => pafAksiyonlari(paf, yil, ay), [paf, yil, ay]);
+    const pafOneriler = useMemo(() => pafAksiyonlari(paf, yil, ay, SORUMLU), [paf, yil, ay, SORUMLU]);
 
     const pafOneriEkle = (konu: string, termin: string) => setSatirlar(x => (
         x.some(y => y.ozet === konu) ? x : [...x, {
