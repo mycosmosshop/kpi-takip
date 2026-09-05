@@ -13,6 +13,7 @@ import { buildFr100Html } from './utils/fr100Html';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import YearComparisonModal from './components/YearComparisonModal';
+import YggModal from './components/YggModal';
 import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
@@ -1451,6 +1452,17 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     multiYearData={allKpiData}
                     initialKpiId={modal.data?.kpiId}
+                />
+            )}
+            {modal.type === 'ygg' && (
+                <YggModal
+                    isOpen={modal.type === 'ygg'}
+                    onClose={handleCloseModal}
+                    kpis={processedKpis}
+                    aksiyonlar={currentActionData.items || []}
+                    multiYearData={allKpiData}
+                    lokasyon={currentLocation}
+                    yil={currentYear}
                 />
             )}
             {modal.type === 'year-comparison' && (
