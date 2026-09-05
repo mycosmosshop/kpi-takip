@@ -11,6 +11,13 @@
 // firmanın YGG şablonundan gelir; kullanıcı üzerine yazana kadar taslaktır.
 import type { Kpi, ActionItem, MultiYearKpiData, Dof } from '../types';
 import { karsilastir, hedefDegisimi } from './yilKarsilastirma.ts';
+import { bolumGrafikHtml, maliyetGrafikHtml } from './yggGrafik.ts';
+import type { MaliyetAy } from './yggGrafik.ts';   // type: Node strip-types deger sanmasin
+// adGecer: Türkçe İ/ı katlayan ad araması. Regex'in /i bayrağı "İç PPM"i
+// bulamıyor ('İ'.toUpperCase() !== 'I') — aynı tuzak aylık raporda iki satırı
+// yanlış KPI'ya bağlamıştı.
+import { adGecer, tipEslesir, yerEslesir } from './aylikKalite.ts';
+import type { MaliyetSatir } from './kaliteMaliyet.ts';
 
 export interface YggAksiyon {
     id: string; konu: string; sorumlu: string; termin: string; durum: string;
@@ -22,6 +29,7 @@ export interface YggBolum {
     baslik: string;
     otomatik: string[];     // canlı veriden (salt okunur)
     varsayilanMetin: string;// standart YGG metni (düzenlenebilir taslak)
+    grafik?: string;        // maddeye ait grafik (HTML; canlı, KAYDEDİLMEZ)
     sabit: boolean;         // standart madde mi (silinse de geri gelmez, işaretlenir)
 }
 
@@ -52,6 +60,7 @@ export const yggBolumleri = (
     kpis: Kpi[],
     aksiyonlar: ActionItem[],
     multiYearData: MultiYearKpiData,
+    maliyet?: MaliyetSatir[],
 ): YggBolum[] => {
     const d = durumSay(kpis);
     const basarisizlar = kpis.filter(k => k.durum === 'basarisiz');
@@ -75,14 +84,54 @@ export const yggBolumleri = (
     const bitenAks = aksiyonlar.filter(a => a.done);
     const gecikenAks = aksiyonlar.filter(a => !a.done && a.due && a.due < new Date().toISOString().slice(0, 10));
 
-    const kpiAra = (re: RegExp) => kpis.filter(k => re.test(k.kpi_adi || ''));
+    const kpiAra = (kelimeler: string[]) =>
+        kpis.filter(k => adGecer(k.kpi_adi || '', kelimeler));
     const kpiSatir = (k: Kpi) => `${k.kpi_adi}: ${sayi(k.ortalama)} ${k.birim} `
         + `(hedef ${sayi(k.yeni_yil_hedef)}) — `
         + (k.durum === 'basarili' ? 'hedefte' : k.durum === 'marjinal' ? 'marjinal' : 'hedef dışı');
 
     const B = (id: string, madde: string, baslik: string,
-        otomatik: string[], varsayilanMetin: string): YggBolum =>
-        ({ id, madde, baslik, otomatik, varsayilanMetin, sabit: true });
+        otomatik: string[], varsayilanMetin: string, grafik?: string): YggBolum =>
+        ({ id, madde, baslik, otomatik, varsayilanMetin, grafik, sabit: true });
+
+    // Maddeye ait KPI kümeleri (grafikler bunlardan çizilir)
+    // DİKKAT: 'iade ppm' kelimesi burada ARANMAZ. Türkçe katlamayla
+    // "Toplam İade PPM" de eşleşirdi; o KPI MÜŞTERİ iade PPM'idir,
+    // tedarikçi performansı maddesine yazılması yanlış olurdu.
+    const tedKpi = kpis.filter(k => k.kaynak?.type === 'tedarikci'
+        || adGecer(k.kpi_adi || '', ['tedarik']));
+    const bakimKpi = kpis.filter(k => k.kaynak?.type === 'cmms'
+        || adGecer(k.kpi_adi || '', ['mttr', 'mtbf', 'arıza', 'bakım']));
+    const memnuniyetKpi = kpiAra(['memnuniyet', 'müşteri şikayet', 'şikayet']);
+    const egitimKpi = kpis.filter(k => k.kaynak?.type === 'egitim'
+        || adGecer(k.kpi_adi || '', ['eğitim', 'polivalans', 'devamsızlık', 'turnover']));
+    const uygunlukKpi = kpiAra(['ppm', 'hurda', 'iade', 'fire', 'uygunsuzluk']);
+    const verimlilikKpi = kpiAra(['verimlilik', 'oee', 'kapasite', 'doluluk', 'fire']);
+    const maliyetKpi = kpiAra(['maliyet', 'kalitesizlik', 'hurda']);
+
+    // Kalite maliyeti: lokasyonun bu yılki aylık TL'si (kaynak: egt_ayar)
+    const maliyetAylik: MaliyetAy[] = [];
+    let maliyetToplam = 0, maliyetIc = 0, maliyetDis = 0, maliyetTed = 0, maliyetEslesmeyen = 0;
+    if (maliyet && maliyet.length) {
+        for (let a = 1; a <= 12; a++) {
+            const m: MaliyetAy = { ay: a, ic: 0, dis: 0, ted: 0, diger: 0 };
+            let varMi = false;
+            maliyet.forEach(r => {
+                if (Number(r.yil) !== yil || Number(r.ay) !== a) return;
+                if (!yerEslesir(r.yer || '', lokasyon)) return;
+                varMi = true;
+                const t = Number(r.tutar) || 0;
+                if (tipEslesir(r.tip || '', 'ic')) m.ic += t;
+                else if (tipEslesir(r.tip || '', 'dis')) m.dis += t;
+                else if (tipEslesir(r.tip || '', 'ted')) m.ted += t;
+                else m.diger += t;
+                maliyetEslesmeyen += Number(r.eslesmeyen) || 0;
+            });
+            if (varMi) maliyetAylik.push(m);
+            maliyetIc += m.ic; maliyetDis += m.dis; maliyetTed += m.ted;
+            maliyetToplam += m.ic + m.dis + m.ted + m.diger;
+        }
+    }
 
     const L = lokasyon;
     return [
@@ -108,16 +157,23 @@ export const yggBolumleri = (
             `İç ve dış hususlar gözden geçirildi. ${L} lokasyonunda kalite yönetim sistemini `
             + `etkileyen organizasyonel değişiklikler, sertifikasyon durumu, yasal ve mevzuat `
             + `şartlarındaki değişiklikler ile müşteri özel gereksinimlerindeki (CSR) güncellemeler `
-            + `değerlendirilmiştir. Sistemi olumsuz etkileyen bir değişiklik tespit edilmemiştir.`),
+            + `değerlendirilmiştir. Bir kısım müşterimizin özel gereksinimi doğrultusunda `
+            + `BİLİMSEL VE TEKNOLOJİK GELİŞMELER de dış husus olarak izlenmektedir: sektörel `
+            + `standart ve yönetmelik güncellemeleri (yanmazlık, VOC/koku, geri dönüştürülebilirlik), `
+            + `hammadde ve proses teknolojilerindeki yenilikler, ölçüm/test tekniklerindeki `
+            + `gelişmeler, dijitalleşme ve otomasyon uygulamaları ile üniversite/lab ve tedarikçi `
+            + `kaynaklı Ar-Ge çalışmaları takip edilmiş; ürün ve proseslerimize etkisi olabilecek `
+            + `gelişmeler iyileştirme fırsatı olarak (md. 9.3.2 f) değerlendirmeye alınmıştır. `
+            + `Sistemi olumsuz etkileyen bir değişiklik tespit edilmemiştir.`),
 
         B('girdi_c1', '9.3.2 c) 1', 'İlgili taraflardan müşteri memnuniyeti ve geri bildirim',
             (() => {
-                const m = kpiAra(/memnuniyet|müşteri şikayet|musteri sikayet/i);
-                return m.length ? m.map(kpiSatir) : [];
+                return memnuniyetKpi.length ? memnuniyetKpi.map(kpiSatir) : [];
             })(),
             `Paydaş ve müşteri geri bildirimleri gözden geçirildi. ${L} lokasyonuna ait müşteri `
             + `memnuniyet anketleri, portal puanları ve geri bildirimler değerlendirilmiş; `
-            + `memnuniyetsizlik bildirilen konular için düzeltici faaliyet başlatılmıştır.`),
+            + `memnuniyetsizlik bildirilen konular için düzeltici faaliyet başlatılmıştır.`,
+            bolumGrafikHtml(memnuniyetKpi, yil, 'Müşteri memnuniyeti / şikayet KPI’ları')),
 
         B('girdi_c2', '9.3.2 c) 2', 'Kalite hedeflerinin ne ölçüde karşılandığı',
             [
@@ -176,20 +232,22 @@ export const yggBolumleri = (
 
         B('girdi_c7', '9.3.2 c) 7', 'Dış sağlayıcıların (tedarikçi) performansı',
             (() => {
-                const ted = kpis.filter(k => k.kaynak?.type === 'tedarikci' || /tedarik|iade ppm/i.test(k.kpi_adi || ''));
-                return ted.length ? ted.map(kpiSatir) : [];
+                return tedKpi.length ? tedKpi.map(kpiSatir) : [];
             })(),
             `Tedarikçi performansları gözden geçirildi. Onaylı Tedarikçi Değerlendirme sistemi `
             + `üzerinden tedarikçi puanları, iade PPM ve termin performansları değerlendirilmiş; `
             + `hedefin altında kalan tedarikçilere düzeltici faaliyet talebi açılmış ve gelişim `
-            + `planı oluşturulmuştur.`),
+            + `planı oluşturulmuştur.`,
+            bolumGrafikHtml(tedKpi, yil, 'Onaylı tedarikçi performans KPI’ları')),
 
         B('girdi_d', '9.3.2 d)', 'Kaynakların yeterliliği',
             [],
             `Kaynaklar konusu gözden geçirilmiş ve terminler planlanmıştır. ${L} lokasyonunda `
             + `insan kaynağı, yetkinlik ve eğitim durumu, makine/teçhizat kapasitesi, altyapı ve `
             + `çalışma ortamı değerlendirilmiştir. Ürün güvenliğinin sağlanması için gereken `
-            + `kaynaklar ayrıca ele alınmış; kaynaklar yeterli bulunmuştur.`),
+            + `kaynaklar (yetkin personel, ölçüm/test altyapısı, yanmazlık testleri için `
+            + `dış laboratuvar hizmeti dâhil) ayrıca ele alınmış; kaynaklar yeterli bulunmuştur.`,
+            bolumGrafikHtml(egitimKpi, yil, 'İnsan kaynağı / eğitim KPI’ları')),
 
         B('girdi_e', '9.3.2 e)', 'Risk ve fırsatlar için alınan önlemlerin etkinliği (md. 6.1)',
             [],
@@ -212,14 +270,30 @@ export const yggBolumleri = (
             ],
             `İyileştirme için FR100 KPI takip formunda ${yil + 1} dönemi yeni hedefleri `
             + `belirlenmiştir. Kaynaklarla ilgili terminler planlanmış, iyileştirme projeleri `
-            + `sorumlu ve termin bazında aşağıdaki aksiyon tablosuna işlenmiştir.`),
+            + `sorumlu ve termin bazında aşağıdaki aksiyon tablosuna işlenmiştir. İzlenen `
+            + `bilimsel ve teknolojik gelişmeler (md. 9.3.2 b) iyileştirme fırsatı olarak `
+            + `değerlendirilmiş; uygulanabilir bulunanlar için fizibilite ve deneme planı `
+            + `oluşturulmuştur.`),
 
         // ── IATF 16949 md. 9.3.2.1 — tamamlayıcı girdiler ──
         B('iatf_a', '9.3.2.1 a)', 'Düşük kalite maliyeti (dahili ve harici uygunsuzluk maliyeti)',
-            (() => { const m = kpiAra(/maliyet|kalitesizlik|hurda/i); return m.length ? m.map(kpiSatir) : []; })(),
+            [
+                ...(maliyetAylik.length
+                    ? [`${yil} kalite maliyeti (uygunsuzluk × birim fiyat): `
+                        + `toplam ${sayi(maliyetToplam)} TL — iç ${sayi(maliyetIc)} TL, `
+                        + `dış ${sayi(maliyetDis)} TL, tedarikçi ${sayi(maliyetTed)} TL.`,
+                       ...(maliyetEslesmeyen
+                           ? [`${maliyetEslesmeyen} uygunsuzluk kaydının birim fiyatı bulunamadığı `
+                              + `için maliyete katılmamıştır (tutar bu kadar eksiktir).`]
+                           : [])]
+                    : ['Kalite maliyeti verisi çekilmemiş (LeanSys ajanı /kmaliyet).']),
+                ...maliyetKpi.map(kpiSatir),
+            ],
             `İç ve dış kalite maliyetleri gözden geçirilmiştir. İç başarısızlık (hurda, yeniden `
-            + `işleme, fire) ve dış başarısızlık (iade, müşteri şikayeti, nakliye) maliyetlerinin `
-            + `ciroya oranı hesaplanmış; FR100 ve FR001 formlarına işlenmiştir.`),
+            + `işleme, fire) ve dış başarısızlık (iade, müşteri şikayeti, nakliye) maliyetleri `
+            + `uygunsuzluk kayıtlarının birim fiyatlarla değerlenmesiyle hesaplanmış, bütçeye/ciroya `
+            + `oranı değerlendirilmiş; FR100 ve FR001 formlarına işlenmiştir.`,
+            maliyetGrafikHtml(maliyetAylik, yil)),
 
         B('iatf_b', '9.3.2.1 b)', 'Süreç etkinliğinin ölçümü',
             Array.from(prosesler.entries()).map(([p, list]) => {
@@ -233,16 +307,17 @@ export const yggBolumleri = (
             + `süreçler için iyileştirme aksiyonu tanımlanmıştır.`),
 
         B('iatf_c', '9.3.2.1 c)', 'Proses verimliliği ölçümleri',
-            (() => { const m = kpiAra(/verimlilik|oee|kapasite|doluluk|fire/i); return m.length ? m.map(kpiSatir) : []; })(),
+            verimlilikKpi.map(kpiSatir),
             `Proses verimliliği ölçümleri gözden geçirilmiştir. ${L} lokasyonundaki hat doluluk `
             + `oranları, çevrim süreleri, kapasite kullanımı ve fire oranları değerlendirilmiş; `
             + `darboğaz oluşturan proseslerde iyileştirme planlanmıştır.`),
 
         B('iatf_d', '9.3.2.1 d)', 'Ürün uygunluğu',
-            [],
+            uygunlukKpi.map(kpiSatir),
             `Ürünle ilgili şikayetler gözden geçirilmiştir. Ürün şikayetleri ve uygunsuzlukların `
             + `ürün güvenliği üzerindeki etkileri değerlendirilmiş; kritik karakteristik (CC/SC) `
-            + `taşıyan ürünlerde uygunsuzluk tespit edilmemiştir.`),
+            + `taşıyan ürünlerde uygunsuzluk tespit edilmemiştir.`,
+            bolumGrafikHtml(uygunlukKpi, yil, 'Ürün uygunluğu KPI’ları (PPM / hurda / iade)')),
 
         B('iatf_e', '9.3.2.1 e)', 'Operasyon değişiklikleri ve imalat fizibilite değerlendirmeleri (md. 7.1.3.1)',
             [],
@@ -258,12 +333,12 @@ export const yggBolumleri = (
 
         B('iatf_g', '9.3.2.1 g)', 'Bakım hedeflerine göre performansın gözden geçirilmesi',
             (() => {
-                const b = kpis.filter(k => k.kaynak?.type === 'cmms' || /mttr|mtbf|arıza|bakım/i.test(k.kpi_adi || ''));
-                return b.length ? b.map(kpiSatir) : [];
+                return bakimKpi.length ? bakimKpi.map(kpiSatir) : [];
             })(),
             `MTTR ve MTBF hedefleri gözden geçirilmiştir. Planlı bakım uyum oranı, arıza sıklığı `
             + `ve müdahale süreleri değerlendirilmiş; hedefin dışında kalan makineler için `
-            + `önleyici bakım planı revize edilmiştir.`),
+            + `önleyici bakım planı revize edilmiştir.`,
+            bolumGrafikHtml(bakimKpi, yil, 'Bakım KPI’ları (MTTR / MTBF / arıza)')),
 
         B('iatf_h', '9.3.2.1 h)', 'Garanti performansı (varsa)',
             [],
@@ -291,6 +366,33 @@ export const yggBolumleri = (
             + `bir etki oluşturacak durum gözlemlenmemiştir. Ürün güvenliği ile ilgili risklerin `
             + `izlenmesine ve gerekli durumlarda FMEA, kontrol planı ve proseslere geri besleme `
             + `yapılmasına devam edilmektedir.`),
+
+        B('urun_guvenligi', '4.4.1.2', 'Ürün güvenliği ve yanmazlık (yanma) testleri',
+            [],
+            `Ürün güvenliği prosesi IATF 16949 md. 4.4.1.2 kapsamında gözden geçirilmiştir. `
+            + `${L} lokasyonunda üretilen/işlenen ürünler için ürün güvenliğine ilişkin yasal `
+            + `ve müşteri şartları belirlenmiş; ürün güvenliği sorumlusu atanmış ve ilgili `
+            + `personelin yetkinliği (ürün güvenliği eğitimi) güncel tutulmuştur.
+
+`
+            + `YANMAZLIK (YANMA) TESTLERİ: Otomotiv iç mekân malzemelerinde yanma hızı şartı `
+            + `(FMVSS 302 / ISO 3795 / DIN 75200 ve müşteri özel standartları) kritik `
+            + `karakteristik olarak izlenmektedir. İlgili ürünlerin yanma testleri kontrol `
+            + `planında tanımlı periyotta yapılmış, sonuçlar müşteri/standart limitlerinin `
+            + `içinde kalmıştır. Dış laboratuvar raporları ve parti bazlı test kayıtları `
+            + `gözden geçirilmiş olup ${L} lokasyonu için bu dönemde yanmazlık testlerine `
+            + `ilişkin herhangi bir uygunsuzluk, limit aşımı, müşteri şikayeti veya geri `
+            + `çağırma bulunmamaktadır; ürün güvenliği açısından bir problem tespit `
+            + `edilmemiştir.
+
+`
+            + `Ayrıca ürün güvenliği kapsamında; kritik karakteristiklerin (CC/SC) kontrol `
+            + `planına ve FMEA'ya yansıtılması, izlenebilirlik (parti/lot takibi) ve blokaj/`
+            + `geri çağırma prosedürünün işlerliği, tedarikçi zincirinde ürün güvenliği `
+            + `şartlarının aktarılması, özel karakteristikli proseslerde reaksiyon planları ve `
+            + `müşteriye/yasal mercilere bildirim (eskalasyon) süreci değerlendirilmiş; `
+            + `sistem etkin bulunmuştur. Ürün güvenliğini etkileyebilecek bir değişiklik `
+            + `olması hâlinde FMEA, kontrol planı ve testler yeniden gözden geçirilecektir.`),
 
         B('kalite_politikasi', 'Ek', 'Kalite politikasının uygunluğunun gözden geçirilmesi',
             [],

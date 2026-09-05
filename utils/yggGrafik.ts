@@ -108,3 +108,105 @@ export const kpiGrafikHtml = (kpis: Kpi[], yil: number): string => {
       </table>
     </div>`;
 };
+
+// ── Bölüm grafiği: ilgili KPI'ların 12 aylık seyri ──
+// YGG'de "bakım hedefleri", "tedarikçi performansı" gibi maddeler kendi
+// verisini kendi maddesinde göstermeli; genel grafik bunu karşılamıyor.
+// Her KPI kendi ölçeğinde çizilir (birimler farklı), hedefi tutan ay yeşil.
+export const hedefiTuttu = (k: Kpi, v: number): boolean => {
+    const h = Number(k.yeni_yil_hedef);
+    switch (k.karsilastirma) {
+        case '<=': return v <= h;
+        case '<': return v < h;
+        case '>': return v > h;
+        case '=': return v === h;
+        default: return v >= h;
+    }
+};
+
+export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): string => {
+    if (!kpis || !kpis.length) return '';
+    const satirlar = kpis.slice(0, 8).map(k => {
+        const degerler = AYLAR.map(ay => {
+            const v = k.aylik ? k.aylik[ay] : null;
+            return (v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+        });
+        const dolu = degerler.filter(v => v !== null) as number[];
+        // Ölçek: KPI'nın kendi en büyük değeri VE hedefi. Hedef ölçeğe
+        // katılmazsa hedef çizgisi çerçevenin dışında kalır.
+        const enBuyuk = Math.max(...dolu.map(Math.abs), Math.abs(Number(k.yeni_yil_hedef) || 0), 1);
+        const hedefY = Math.min(Math.abs(Number(k.yeni_yil_hedef) || 0) / enBuyuk, 1) * 100;
+        const kutu = degerler.map((v, i) => {
+            if (v === null) {
+                return `<div style="flex:1;min-width:0;height:34px;border-bottom:1px solid #e5e7eb"
+                    title="${esc(AYLAR[i])}: veri yok"></div>`;
+            }
+            const y = Math.max((Math.abs(v) / enBuyuk) * 100, 2);
+            const iyi = hedefiTuttu(k, v);
+            return `<div style="flex:1;min-width:0;height:34px;display:flex;align-items:flex-end;
+                border-bottom:1px solid #e5e7eb" title="${esc(AYLAR[i])}: ${esc(sayi(v))} ${esc(k.birim)}">
+                <div style="width:78%;margin:0 auto;height:${y}%;border-radius:2px 2px 0 0;
+                background:${iyi ? RENK.basarili : RENK.basarisiz}"></div></div>`;
+        }).join('');
+        return `<tr>
+            <td style="padding:2px 6px;font-size:9pt;white-space:nowrap;max-width:190px;
+                overflow:hidden;text-overflow:ellipsis">${esc(k.kpi_adi)}
+                <span style="color:#888">(${esc(k.birim)})</span></td>
+            <td style="padding:2px 4px">
+              <div style="position:relative;display:flex;gap:2px">
+                ${kutu}
+                <div style="position:absolute;left:0;right:0;bottom:${hedefY}%;height:0;
+                  border-top:1px dashed #444" title="Hedef ${esc(sayi(k.yeni_yil_hedef))}"></div>
+              </div>
+            </td>
+            <td style="padding:2px 6px;text-align:right;font-size:9pt;white-space:nowrap">
+              ${esc(sayi(k.ortalama))} / ${esc(sayi(k.yeni_yil_hedef))}</td>
+          </tr>`;
+    }).join('');
+
+    return `<div style="margin:6px 0 10px">
+        <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">${esc(baslik)} — ${yil} aylık seyir</div>
+        <table style="border-collapse:collapse;width:100%"><tbody>${satirlar}</tbody></table>
+        <div style="display:flex;gap:2px;margin-left:0">
+          ${AYLAR.map(a => `<div style="flex:1;text-align:center;font-size:7.5pt;color:#999">${esc(a.slice(0, 1))}</div>`).join('')}
+        </div>
+        <div style="font-size:8pt;color:#888;margin-top:2px">
+          Kesikli çizgi = hedef · yeşil: o ay hedefi tuttu · boş sütun: veri girilmemiş
+          ${kpis.length > 8 ? ` · ilk 8 KPI gösteriliyor (${kpis.length} KPI)` : ''}
+        </div>
+      </div>`;
+};
+
+// ── Kalite maliyeti grafiği: aylık TL, tip kırılımı yığılmış ──
+export interface MaliyetAy { ay: number; ic: number; dis: number; ted: number; diger: number; }
+
+export const maliyetGrafikHtml = (aylik: MaliyetAy[], yil: number): string => {
+    if (!aylik || !aylik.length) return '';
+    const top = (m: MaliyetAy) => m.ic + m.dis + m.ted + m.diger;
+    const enBuyuk = Math.max(...aylik.map(top), 1);
+    const parca = (v: number, renk: string, ad: string, m: MaliyetAy) =>
+        v <= 0 ? '' : `<div style="height:${(v / enBuyuk) * 100}%;background:${renk}"
+            title="${esc(AYLAR[m.ay - 1])} ${esc(ad)}: ${esc(sayi(v))} TL"></div>`;
+    const sutun = aylik.map(m => `<div style="flex:1;text-align:center;min-width:0">
+        <div style="height:76px;display:flex;flex-direction:column-reverse;justify-content:flex-start">
+          ${parca(m.ted, '#ef4444', 'tedarikçi', m)}
+          ${parca(m.dis, '#f59e0b', 'dış', m)}
+          ${parca(m.ic, '#3b82f6', 'iç', m)}
+          ${parca(m.diger, '#9ca3af', 'diğer', m)}
+        </div>
+        <div style="font-size:8.5pt;color:#555;border-top:1px solid #ccc">${esc(AYLAR[m.ay - 1].slice(0, 3))}</div>
+      </div>`).join('');
+    const toplam = aylik.reduce((s, m) => s + top(m), 0);
+    return `<div style="margin:6px 0 10px">
+        <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">
+          ${yil} kalite maliyeti (TL) — toplam ${esc(sayi(toplam))} TL</div>
+        <div style="display:flex;gap:3px;align-items:flex-end">${sutun}</div>
+        <div style="font-size:8pt;color:#888;margin-top:3px">
+          <span style="color:#3b82f6">■</span> iç başarısızlık
+          <span style="color:#f59e0b">■</span> dış başarısızlık
+          <span style="color:#ef4444">■</span> tedarikçi
+          <span style="color:#9ca3af">■</span> diğer
+          · birim fiyatı bulunamayan kayıtlar maliyete girmez
+        </div>
+      </div>`;
+};

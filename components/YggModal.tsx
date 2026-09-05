@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
+import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
 import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
 import Modal from './Modal';
@@ -29,12 +30,26 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [tarih, setTarih] = useState('');
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
+    // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
+    // uydurma tutar yazmaz.
+    const [maliyet, setMaliyet] = useState<MaliyetSatir[] | undefined>(undefined);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let iptal = false;
+        maliyetCek().then(d => { if (!iptal) setMaliyet(d); }).catch(() => { if (!iptal) setMaliyet([]); });
+        return () => { iptal = true; };
+    }, [isOpen]);
 
     const anahtar = yggAnahtar(lokasyon, yil);
     const standart = useMemo(
-        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData),
-        [lokasyon, yil, kpis, aksiyonlar, multiYearData]);
+        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet),
+        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet]);
     const otoHarita = useMemo(() => new Map(standart.map(b => [b.id, b.otomatik])), [standart]);
+    // Madde grafikleri (bakım, tedarikçi, maliyet…) — canlı, kaydedilmez.
+    const grafikHarita = useMemo(
+        () => new Map(standart.filter(b => b.grafik).map(b => [b.id, b.grafik as string])),
+        [standart]);
     // Grafik HTML'i TEK yerde uretilir; hem ekranda hem yazdirmada ayni.
     const grafik = useMemo(() => kpiGrafikHtml(kpis, yil), [kpis, yil]);
 
@@ -109,6 +124,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             return `<h3><span class="md">${esc(b.madde)}</span> ${esc(b.baslik)}</h3>
                 ${b.metin ? `<p>${esc(b.metin).replace(/\n/g, '<br>')}</p>` : ''}
                 ${oto.length ? `<ul class="oto">${oto.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+                ${grafikHarita.get(b.id) || ''}
                 ${aks}`;
         }).join('');
         w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8">
@@ -224,6 +240,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                     <ul className="list-disc ml-5 mt-2 text-xs text-gray-700 dark:text-gray-300">
                                         {oto.map((x, i) => <li key={i} className="my-0.5">{x}</li>)}
                                     </ul>
+                                )}
+                                {/* Maddeye ait grafik: yazdırmadakiyle AYNI üreticiden. */}
+                                {grafikHarita.get(b.id) && (
+                                    <div className="mt-2 p-2 rounded bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700"
+                                        dangerouslySetInnerHTML={{ __html: grafikHarita.get(b.id) as string }} />
                                 )}
 
                                 {b.aksiyonlar.length > 0 && (
