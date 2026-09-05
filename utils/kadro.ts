@@ -43,6 +43,7 @@ const FABRIKA_MUDURU: Record<string, Kisi> = {
 
 /** Her lokasyonun YGG'sine katılanlar. */
 const HERKESE: Kisi[] = [
+    { ad: 'Volkan Pekatik', gorev: 'Kalite Güvence Müdürü', eposta: 'volkan.pekatik@sanifoam.com.tr' },
     { ad: 'Yıldırım Ulkat', gorev: 'Yönetim Kurulu Başkanı', eposta: 'yildirim.ulkat@sanifoam.com.tr' },
     { ad: 'Emrah Eryılmaz', gorev: 'Genel Müdür', eposta: 'emrah.eryilmaz@sanifoam.com.tr' },
     { ad: 'Ünal Ürkmez', gorev: 'Üretim Koordinatörü', eposta: 'unal.urkmez@sanifoam.com.tr' },
