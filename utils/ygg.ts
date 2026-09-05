@@ -33,6 +33,8 @@ export interface YggBolum {
     otomatik: string[];     // canlı veriden (salt okunur)
     varsayilanMetin: string;// standart YGG metni (düzenlenebilir taslak)
     grafik?: string;        // maddeye ait grafik (HTML; canlı, KAYDEDİLMEZ)
+    grafikYazdir?: string;  // yazdırma sürümü: ekranda katlanan tablolar burada AÇIK
+                            // (kapalı <details> içeriği çıktıya basılmıyor)
     oneriler?: YggAksiyon[];// ÖNERİLEN aksiyonlar (kullanıcı onaylayıp ekler)
     sabit: boolean;         // standart madde mi (silinse de geri gelmez, işaretlenir)
 }
@@ -123,8 +125,8 @@ export const yggBolumleri = (
 
     const B = (id: string, madde: string, baslik: string,
         otomatik: string[], varsayilanMetin: string, grafik?: string,
-        oneriler?: YggAksiyon[]): YggBolum =>
-        ({ id, madde, baslik, otomatik, varsayilanMetin, grafik, oneriler, sabit: true });
+        oneriler?: YggAksiyon[], grafikYazdir?: string): YggBolum =>
+        ({ id, madde, baslik, otomatik, varsayilanMetin, grafik, grafikYazdir, oneriler, sabit: true });
 
     // Yeni yıl hedefleri: Yıl Karşılaştırma ekranıyla AYNI formül.
     const hedefler = hedefTablosu(kpis, multiYearData, yil);
@@ -395,9 +397,14 @@ export const yggBolumleri = (
             + `modeline göre ayrılmıştır: uygunluk maliyeti (önleme + değerleme) bir YATIRIM, `
             + `uygunsuzluk maliyeti (iç + dış başarısızlık) bir KAYIPTIR; önlemeye ayrılan pay `
             + `başarısızlık maliyetini katlayarak düşürür (1-10-100 kuralı). ${PAF_IATF_NOTU}`,
+            // Ekranda kalem tablosu KATLANIR (ok ile açılır); yazdırmada açık.
             maliyetGrafikHtml(maliyetAylik, yil)
             + (pafToplam && pafToplam.girilen > 0
-                ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam) : '')),
+                ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam, true) : ''),
+            undefined,
+            maliyetGrafikHtml(maliyetAylik, yil)
+            + (pafToplam && pafToplam.girilen > 0
+                ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam, false) : '')),
 
         B('iatf_b', '9.3.2.1 b)', 'Süreç etkinliğinin ölçümü',
             Array.from(prosesler.entries()).map(([p, list]) => {

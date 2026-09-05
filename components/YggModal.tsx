@@ -134,6 +134,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const grafikHarita = useMemo(
         () => new Map(standart.filter(b => b.grafik).map(b => [b.id, b.grafik as string])),
         [standart]);
+    // Yazdırma sürümü: ekranda katlanan tablolar burada AÇIK basılır.
+    const grafikYazdirHarita = useMemo(
+        () => new Map(standart.map(b => [b.id, (b.grafikYazdir || b.grafik || '') as string])),
+        [standart]);
     // Önerilen aksiyonlar: KULLANICI ONAYLAYINCA rapora girer. Otomatik
     // eklenseydi, kimsenin taahhüt etmediği aksiyon kayda geçerdi.
     const oneriHarita = useMemo(
@@ -304,7 +308,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             return `<h3><span class="md">${esc(b.madde)}</span> ${esc(b.baslik)}</h3>
                 ${b.metin ? `<p>${esc(b.metin).replace(/\n/g, '<br>')}</p>` : ''}
                 ${oto.length ? `<ul class="oto">${oto.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-                ${grafikHarita.get(b.id) || ''}
+                ${grafikYazdirHarita.get(b.id) || ''}
                 ${aks}`;
         }).join('');
         return `<!doctype html><html lang="tr"><head><meta charset="utf-8">

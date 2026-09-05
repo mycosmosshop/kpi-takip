@@ -172,7 +172,13 @@ const tl = (n: number | null): string =>
     n === null || n === undefined ? '—'
         : Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL';
 
-export const pafTabloHtml = (kalemler: PafKalem[], o: PafOzet): string => {
+// katlanabilir=true → ekranda <details> (varsayılan KAPALI, ok ile açılır).
+// Yazdırma/mail için false: kapalı <details> içeriği çıktıya BASILMIYOR
+// (Chrome content-visibility'yi CSS ile açtırmıyor — denendi), rapor eksik
+// çıkardı.
+export const pafTabloHtml = (
+    kalemler: PafKalem[], o: PafOzet, katlanabilir = false,
+): string => {
     const harita = new Map((kalemler || []).map(k => [k.id, k]));
     const satir = (t: PafKalemTanim): string => {
         const k = harita.get(t.id);
@@ -196,10 +202,20 @@ export const pafTabloHtml = (kalemler: PafKalem[], o: PafOzet): string => {
         </tr>
         ${PAF_KATALOG.filter(t => t.kategori === kat).map(satir).join('')}`;
 
-    return `<div style="margin:6px 0 10px">
-        <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">
-          Kalite maliyeti — PAF kırılımı (toplam ${esc(tl(o.toplam))})</div>
-        <table style="border-collapse:collapse;width:100%">
+    // Kalem tablosu KATLANABİLİR: ekranda grafik yeter, ayrıntı isteyen açar.
+    // <details> yerleşik HTML — JS gerekmez; yazdırmada CSS ile açılır
+    // (bkz. modallerin @media print kuralı), böylece çıktı eksilmez.
+    const bas = katlanabilir
+        ? `<details style="margin:6px 0 10px">
+            <summary style="font-size:9.5pt;font-weight:600;cursor:pointer;user-select:none">
+              Kalite maliyeti — PAF kalem tablosu (toplam ${esc(tl(o.toplam))}) · aç/kapa</summary>`
+        : `<div style="margin:6px 0 10px">
+            <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">
+              Kalite maliyeti — PAF kırılımı (toplam ${esc(tl(o.toplam))})</div>`;
+    const kapa = katlanabilir ? '</details>' : '</div>';
+
+    return `${bas}
+        <table style="border-collapse:collapse;width:100%;margin-top:4px">
           <thead><tr style="background:#f4f6f8;font-size:9pt">
             <th style="padding:3px 6px;text-align:left">Kalem</th>
             <th style="padding:3px 6px;text-align:right">Tutar</th>
@@ -222,7 +238,7 @@ export const pafTabloHtml = (kalemler: PafKalem[], o: PafOzet): string => {
           (LeanSys'te bu kalemlerin tutarı yoktur). ${o.eksik} kalem girilmemiştir —
           girilmeyen kalem 0 TL sayılmaz, toplam bu kadar eksiktir.
         </div>
-      </div>`;
+      ${kapa}`;
 };
 
 // ── PAF GRAFİĞİ ──
