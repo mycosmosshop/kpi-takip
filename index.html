@@ -706,6 +706,16 @@
        25: gövdedeki sticky sütunların (20) üstünde, başlığın sabit
        sütunlarının (30) altında — yana kaydırınca sıra bozulmasın. */
     .kpi-table thead th { z-index: 25; }
+    /* AMA basligin SABIT sutunlari ay basliklarinin USTUNDE kalmali.
+       Yukaridaki kural (0,1,2 ozgulluk) Tailwind'in .z-30 sinifini
+       (0,1,0) EZIYOR; hepsi 25'e dusunce yana kaydirmada DOM'da sonra
+       gelen ay basliklari "Proses / KPI Adi" uzerine biniyordu. */
+    .kpi-table thead th.sticky-col,
+    .kpi-table thead th.sticky-col-2,
+    .kpi-table thead th.sticky-col-3,
+    .kpi-table thead th.sticky-col-4,
+    .kpi-table thead th.sticky-col-right,
+    .kpi-table thead th.sticky-col-right-2 { z-index: 30; }
 
     /* 4) İçe giren satır metni: zoom’da sütunu taşırmasın, taşarsa üç nokta ile kesilsin */
     .kpi-table .cell,
