@@ -21,6 +21,7 @@ import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFil
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta } from '../utils/cloudSync';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
+import OtoTextarea from './OtoTextarea';
 
 interface Props {
     isOpen: boolean;
@@ -444,8 +445,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                     <td className="px-3 py-2">
                                         <input className={alan + ' font-medium'} value={s.kriter} placeholder="Kriter"
                                             onChange={e => guncelle(s.id, 'kriter', e.target.value)} />
-                                        <textarea rows={Math.min(14, Math.max(3, gosterilenOto(s).split('\n').length + 1))}
-                                            value={gosterilenOto(s)}
+                                        <OtoTextarea value={gosterilenOto(s)}
                                             onChange={e => guncelle(s.id, 'otoElle', e.target.value)}
                                             className="mt-1 w-full text-xs p-2 rounded bg-gray-100 dark:bg-gray-700
                                                 text-gray-700 dark:text-gray-200 border border-transparent
@@ -459,11 +459,11 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                         )}
                                     </td>
                                     <td className="px-2 py-2">
-                                        <textarea className={alan} rows={3} value={s.ozet}
+                                        <OtoTextarea className={alan} value={s.ozet}
                                             onChange={e => guncelle(s.id, 'ozet', e.target.value)} />
                                     </td>
                                     <td className="px-2 py-2">
-                                        <textarea className={alan} rows={3} value={s.aksiyon}
+                                        <OtoTextarea className={alan} value={s.aksiyon}
                                             onChange={e => guncelle(s.id, 'aksiyon', e.target.value)} />
                                     </td>
                                     <td className="px-2 py-2">

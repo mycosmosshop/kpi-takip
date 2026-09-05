@@ -15,6 +15,7 @@ import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../u
 import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
 import Modal from './Modal';
+import OtoTextarea from './OtoTextarea';
 
 interface Props {
     isOpen: boolean;
@@ -469,7 +470,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                     className="text-red-600 hover:text-red-800 px-1">✕</button>
                             </div>
                             <div className="px-3 py-2">
-                                <textarea className={alan} rows={3} value={b.metin}
+                                <OtoTextarea className={alan} value={b.metin}
                                     onChange={e => guncelle(b.id, 'metin', e.target.value)}
                                     placeholder="Bu maddeye ilişkin değerlendirme…" />
                                 {oto.length > 0 && (
