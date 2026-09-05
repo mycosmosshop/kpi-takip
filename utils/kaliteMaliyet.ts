@@ -66,6 +66,36 @@ export const maliyetOzet = (
     return bu.o;
 };
 
+// Kayıt bazında en pahalı uygunsuzluklar (lokasyon-ay-tip başına ilk 3).
+// "Ne kadar?" sorusunun yanında "hangi kayıt, hangi ürün?" cevabı.
+export interface MaliyetDetay {
+    yer: string; yil: number; ay: number; tip: string;
+    no: string; tarih: string; stok: string; cari: string; hataTipi: string;
+    miktar: number; birimFiyat: number | null; tutar: number;
+}
+
+export const maliyetDetayFiltre = (
+    satirlar: MaliyetDetay[], lokasyon: string, yil: number, ay: number,
+): MaliyetDetay[] =>
+    (satirlar || [])
+        .filter(r => say(r.yil) === yil && say(r.ay) === ay && yerEslesir(r.yer || '', lokasyon))
+        .sort((a, b) => say(b.tutar) - say(a.tutar));
+
+const egtOku = async (anahtar: string): Promise<any[]> => {
+    const sb = (window as any).supabase;
+    if (!sb || !sb.createClient) throw new Error('Supabase istemcisi yüklenemedi.');
+    const c = sb.createClient(KM_URL, KM_KEY);
+    const { data, error } = await c.from('egt_ayar').select('deger').eq('anahtar', anahtar).maybeSingle();
+    if (error) throw error;
+    if (!data) return [];
+    let v: any = data.deger;
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch { return []; } }
+    return Array.isArray(v) ? v : [];
+};
+
+export const maliyetDetayCek = async (): Promise<MaliyetDetay[]> =>
+    egtOku('kalite_maliyet_detay') as Promise<MaliyetDetay[]>;
+
 export const maliyetCek = async (): Promise<MaliyetSatir[]> => {
     const sb = (window as any).supabase;
     if (!sb || !sb.createClient) throw new Error('Supabase istemcisi yüklenemedi.');

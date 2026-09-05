@@ -130,6 +130,71 @@ export const kpiAra = <T extends { kpi_adi: string }>(
     (kpis || []).find(k => adGecer(k.kpi_adi || '', iceren)
         && !(haric.length && adGecer(k.kpi_adi || '', haric))) || null;
 
+// Uygunsuzluk/DÖF kayıtlarının AYRINTISI: no, sebep, miktar, karar,
+// yapılan işlem. Rapor "3 kayıt var" demekle kalmamalı; denetimde
+// "hangi kayıt, ne yapıldı?" sorusunun cevabı burada.
+export interface UygSatir {
+    no: string; tarih: string; cari: string; stok: string; stokKodu: string;
+    miktar: number; parti: number; tur: string; hataTipi: string; kaynak: string;
+    tarif: string; karar: string; sonuc: string; makine: string;
+    kapatma: string; kapali: boolean;
+}
+
+const kis = (t: any, n: number): string => {
+    const x = String(t || '').replace(/\s+/g, ' ').trim();
+    return x.length > n ? x.slice(0, n - 1) + '…' : x;
+};
+
+export const uygAyrinti = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+    hangi: 'ic' | 'dis' | 'ted', n = 25,
+): UygSatir[] => {
+    const c: UygSatir[] = [];
+    (kayitlar || []).forEach((k: any) => {
+        if (!tipiOlan(k, hangi)) return;
+        if (!yerEslesir(k.tespitYeri || '', lokasyon)) return;
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        if (!t || t.yil !== yil || t.ay !== ay) return;
+        const kapatma = String(k.kapatmaTarihi || '').trim();
+        c.push({
+            no: [k.uygunsuzlukSeri, k.uygunsuzlukSira].filter(Boolean).join('-') || '(no yok)',
+            tarih: String(k.uygunsuzlukTarih || ''),
+            cari: kis(k.cariAdi, 40),
+            stok: kis(k.stokAdi, 45),
+            stokKodu: String(k.stokKodu || ''),
+            miktar: Number(k.hataliMiktar) || 0,
+            parti: Number(k.partiHacmi) || Number(k.kontrolMiktar) || 0,
+            tur: String(k.uygunsuzlukTuru || ''),
+            hataTipi: String(k.hataTipi || ''),
+            kaynak: String(k.hataKaynagi || ''),
+            tarif: kis(k.tarif, 120),
+            karar: kis(k.karar, 60),
+            sonuc: kis(k.sonuc, 120),
+            makine: kis(k.makine, 35),
+            kapatma,
+            // Kapatma tarihi boşsa AÇIK. "Kapandı mı?" sorusunun cevabı
+            // uydurulmaz; alan boşsa açık sayılır.
+            kapali: kapatma.length > 0,
+        });
+    });
+    return c.sort((a, b) => b.miktar - a.miktar).slice(0, n);
+};
+
+// Kayıt satırını tek satırlık okunur metne çevirir (rapor gri kutusu).
+export const uygSatirMetni = (r: UygSatir): string =>
+    `${r.no} · ${r.tarih}`
+    + (r.cari ? ` · ${r.cari}` : '')
+    + (r.stok ? ` · ${r.stok}` : '')
+    + ` · ${r.miktar.toLocaleString('tr-TR')} adet hatalı`
+    + (r.parti ? ` / ${r.parti.toLocaleString('tr-TR')} parti` : '')
+    + (r.hataTipi ? ` · hata: ${r.hataTipi}` : '')
+    + (r.kaynak ? ` · kaynak: ${r.kaynak}` : '')
+    + (r.makine ? ` · makine: ${r.makine}` : '')
+    + (r.tarif ? ` · tarif: ${r.tarif}` : '')
+    + (r.karar ? ` · karar: ${r.karar}` : '')
+    + (r.sonuc ? ` · yapılan işlem: ${r.sonuc}` : '')
+    + ` · ${r.kapali ? 'kapatıldı ' + r.kapatma : 'AÇIK'}`;
+
 export const sayimlar = (
     kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
 ): { ic: number; dis: number; ted: number; icMiktar: number; disMiktar: number; tedMiktar: number; musteriler: string[]; tedarikciler: string[] } => {
@@ -192,6 +257,18 @@ export const aylikBirlestir = (
         if (!kayitli.has(b.id) && !silinen.has(b.id)) sonuc.push(b);
     });
     return sonuc;
+};
+
+// Anahtar → {lokasyon, yıl, ay}. Lokasyon adında alt çizgi olabileceği
+// için SONDAN ayrıştırılır ("aylikkalite_ust_kat_2026_02").
+export const aylikKaliteAnahtarCoz = (
+    anahtar: string,
+): { lokasyon: string; yil: number; ay: number } | null => {
+    const m = /^aylikkalite_(.+)_(\d{4})_(\d{2})$/.exec(String(anahtar || ''));
+    if (!m) return null;
+    const ay = Number(m[3]);
+    if (ay < 1 || ay > 12) return null;
+    return { lokasyon: m[1].replace(/_/g, ' '), yil: Number(m[2]), ay };
 };
 
 export const aylikKaliteAnahtar = (lokasyon: string, yil: number, ay: number): string =>

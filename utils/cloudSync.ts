@@ -60,6 +60,21 @@ export const cloudSaveMeta = async (key: string, value: any): Promise<void> => {
     if (error) throw error;
 };
 
+// Anahtar ÖNEKİNE göre kayıt listesi — "geçmiş kaydedilen raporlar" için.
+// value ALINMAZ: liste ekranı yalnız anahtar ve tarih gösterir; raporun
+// tamamını çekmek 30 kayıtta gereksiz megabaytlar olurdu.
+export const cloudListMeta = async (
+    onek: string,
+): Promise<{ key: string; updated_at: string | null }[]> => {
+    const sb = getClient(); if (!sb) return [];
+    const { data, error } = await sb.from('kpi_meta')
+        .select('key, updated_at')
+        .like('key', onek + '%')
+        .order('key', { ascending: false });
+    if (error) throw error;
+    return (data || []) as { key: string; updated_at: string | null }[];
+};
+
 // ── Realtime abonelik (lokasyon için) ──
 export const subscribeLocation = (
     loc: string,
