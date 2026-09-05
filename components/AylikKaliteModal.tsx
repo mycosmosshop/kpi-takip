@@ -18,7 +18,7 @@ import { musteriPpmAy, onayliListeCoz, OnayliKayit } from '../utils/musteriPpm';
 import { readSupplierSync } from '../utils/supplierEval';
 import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay,
     fiyatKaynakMetni } from '../utils/kaliteMaliyet';
-import { cloudFetchMeta, cloudSaveMeta, cloudListMeta } from '../utils/cloudSync';
+import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
@@ -199,7 +199,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         };
     }, [kayitlar, onayli, maliyet, maliyetDetay, kpis, lokasyon, yil, ay]);
 
-    const bos = { otomatik: '', ozet: '', aksiyon: '', sorumlu: '', termin: '', silinebilir: true };
+    const bos = { otomatik: '', ozet: '', aksiyon: '', sorumlu: '', termin: '', durum: '', silinebilir: true };
     const varsayilan = (): RaporSatir[] => ([
         { id: 'musteri_ppm', kriter: 'Müşteri İade PPM', ...bos },
         { id: 'musteri_ilk3', kriter: 'İade PPM ilk 3 Müşteri (önceki aya ait trend)', ...bos },
@@ -248,6 +248,25 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         } catch (e: any) { setHata(String(e?.message || e)); setDurum('hata'); }
     };
 
+    const raporSil = async (key: string) => {
+        const c = aylikKaliteAnahtarCoz(key);
+        const ad = c ? `${c.lokasyon} · ${AYLAR[c.ay - 1]} ${c.yil}` : key;
+        if (!window.confirm(`${ad} kalite raporu KALICI olarak silinecek.\n\n`
+            + 'Yazdığınız özet, aksiyon, sorumlu ve terminler gider; ay yeniden '
+            + 'açıldığında ERP verisinden boş rapor gelir.\n\nSilinsin mi?')) return;
+        try {
+            await cloudDeleteMeta(key);
+            await listeyiTazele();
+            if (key === anahtar) {
+                // Açık olan ay silindiyse ekran da varsayılana dönmeli;
+                // yoksa kullanıcı silinmiş raporu düzenlemeye devam eder.
+                setSilinenler([]);
+                setSatirlar(aylikBirlestir(varsayilan(), null, []));
+            }
+            setHata('');
+        } catch (e: any) { setHata('Silinemedi: ' + String(e?.message || e)); setDurum('hata'); }
+    };
+
     const otoMetin = (id: string): string => {
         if (!oto) return 'ERP verisi yükleniyor…';
         switch (id) {
@@ -280,7 +299,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
 
     const satirEkle = () => setSatirlar(s => [...s, {
         id: 'ek_' + Date.now(), kriter: '', otomatik: '', otoElle: '',
-        ozet: '', aksiyon: '', sorumlu: '', termin: '', silinebilir: true,
+        ozet: '', aksiyon: '', sorumlu: '', termin: '', durum: '', silinebilir: true,
     }]);
 
     const yazdir = () => {
@@ -293,21 +312,22 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <td>${esc(s.ozet).replace(/\n/g, '<br>')}</td>
             <td>${esc(s.aksiyon).replace(/\n/g, '<br>')}</td>
             <td>${esc(s.sorumlu || '')}</td>
-            <td>${esc(s.termin || '')}</td></tr>`).join('');
+            <td>${esc(s.termin || '')}</td>
+            <td>${esc(s.durum || '')}</td></tr>`).join('');
         w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8">
             <title>Kalite Raporu — ${esc(lokasyon)} ${AYLAR[ay - 1]} ${yil}</title><style>
             body{font-family:Segoe UI,Arial,sans-serif;font-size:11pt;color:#111;margin:22px}
             h1{font-size:15pt;margin:0 0 3px} h2{font-size:11pt;color:#444;font-weight:normal;margin:0 0 14px}
             table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:6px 8px;vertical-align:top}
             th{background:#f0f0f0;text-align:left} td.k{width:32%} td:nth-child(2),td:nth-child(3){width:24%}
-            td:nth-child(4){width:12%} td:nth-child(5){width:8%}
+            td:nth-child(4){width:11%} td:nth-child(5){width:8%} td:nth-child(6){width:9%}
             .oto{margin-top:4px;font-size:9.5pt;color:#444;background:#f7f7f7;padding:4px 6px;border-left:3px solid #999}
             @media print{body{margin:10mm}}
             </style></head><body>
             <h1>KALİTE RAPORU</h1>
             <h2>${esc(lokasyon)} — ${AYLAR[ay - 1]} ${yil}</h2>
             <table><thead><tr><th>Kriter</th><th>Özet Açıklama</th><th>Aksiyon</th>
-            <th>Sorumlu</th><th>Termin</th></tr></thead>
+            <th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
             <tbody>${tr}</tbody></table>
             <p style="margin-top:16px;font-size:9pt;color:#666">Gri kutulardaki özetler
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
@@ -321,7 +341,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} size="7xl"
+        <Modal isOpen={isOpen} onClose={onClose} size="full"
             title={`Kalite Raporu — ${lokasyon} / ${AYLAR[ay - 1]} ${yil}`}
             footer={
                 <div className="flex items-center gap-3 justify-end w-full">
@@ -416,13 +436,16 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                                 : <span className="text-gray-400" title="Bu rapor başka lokasyon/yıla ait">
                                                     KPI Takip’te lokasyon/yılı değiştirin
                                                 </span>}
+                                        <button onClick={() => raporSil(r.key)} title="Kaydı sil"
+                                            className="px-1 text-red-600 hover:text-red-800">🗑️</button>
                                     </div>
                                 );
                             })}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-2">
                             Liste tüm lokasyonların kayıtlarını gösterir; yalnızca <b>{lokasyon} / {yil}</b>
-                            {' '}kayıtları buradan açılabilir.
+                            {' '}kayıtları buradan açılabilir. 🗑️ ile kayıt kalıcı silinir — silinen ay
+                            yeniden açıldığında ERP verisinden boş rapor gelir.
                         </div>
                     </div>
                 )}
@@ -436,6 +459,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                 <th className="px-3 py-2 text-left text-xs font-semibold">Aksiyon</th>
                                 <th className="px-3 py-2 text-left text-xs font-semibold w-[12%]">Sorumlu</th>
                                 <th className="px-3 py-2 text-left text-xs font-semibold w-[10%]">Termin</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold w-[11%]">Durum</th>
                                 <th className="w-8"></th>
                             </tr>
                         </thead>
@@ -474,6 +498,13 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                         <input type="date" className={alan} value={s.termin || ''}
                                             onChange={e => guncelle(s.id, 'termin', e.target.value)} />
                                     </td>
+                                    <td className="px-2 py-2">
+                                        <select className={alan} value={s.durum || ''}
+                                            onChange={e => guncelle(s.id, 'durum', e.target.value)}>
+                                            {['', 'Planlandı', 'Devam ediyor', 'Tamamlandı', 'İptal'].map(x =>
+                                                <option key={x} value={x}>{x || '—'}</option>)}
+                                        </select>
+                                    </td>
                                     <td className="px-1 py-2 text-center">
                                         <button title="Satırı sil" onClick={() => satirSil(s.id)}
                                             className="text-red-600 hover:text-red-800">✕</button>
@@ -481,7 +512,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                                 </tr>
                             ))}
                             {satirlar.length === 0 && (
-                                <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-500">
+                                <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">
                                     Tüm satırlar silinmiş. “＋ Satır ekle” ile yeni satır açabilirsiniz.
                                 </td></tr>
                             )}

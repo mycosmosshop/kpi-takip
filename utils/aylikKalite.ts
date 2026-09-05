@@ -240,6 +240,7 @@ export interface RaporSatir {
     aksiyon: string;    // kullanıcının yazdığı
     sorumlu?: string;
     termin?: string;    // GG.AA.YYYY veya YYYY-AA-GG (tarih seçici)
+    durum?: string;     // Planlandı / Devam ediyor / Tamamlandı / İptal
     silinebilir: boolean;
 }
 

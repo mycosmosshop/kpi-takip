@@ -75,6 +75,15 @@ export const cloudListMeta = async (
     return (data || []) as { key: string; updated_at: string | null }[];
 };
 
+// Kayıtlı raporu SİLER. Yalnız kullanıcının listeden onayladığı kayıt
+// için çağrılır; silinen ay bir daha açıldığında ERP verisinden yeniden
+// üretilir (kullanıcının yazdığı notlar gider — bu yüzden onay istenir).
+export const cloudDeleteMeta = async (key: string): Promise<void> => {
+    const sb = getClient(); if (!sb) throw new Error('Bulut bağlantısı yok.');
+    const { error } = await sb.from('kpi_meta').delete().eq('key', key);
+    if (error) throw error;
+};
+
 // ── Realtime abonelik (lokasyon için) ──
 export const subscribeLocation = (
     loc: string,
