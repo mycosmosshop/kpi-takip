@@ -58,7 +58,7 @@ export const yggBolumleri = (
     const marjinaller = kpis.filter(k => k.durum === 'marjinal');
     const tumDof: { kpi: Kpi; dof: Dof }[] = [];
     kpis.forEach(k => (k.dof || []).forEach(x => tumDof.push({ kpi: k, dof: x })));
-    const acikDof = tumDof.filter(x => x.dof.durum !== 'kapali');
+    const acikDof = tumDof.filter(x => x.dof.durum !== 'Tamamlandı');
 
     const prosesler = new Map<string, Kpi[]>();
     kpis.forEach(k => {

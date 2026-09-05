@@ -3,14 +3,21 @@
 import type { Kpi, MultiYearKpiData, Status } from '../types';
 import { calculateAverage, determineStatus } from './calculations.ts';   // .ts uzantisi: Node --experimental-strip-types ile testte cozulebilsin
 
+// 'ayni'       : iki yılda da var
+// 'yeni'       : bu yıl eklendi (önceki yılda yok)
+// 'kaldirildi' : önceki yılda vardı, bu yıl yok
+export type SatirTipi = 'ayni' | 'yeni' | 'kaldirildi';
+
 export interface KarsilastirmaSatiri {
     kpi: Kpi;
     gecenHedef: number | null;
     gecenGercek: number | null;
     gecenDurum: Status | null;
-    buHedef: number;
+    buHedef: number | null;      // kaldırılan KPI'da yok
+    buGercek: number | null;     // bu yılın gerçekleşen ortalaması (tavsiye buradan)
     yazanOnceki: number | null;
-    varMi: boolean;
+    varMi: boolean;              // önceki yıl kaydı var mı
+    tip: SatirTipi;
 }
 
 // Yıllar arasında eşleştirme anahtarı. id ile eşleşme önce denenir;
@@ -27,8 +34,10 @@ export const karsilastir = (
     const gecen = multiYearData[oncekiYil]?.kpis || [];
     const idIle = new Map(gecen.map(k => [k.id, k]));
     const adIle = new Map(gecen.map(k => [kpiAnahtari(k), k]));
-    return (kpis || []).map(k => {
+    const eslesen = new Set<string>();
+    const satirlar = (kpis || []).map(k => {
         const g = idIle.get(k.id) || adIle.get(kpiAnahtari(k));
+        if (g) eslesen.add(g.id);
         // Geçen yılın gerçekleşeni o yılın KENDİ aylık verisinden gelir.
         // Tablodaki "Önceki Yıl" hücresi elle girilir; onu doğrulamak için
         // ayrı tutuluyor (yazanOnceki), kaynak olarak kullanılmıyor.
@@ -39,10 +48,31 @@ export const karsilastir = (
             gecenGercek: gercek,
             gecenDurum: g ? determineStatus(g, gercek) : null,
             buHedef: k.yeni_yil_hedef,
+            buGercek: k.ortalama !== undefined ? k.ortalama : calculateAverage(k),
             yazanOnceki: k.onceki_yil_gerceklesen,
             varMi: !!g,
+            tip: (g ? 'ayni' : 'yeni') as SatirTipi,
         };
     });
+
+    // Önceki yılda olup bu yıl HİÇ olmayanlar da listelenir. Sessizce
+    // düşerlerse "KPI kaldırıldı mı, unutuldu mu?" sorusu görünmez olur.
+    gecen.forEach(g => {
+        if (eslesen.has(g.id)) return;
+        const gercek = calculateAverage(g);
+        satirlar.push({
+            kpi: g,
+            gecenHedef: g.yeni_yil_hedef,
+            gecenGercek: gercek,
+            gecenDurum: determineStatus(g, gercek),
+            buHedef: null,
+            buGercek: null,
+            yazanOnceki: null,
+            varMi: true,
+            tip: 'kaldirildi',
+        });
+    });
+    return satirlar;
 };
 
 // "Önceki Yıl" hücresi geçen yılın gerçek ortalamasıyla tutuyor mu?
@@ -59,8 +89,13 @@ export const sapmaVar = (s: KarsilastirmaSatiri): boolean => {
 export const hedefDegisimi = (
     s: KarsilastirmaSatiri,
 ): { fark: number | null; yuzde: number | null; sikilasti: boolean | null } => {
-    if (s.gecenHedef === null || s.gecenHedef === s.buHedef) {
-        return { fark: s.gecenHedef === null ? null : 0, yuzde: null, sikilasti: null };
+    // Kaldırılan KPI'da bu yılın hedefi yok: değişim hesaplanmaz.
+    if (s.buHedef === null || s.gecenHedef === null || s.gecenHedef === s.buHedef) {
+        return {
+            fark: (s.gecenHedef === null || s.buHedef === null) ? null : 0,
+            yuzde: null,
+            sikilasti: null,
+        };
     }
     const fark = s.buHedef - s.gecenHedef;
     const kucukIyi = s.kpi.karsilastirma === '<=' || s.kpi.karsilastirma === '<';

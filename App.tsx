@@ -22,6 +22,8 @@ import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
 import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
+import { sonrakiYilaKopya } from './utils/hedefTavsiye';
+import { kpiAnahtari } from './utils/yilKarsilastirma';
 import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
@@ -1025,37 +1027,8 @@ const App: React.FC = () => {
             if (!window.confirm(`${newYear} yılında zaten ${existing.kpis.length} KPI var. Üzerine kopyalansın mı?`)) return;
         }
         if (copyData) {
-            const newKpis = processedKpis.map(kpi => {
-                // FIX: The new KPI object was missing several optional properties from the original KPI.
-                // This caused a type error and was functionally incorrect as it didn't fully copy the KPI's definition.
-                // All definitional properties are now copied to the new year.
-                const newKpi: Kpi = {
-                    // Definitional properties copied from previous year
-                    id: kpi.id,
-                    proses: kpi.proses,
-                    kpi_adi: kpi.kpi_adi,
-                    sorumlu: kpi.sorumlu,
-                    gozdenGecirmePeriyodu: kpi.gozdenGecirmePeriyodu,
-                    pasifAylar: kpi.pasifAylar,
-                    yeni_yil_hedef: kpi.yeni_yil_hedef,
-                    karsilastirma: kpi.karsilastirma,
-                    hesap_metodu: kpi.hesap_metodu,
-                    formula: kpi.formula,
-                    birim: kpi.birim,
-                    aciklama: kpi.aciklama,
-                    kanit_dosyalari: kpi.kanit_dosyalari,
-                    risk: kpi.risk,
-
-                    // Values reset for the new year
-                    onceki_yil_gerceklesen: kpi.ortalama,
-                    aylik: Object.fromEntries(AYLAR.map(ay => [ay, null])),
-                    dof: [],
-                    son_guncelleme: new Date().toLocaleString('tr-TR'),
-                    ortalama: null,
-                    durum: 'n/a',
-                };
-                return newKpi;
-            });
+            // Tanim alanlari tasinir, degerler sifirlanir (utils/hedefTavsiye).
+            const newKpis = processedKpis.map(kpi => sonrakiYilaKopya(kpi));
             setAllKpiData(prev => ({ ...prev, [newYear]: { yil: newYear, kpis: newKpis } }));
             setNotification({ message: `${newYear} yılına başarıyla geçildi ve veriler kopyalandı.`, type: 'success' });
         } else {
@@ -1063,6 +1036,45 @@ const App: React.FC = () => {
             setNotification({ message: `${newYear} yılına başarıyla geçildi. Yeni KPI'lar oluşturabilirsiniz.`, type: 'success' });
         }
         setCurrentYear(newYear);
+        handleCloseModal();
+    };
+
+    // Yil karsilastirma modalinden gelen tavsiye hedefleri gelecek yila yazar.
+    // Yil yoksa bu yilin KPI'larindan olusturulur; varsa SADECE hedef alani
+    // guncellenir (aylik veri, DOF, kanit dosyalari korunur).
+    const handleAssignTargets = (hedefler: { [kpiId: string]: number }) => {
+        const yeniYil = currentYear + 1;
+        const mevcut = allKpiData[yeniYil];
+        let yazilan = 0;
+        let sonuc: KpiData;
+        if (mevcut && mevcut.kpis.length) {
+            const anahtarla = new Map<string, number>();
+            processedKpis.forEach(k => {
+                if (hedefler[k.id] !== undefined) anahtarla.set(kpiAnahtari(k), hedefler[k.id]);
+            });
+            sonuc = {
+                ...mevcut,
+                kpis: mevcut.kpis.map(k => {
+                    const h = hedefler[k.id] !== undefined ? hedefler[k.id] : anahtarla.get(kpiAnahtari(k));
+                    if (h === undefined || h === k.yeni_yil_hedef) return k;
+                    yazilan++;
+                    return { ...k, yeni_yil_hedef: h, son_guncelleme: new Date().toLocaleString('tr-TR') };
+                }),
+            };
+        } else {
+            const kpis = processedKpis.map(k => sonrakiYilaKopya(k, hedefler[k.id]));
+            yazilan = kpis.filter(k => hedefler[k.id] !== undefined).length;
+            sonuc = { yil: yeniYil, kpis };
+        }
+        setAllKpiData(prev => ({ ...prev, [yeniYil]: sonuc }));
+        // Otomatik bulut senkronu YALNIZCA gorunen yili kaydeder; baska yila
+        // yazdigimiz icin acikca gonderilir, yoksa diger cihazda gorunmez.
+        cloudSaveKpi(currentLocation, yeniYil, sonuc).catch(() => { /* cevrimdisi: yerelde duruyor */ });
+        setNotification({
+            message: `${yeniYil} hedefleri atandı: ${yazilan} KPI güncellendi`
+                + (mevcut && mevcut.kpis.length ? '.' : ` (${yeniYil} yılı oluşturuldu).`),
+            type: 'success',
+        });
         handleCloseModal();
     };
 
@@ -1482,6 +1494,7 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     multiYearData={allKpiData}
                     currentYear={currentYear}
+                    onAssignTargets={handleAssignTargets}
                 />
             )}
             {modal.type === 'locations' && (
