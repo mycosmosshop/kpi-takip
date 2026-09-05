@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Kpi, Dof, ModalType, DofStatus, ScatterPlotAnalysisData } from '../types';
 import Modal from './Modal';
+import { kutuphaneYukle } from '../utils/kutuphane';
 import { EditIcon, TrashIcon, MagnifyingGlassIcon, UserIcon, CalendarIcon, PdfIcon, DocumentDuplicateIcon, ChartBarIcon } from './icons';
 import ScatterPlotMatrix from './ScatterPlotMatrix';
 
@@ -86,11 +87,9 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
         return 'bg-green-500';
     };
     
-    const handleGenerateListPdf = () => {
-        if (!window.html2pdf) {
-            alert("PDF oluşturma kütüphanesi yüklenemedi.");
-            return;
-        }
+    const handleGenerateListPdf = async () => {
+        try { await kutuphaneYukle('html2pdf'); }
+        catch { alert("PDF oluşturma kütüphanesi yüklenemedi."); return; }
 
         const reportContainer = document.createElement('div');
         reportContainer.className = "p-8 font-sans";

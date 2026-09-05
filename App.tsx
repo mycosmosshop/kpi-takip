@@ -25,6 +25,7 @@ import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
 import { sonrakiYilaKopya } from './utils/hedefTavsiye';
 import { kpiAnahtari } from './utils/yilKarsilastirma';
 import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
+import { kutuphaneYukle } from './utils/kutuphane';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
@@ -758,9 +759,7 @@ const App: React.FC = () => {
 
     const handleExportXlsx = useCallback(async () => {
         try {
-            if (!window.ExcelJS) {
-                throw new Error('Excel (ExcelJS) kütüphanesi yüklenemedi.');
-            }
+            await kutuphaneYukle('ExcelJS');
             if (filteredData.length === 0) {
                 setNotification({ message: 'Dışa aktarılacak KPI bulunamadı.', type: 'error' });
                 return;
@@ -803,7 +802,7 @@ const App: React.FC = () => {
 
     const handleExportFr216 = useCallback(async () => {
         try {
-            if (!window.ExcelJS) throw new Error('Excel (ExcelJS) kütüphanesi yüklenemedi.');
+            await kutuphaneYukle('ExcelJS');
             const data = actionDataByYear[currentYear] || { items: [], nextMeeting: '' };
             if (data.items.length === 0) { setNotification({ message: 'Dışa aktarılacak aksiyon yok.', type: 'error' }); return; }
             let logoBuffer: ArrayBuffer | null = null;
@@ -978,9 +977,9 @@ const App: React.FC = () => {
         const inputEl = event.target;
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
-                if (!window.XLSX) throw new Error('Excel (XLSX) kütüphanesi yüklenemedi.');
+                await kutuphaneYukle('XLSX');
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = window.XLSX.read(data, { type: 'array' });
                 // Dosya adından yıl yedeği (ör. "...KPI 2026.xlsx")
@@ -1080,9 +1079,7 @@ const App: React.FC = () => {
 
     const handleGeneratePdf = useCallback(async () => {
         try {
-            if (!window.html2pdf) {
-                throw new Error("html2pdf kütüphanesi bulunamadı.");
-            }
+            await kutuphaneYukle('html2pdf');
             if (filteredData.length === 0) {
                 setNotification({ message: 'Rapor için KPI bulunamadı.', type: 'error' });
                 return;

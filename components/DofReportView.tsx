@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Dof, Kpi, FiveWhyAnalysis, CorrectiveAction, Status, DofStatus, FtaNode, FaultTreeAnalysis, ParetoAnalysisData } from '../types';
 import Modal from './Modal';
+import { kutuphaneYukle } from '../utils/kutuphane';
 import { UserIcon, CalendarIcon, LightBulbIcon, ClipboardCheckIcon, WrenchScrewdriverIcon, ChartBarIcon, PdfIcon, CheckCircleIcon, ClipboardDocumentListIcon } from './icons';
 import { getStatusColorClasses, getSingleMonthStatus } from '../utils/calculations';
 import { AYLAR } from '../constants';
@@ -358,12 +359,11 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
     }, [dof.start_date, kpi]);
 
 
-    const handleGeneratePdf = () => {
+    const handleGeneratePdf = async () => {
         const element = reportContentRef.current;
-        if (!element || !window.html2pdf) {
-            console.error("PDF generation failed: element or html2pdf not found.");
-            return;
-        }
+        if (!element) return;
+        try { await kutuphaneYukle('html2pdf'); }
+        catch { alert('PDF oluşturma kütüphanesi yüklenemedi.'); return; }
         const reportNo = `${kpi.kpi_adi.replace(/ /g, "_")}`;
         const timestamp = new Date().toISOString().split('T')[0];
         const filename = `8D_Raporu_${reportNo}_${timestamp}.pdf`;
