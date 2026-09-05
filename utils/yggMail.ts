@@ -12,6 +12,12 @@ const MAIL_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 export const YGG_ISTEK = 'ygg_mail_istek';
 export const YGG_DURUM = 'ygg_mail_durum';
+// Kalite Raporu ayrı kuyruk kullanır: iki rapor aynı anda gönderilmek
+// istenirse biri diğerinin isteğini ezmesin.
+export const KALITE_ISTEK = 'kalite_mail_istek';
+export const KALITE_DURUM = 'kalite_mail_durum';
+// "Yazdır ve ilet" sabit alıcısı (kullanıcının kendi kurumsal adresi).
+export const RAPOR_ALICI = 'volkan.pekatik@sanifoam.com.tr';
 
 export interface YggMailIstek {
     durum: 'bekliyor' | 'tamamlandi' | 'bayat' | 'hata';
@@ -70,14 +76,18 @@ const oku = async (anahtar: string): Promise<any> => {
     return v;
 };
 
-export const yggMailDurumOku = async (): Promise<YggMailDurum | null> => oku(YGG_DURUM);
+export const yggMailDurumOku = async (anahtar: string = YGG_DURUM): Promise<YggMailDurum | null> =>
+    oku(anahtar);
 
-export const yggMailBekleyen = async (): Promise<YggMailIstek | null> => {
-    const v = await oku(YGG_ISTEK);
+export const yggMailBekleyen = async (anahtar: string = YGG_ISTEK): Promise<YggMailIstek | null> => {
+    const v = await oku(anahtar);
     return (v && v.durum === 'bekliyor') ? v as YggMailIstek : null;
 };
 
-export const yggMailGonder = async (istek: Omit<YggMailIstek, 'durum' | 'istek'>): Promise<void> => {
+export const yggMailGonder = async (
+    istek: Omit<YggMailIstek, 'durum' | 'istek'>,
+    anahtar: string = YGG_ISTEK,
+): Promise<void> => {
     if (!istek.alicilar.length) throw new Error('Alıcı yok.');
     const c = istemci();
     const kayit: YggMailIstek = {
@@ -86,6 +96,6 @@ export const yggMailGonder = async (istek: Omit<YggMailIstek, 'durum' | 'istek'>
         istek: new Date().toISOString(),
     };
     const { error } = await c.from('egt_ayar')
-        .upsert({ anahtar: YGG_ISTEK, deger: kayit }, { onConflict: 'anahtar' });
+        .upsert({ anahtar, deger: kayit }, { onConflict: 'anahtar' });
     if (error) throw error;
 };

@@ -19,6 +19,8 @@ import { readSupplierSync } from '../utils/supplierEval';
 import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay,
     fiyatKaynakMetni } from '../utils/kaliteMaliyet';
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
+import { yggMailGonder, yggMailDurumOku, KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI }
+    from '../utils/yggMail';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
@@ -67,6 +69,8 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     // Kayıtlı raporlar (geçmiş): anahtar + son güncelleme.
     const [kayitli, setKayitli] = useState<{ key: string; updated_at: string | null }[] | null>(null);
     const [listeAcik, setListeAcik] = useState(false);
+    const [mailBilgi, setMailBilgi] = useState('');
+    const [sonMail, setSonMail] = useState<string>('');
 
     // Anahtar ID'den (bkz. YggModal): ad değişse de kayıt kaybolmasın.
     const anahtar = aylikKaliteAnahtar(lokasyonId || lokasyon, yil, ay);
@@ -79,6 +83,9 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         if (!isOpen) return;
         let iptal = false;
         cloudListMeta('aylikkalite_').then(l => { if (!iptal) setKayitli(l); }).catch(() => { if (!iptal) setKayitli([]); });
+        yggMailDurumOku(KALITE_DURUM)
+            .then(d => { if (!iptal && d?.sonGonderim) setSonMail(d.sonGonderim); })
+            .catch(() => { });
         return () => { iptal = true; };
     }, [isOpen]);
 
@@ -302,11 +309,11 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         ozet: '', aksiyon: '', sorumlu: '', termin: '', durum: '', silinebilir: true,
     }]);
 
-    const yazdir = () => {
-        const w = window.open('', '_blank');
-        if (!w) return;
-        const esc = (t: string) => String(t || '')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = (t: string) => String(t || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Rapor HTML'i TEK yerde üretilir: yazdırma ve mail AYNI belgedir.
+    const raporHtml = (): string => {
         const tr = satirlar.map(s => `<tr>
             <td class="k">${esc(s.kriter)}${gosterilenOto(s) ? `<div class="oto">${esc(gosterilenOto(s))}</div>` : ''}</td>
             <td>${esc(s.ozet).replace(/\n/g, '<br>')}</td>
@@ -314,7 +321,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <td>${esc(s.sorumlu || '')}</td>
             <td>${esc(s.termin || '')}</td>
             <td>${esc(s.durum || '')}</td></tr>`).join('');
-        w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="tr"><head><meta charset="utf-8">
             <title>Kalite Raporu — ${esc(lokasyon)} ${AYLAR[ay - 1]} ${yil}</title><style>
             body{font-family:Segoe UI,Arial,sans-serif;font-size:11pt;color:#111;margin:22px}
             h1{font-size:15pt;margin:0 0 3px} h2{font-size:11pt;color:#444;font-weight:normal;margin:0 0 14px}
@@ -333,8 +340,36 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
             listesinden ve KPI tablosundan ${new Date().toLocaleString('tr-TR')} tarihinde
             üretilmiştir; elle değiştirilmiş olabilir.</p>
-            </body></html>`);
+            </body></html>`;
+    };
+
+    const yazdir = () => {
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.write(raporHtml());
         w.document.close(); w.focus();
+    };
+
+    // Yazdır ve ilet: yazdırma penceresini açar VE raporu mail kuyruğuna
+    // yazar. Gönderimi yerel görev (perf-mail, 15 dk) Outlook'tan yapar —
+    // tarayıcıdan kurumsal hesapla mail gönderilemez.
+    const yazdirVeIlet = async () => {
+        yazdir();
+        setDurum('kaydediliyor'); setHata('');
+        try {
+            await yggMailGonder({
+                lokasyon, yil,
+                konu: `Kalite Raporu — ${lokasyon} / ${AYLAR[ay - 1]} ${yil}`,
+                alicilar: [RAPOR_ALICI],
+                cc: [],
+                html: raporHtml(),
+            }, KALITE_ISTEK);
+            setMailBilgi(`Rapor ${RAPOR_ALICI} adresine gönderilmek üzere kuyruğa alındı; `
+                + 'yerel gönderim görevi 15 dakika içinde yollayacak.');
+            setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
+        } catch (e: any) {
+            setHata('Mail isteği yazılamadı: ' + String(e?.message || e)); setDurum('hata');
+        }
     };
 
     const alan = 'w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded '
@@ -359,6 +394,13 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         🖨️ Yazdır / PDF
                     </button>
+                    <button onClick={yazdirVeIlet} disabled={durum === 'kaydediliyor'}
+                        title={`Yazdırma penceresini açar ve raporu ${RAPOR_ALICI} adresine gönderir`}
+                        className="px-3 py-2 text-sm rounded border border-indigo-300 dark:border-indigo-700
+                            text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30
+                            disabled:opacity-50">
+                        📧 Yazdır ve ilet
+                    </button>
                     <button onClick={kaydet} disabled={durum === 'yukleniyor' || durum === 'kaydediliyor'}
                         className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                         Kaydet
@@ -369,6 +411,13 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                 {hata && durum === 'hata' && (
                     <div className="mb-3 p-3 rounded bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                         {hata} — <b>kaydetmeyin</b>, eski satırların üzerine yazılır.
+                    </div>
+                )}
+                {mailBilgi && (
+                    <div className="mb-3 p-2 rounded text-xs bg-indigo-50 dark:bg-indigo-900/30
+                        text-indigo-800 dark:text-indigo-200">
+                        📧 {mailBilgi}
+                        {sonMail && <span className="text-gray-500"> · önceki gönderim: {sonMail}</span>}
                     </div>
                 )}
                 {uyari && (
