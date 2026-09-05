@@ -24,6 +24,9 @@ import { yggMailGonder, yggMailDurumOku, KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI
 import { AYLAR } from '../constants';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
+import {
+    PAF_KATALOG, PAF_ADI, PafKalem, PafKategori, pafOzet, pafAksiyonlari, pafTabloHtml,
+} from '../utils/paf';
 
 interface Props {
     isOpen: boolean;
@@ -71,6 +74,10 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     const [listeAcik, setListeAcik] = useState(false);
     const [mailBilgi, setMailBilgi] = useState('');
     const [sonMail, setSonMail] = useState<string>('');
+    // PAF (önleme / değerlendirme / iç / dış) kalem tutarları — ERP'de
+    // olmayanlar elle girilir, kayıtla birlikte saklanır.
+    const [pafKalemler, setPafKalemler] = useState<PafKalem[]>([]);
+    const [pafAcik, setPafAcik] = useState(false);
 
     // Anahtar ID'den (bkz. YggModal): ad değişse de kayıt kaybolmasın.
     const anahtar = aylikKaliteAnahtar(lokasyonId || lokasyon, yil, ay);
@@ -232,6 +239,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                 const kayitli = (v && Array.isArray(v.satirlar)) ? v.satirlar as RaporSatir[] : null;
                 const sil = (v && Array.isArray(v.silinenler)) ? v.silinenler as string[] : [];
                 setSilinenler(sil);
+                setPafKalemler(Array.isArray(v?.pafKalemler) ? v.pafKalemler as PafKalem[] : []);
                 setSatirlar(aylikBirlestir(varsayilan(), kayitli, sil));
                 setDurum('hazir');
             })
@@ -248,6 +256,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             await cloudSaveMeta(anahtar, {
                 satirlar: satirlar.map(s => ({ ...s, otomatik: '' })),
                 silinenler,
+                pafKalemler,
                 guncelleme: new Date().toISOString(),
             });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
@@ -273,6 +282,49 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             setHata('');
         } catch (e: any) { setHata('Silinemedi: ' + String(e?.message || e)); setDurum('hata'); }
     };
+
+    // ERP'den gelen iç/dış başarısızlık ÜRÜN maliyeti PAF kalemlerine
+    // otomatik yazılır (kullanıcı üzerine yazabilir); elle girilen kalem
+    // varsa o korunur.
+    const pafKalemDeger = (id: string): number | null => {
+        const k = pafKalemler.find(x => x.id === id);
+        if (k && k.tutar !== null && k.tutar !== undefined) return Number(k.tutar);
+        const km = maliyet ? maliyetOzet(maliyet, lokasyon, yil, ay) : null;
+        if (!km) return null;
+        if (id === 'i_hurda') return Math.round(km.ic);
+        if (id === 'x_iade') return Math.round(km.dis + km.ted);   // tedarikçi kaynaklı iade de dış
+        return null;
+    };
+
+    const pafListe = useMemo<PafKalem[]>(() => PAF_KATALOG.map(t => {
+        const k = pafKalemler.find(x => x.id === t.id);
+        return { id: t.id, tutar: pafKalemDeger(t.id), not: k?.not || '' };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [pafKalemler, maliyet, lokasyon, yil, ay]);
+
+    const paf = useMemo(() => pafOzet(pafListe), [pafListe]);
+
+    const pafGuncelle = (id: string, alan: 'tutar' | 'not', v: string) => setPafKalemler(p => {
+        const yeni = [...p];
+        const i = yeni.findIndex(x => x.id === id);
+        const mevcut = i >= 0 ? yeni[i] : { id, tutar: null as number | null, not: '' };
+        const guncel = alan === 'tutar'
+            // Boş bırakmak "0 TL" değil "girilmedi" demektir.
+            ? { ...mevcut, tutar: v.trim() === '' ? null : Number(v.replace(',', '.')) }
+            : { ...mevcut, not: v };
+        if (i >= 0) yeni[i] = guncel; else yeni.push(guncel);
+        return yeni;
+    });
+
+    // PAF dengesinden çıkan aksiyonlar rapora SATIR olarak eklenir.
+    const pafOneriler = useMemo(() => pafAksiyonlari(paf, yil, ay), [paf, yil, ay]);
+
+    const pafOneriEkle = (konu: string, termin: string) => setSatirlar(x => (
+        x.some(y => y.ozet === konu) ? x : [...x, {
+            id: 'ek_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            kriter: 'Kalite maliyeti aksiyonu (PAF)', otomatik: '', otoElle: '',
+            ozet: konu, aksiyon: '', sorumlu: '', termin, durum: 'Planlandı', silinebilir: true,
+        }]));
 
     const otoMetin = (id: string): string => {
         if (!oto) return 'ERP verisi yükleniyor…';
@@ -336,6 +388,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <table><thead><tr><th>Kriter</th><th>Özet Açıklama</th><th>Aksiyon</th>
             <th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
             <tbody>${tr}</tbody></table>
+            ${paf.toplam > 0 || paf.girilen > 0 ? pafTabloHtml(pafListe, paf) : ''}
             <p style="margin-top:16px;font-size:9pt;color:#666">Gri kutulardaki özetler
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
             listesinden ve KPI tablosundan ${new Date().toLocaleString('tr-TR')} tarihinde
@@ -373,6 +426,8 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     };
 
     const alan = 'w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded '
+        + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
+    const mini = 'text-xs p-1 border border-gray-300 dark:border-gray-600 rounded '
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
 
     return (
@@ -441,6 +496,13 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                             hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">
                         📁 Kayıtlı raporlar{kayitli ? ` (${kayitli.length})` : ''}
                     </button>
+                    <button onClick={() => setPafAcik(v => !v)}
+                        className="px-3 py-2 text-sm rounded border border-emerald-300 dark:border-emerald-700
+                            text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30
+                            whitespace-nowrap">
+                        💰 Kalite maliyeti (PAF){paf.toplam > 0
+                            ? ` — ${paf.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : ''}
+                    </button>
                     <span className="text-xs text-gray-600 dark:text-gray-300 flex-1 min-w-[16rem] pb-2">
                         Rapor <b>{lokasyon}</b> lokasyonuna aittir; her lokasyon ve ay ayrı saklanır.
                         Gri kutular ERP’den gelir — <b>elle değiştirilebilir</b>, değiştirirseniz
@@ -497,6 +559,114 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                             {' '}kayıtları buradan açılabilir. 🗑️ ile kayıt kalıcı silinir — silinen ay
                             yeniden açıldığında ERP verisinden boş rapor gelir.
                         </div>
+                    </div>
+                )}
+
+                {pafAcik && (
+                    <div className="mb-3 p-3 rounded border border-emerald-300 dark:border-emerald-700
+                        bg-emerald-50/50 dark:bg-emerald-900/20">
+                        <div className="font-semibold text-sm mb-1">
+                            💰 Kalite maliyeti — PAF kırılımı (Önleme · Değerlendirme · İç · Dış)
+                        </div>
+                        <div className="text-[11px] text-gray-600 dark:text-gray-300 mb-2">
+                            [ERP] işaretli kalemler uygunsuzluk kayıtlarından otomatik gelir. Diğerlerinin
+                            tutarı LeanSys'te yoktur (ölçüldü: eğitim/muhasebe tarafında tutar alanı yok),
+                            elle girilir — her kalemin yanında <b>nereden bulunacağı</b> yazılıdır.
+                            Boş bırakılan kalem <b>0 TL sayılmaz</b>, eksik sayılır.
+                        </div>
+
+                        <div className="overflow-auto" style={{ maxHeight: '40vh' }}>
+                            <table className="w-full border-collapse text-xs">
+                                <thead className="sticky top-0 bg-emerald-100/80 dark:bg-emerald-900/50">
+                                    <tr>
+                                        <th className="p-1 text-left">Kalem</th>
+                                        <th className="p-1 text-right w-32">Tutar (TL)</th>
+                                        <th className="p-1 text-left w-1/4">Not</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(['onleme', 'degerlendirme', 'ic', 'dis'] as PafKategori[]).map(kat => (
+                                        <React.Fragment key={kat}>
+                                            <tr className="bg-white/70 dark:bg-gray-800/60">
+                                                <td className="p-1 font-semibold">{PAF_ADI[kat]}</td>
+                                                <td className="p-1 text-right font-semibold tabular-nums">
+                                                    {paf.kategori[kat].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                                </td>
+                                                <td className="p-1 text-gray-600 dark:text-gray-300">
+                                                    {paf.yuzde[kat] === null ? '' :
+                                                        paf.yuzde[kat]!.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%'}
+                                                </td>
+                                            </tr>
+                                            {PAF_KATALOG.filter(t => t.kategori === kat).map(t => {
+                                                const k = pafListe.find(x => x.id === t.id);
+                                                return (
+                                                    <tr key={t.id} className="border-b border-emerald-200/50 dark:border-emerald-800/40">
+                                                        <td className="p-1 pl-4">
+                                                            {t.ad}
+                                                            {t.kaynak === 'erp' && (
+                                                                <span className="ml-1 text-[10px] px-1 rounded bg-blue-100 text-blue-800">ERP</span>
+                                                            )}
+                                                            <div className="text-[10px] text-gray-500">{t.nereden}</div>
+                                                        </td>
+                                                        <td className="p-1">
+                                                            <input type="text" inputMode="decimal"
+                                                                className={mini + ' w-full text-right tabular-nums'}
+                                                                placeholder="girilmedi"
+                                                                value={k?.tutar === null || k?.tutar === undefined ? '' : String(k.tutar)}
+                                                                onChange={e => pafGuncelle(t.id, 'tutar', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-1">
+                                                            <input className={mini + ' w-full'} value={k?.not || ''}
+                                                                placeholder="kaynak / açıklama"
+                                                                onChange={e => pafGuncelle(t.id, 'not', e.target.value)} />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ))}
+                                    <tr className="bg-emerald-200/60 dark:bg-emerald-900/50">
+                                        <td className="p-1 font-bold">TOPLAM KALİTE MALİYETİ</td>
+                                        <td className="p-1 text-right font-bold tabular-nums">
+                                            {paf.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                        </td>
+                                        <td className="p-1 text-[11px]">
+                                            uygunluk {paf.uygunlukPayi === null ? '—'
+                                                : paf.uygunlukPayi.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%'}
+                                            {' · '}başarısızlık {paf.basarisizlikPayi === null ? '—'
+                                                : paf.basarisizlikPayi.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%'}
+                                            {paf.eksik > 0 && <span className="text-amber-700"> · {paf.eksik} kalem girilmedi</span>}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {pafOneriler.length > 0 && (
+                            <div className="mt-2 p-2 rounded border border-amber-300 dark:border-amber-700
+                                bg-amber-50 dark:bg-amber-900/20">
+                                <div className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                                    PAF dengesinden çıkan aksiyon önerileri ({pafOneriler.length})
+                                </div>
+                                {pafOneriler.map((o, i) => {
+                                    const eklendi = satirlar.some(x => x.ozet === o.konu);
+                                    return (
+                                        <div key={i} className="flex items-start gap-2 py-1 text-xs
+                                            border-b border-amber-200/60 dark:border-amber-800/60">
+                                            <span className="flex-1">{o.konu}
+                                                <span className="text-gray-500"> · termin {o.termin}</span></span>
+                                            {eklendi
+                                                ? <span className="text-green-700 dark:text-green-400 whitespace-nowrap">✓ eklendi</span>
+                                                : <button onClick={() => pafOneriEkle(o.konu, o.termin)}
+                                                    className="px-2 py-0.5 rounded border border-amber-500 whitespace-nowrap
+                                                        text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40">
+                                                    ＋ rapora ekle
+                                                </button>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
