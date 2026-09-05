@@ -176,6 +176,15 @@ export const RightArrowIcon: React.FC<{ className?: string }> = ({ className }) 
     </svg>
 );
 
+// Yil karsilastirma: iki yonlu ok + terazi hissi. Trend Grafigi ile AYNI
+// simge kullanilmasin, iki dugme birbirine karisiyordu.
+export const CompareYearsIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h11m0 0l-3-3m3 3l-3 3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 17H9m0 0l3-3m-3 3l3 3" />
+    </svg>
+);
+
 export const TableCellsIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125V5.625c0-.621.504-1.125 1.125-1.125h17.25c.621 0 1.125.504 1.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125m-17.25 0h17.25m-17.25 0v-2.25m17.25 0v2.25m0 0v-2.25m-17.25 0v-2.25m17.25 0v-2.25m0 0V5.625m-17.25 0v2.25m17.25 0v2.25m0 0v2.25m-17.25 0v-2.25" />

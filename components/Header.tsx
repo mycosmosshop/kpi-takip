@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Kpi, ModalType, KpiLocation } from '../types';
-import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, GearIcon, DocumentDuplicateIcon, SunIcon, MoonIcon, CalendarIcon } from './icons';
+import { PlusIcon, UploadIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, PdfIcon, ClipboardCheckIcon, TableCellsIcon, TrashIcon, PaintBrushIcon, ClipboardDocumentListIcon, ChartBarIcon, CompareYearsIcon, GearIcon, DocumentDuplicateIcon, SunIcon, MoonIcon, CalendarIcon } from './icons';
 
 interface HeaderProps {
     year: number;
@@ -193,7 +193,7 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                         <ChartBarIcon className="w-4 h-4" /> Trend Grafiği
                     </button>
                      <button onClick={() => onOpenModal('year-comparison')} title="Geçen yılın hedefi ve gerçekleşeni ile bu yılın hedefini karşılaştır" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
-                        <ChartBarIcon className="w-4 h-4" /> Yıl Karşılaştırma
+                        <CompareYearsIcon className="w-4 h-4" /> Yıl Karşılaştırma
                      </button>
                      <button onClick={() => setSummaryOpen(!isSummaryOpen)} className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         Özet Paneli {isSummaryOpen ? 'Kapat' : 'Aç'}
