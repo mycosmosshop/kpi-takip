@@ -64,6 +64,29 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const grafikHarita = useMemo(
         () => new Map(standart.filter(b => b.grafik).map(b => [b.id, b.grafik as string])),
         [standart]);
+    // Önerilen aksiyonlar: KULLANICI ONAYLAYINCA rapora girer. Otomatik
+    // eklenseydi, kimsenin taahhüt etmediği aksiyon kayda geçerdi.
+    const oneriHarita = useMemo(
+        () => new Map(standart.filter(b => (b.oneriler || []).length)
+            .map(b => [b.id, b.oneriler as YggAksiyon[]])),
+        [standart]);
+
+    const oneriEkle = (bid: string, o: YggAksiyon) => setBolumler(b => b.map(x => x.id === bid
+        ? (x.aksiyonlar.some(a => a.konu === o.konu)   // aynı öneri iki kez girmesin
+            ? x
+            : { ...x, aksiyonlar: [...x.aksiyonlar, { ...o, id: 'a_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) }] })
+        : x));
+
+    const oneriHepsiniEkle = (bid: string) => {
+        const liste = oneriHarita.get(bid) || [];
+        setBolumler(b => b.map(x => {
+            if (x.id !== bid) return x;
+            const yeni = liste
+                .filter(o => !x.aksiyonlar.some(a => a.konu === o.konu))
+                .map((o, i) => ({ ...o, id: 'a_' + Date.now() + '_' + i }));
+            return yeni.length ? { ...x, aksiyonlar: [...x.aksiyonlar, ...yeni] } : x;
+        }));
+    };
     // Grafik HTML'i TEK yerde uretilir; hem ekranda hem yazdirmada ayni.
     const grafik = useMemo(() => kpiGrafikHtml(kpis, yil), [kpis, yil]);
 
@@ -459,6 +482,56 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                     <div className="mt-2 p-2 rounded bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700"
                                         dangerouslySetInnerHTML={{ __html: grafikHarita.get(b.id) as string }} />
                                 )}
+
+                                {(oneriHarita.get(b.id) || []).length > 0 && (() => {
+                                    const oneriler = oneriHarita.get(b.id) as YggAksiyon[];
+                                    const kalan = oneriler.filter(o => !b.aksiyonlar.some(a => a.konu === o.konu));
+                                    return (
+                                        <div className="mt-2 p-2 rounded border border-amber-300 dark:border-amber-700
+                                            bg-amber-50 dark:bg-amber-900/20">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                                    Hedefi tutturamayan KPI’lar için önerilen aksiyonlar
+                                                    ({kalan.length}/{oneriler.length} eklenmedi)
+                                                </div>
+                                                {kalan.length > 0 && (
+                                                    <button onClick={() => oneriHepsiniEkle(b.id)}
+                                                        className="text-xs px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700">
+                                                        Hepsini aksiyona ekle
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="max-h-40 overflow-auto">
+                                                {oneriler.map((o, i) => {
+                                                    const eklendi = b.aksiyonlar.some(a => a.konu === o.konu);
+                                                    return (
+                                                        <div key={i} className="flex items-start gap-2 py-1 text-xs
+                                                            border-b border-amber-200/60 dark:border-amber-800/60">
+                                                            <span className="flex-1">{o.konu}
+                                                                <span className="text-gray-500">
+                                                                    {' '}· termin {o.termin}
+                                                                    {o.sorumlu ? ` · ${o.sorumlu}` : ' · sorumlu boş'}
+                                                                </span>
+                                                            </span>
+                                                            {eklendi
+                                                                ? <span className="text-green-700 dark:text-green-400 whitespace-nowrap">✓ eklendi</span>
+                                                                : <button onClick={() => oneriEkle(b.id, o)}
+                                                                    className="px-2 py-0.5 rounded border border-amber-500
+                                                                        text-amber-800 dark:text-amber-200 whitespace-nowrap
+                                                                        hover:bg-amber-100 dark:hover:bg-amber-900/40">
+                                                                    ＋ ekle
+                                                                </button>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="text-[11px] text-amber-800 dark:text-amber-300 mt-1">
+                                                Öneriler rapora <b>eklemeden</b> girmez; ekledikten sonra konu,
+                                                sorumlu ve termini düzenleyebilirsiniz.
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 {b.aksiyonlar.length > 0 && (
                                     <table className="w-full mt-2 border-collapse text-xs">

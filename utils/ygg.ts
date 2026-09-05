@@ -17,6 +17,7 @@ import type { MaliyetAy } from './yggGrafik.ts';   // type: Node strip-types deg
 // bulamıyor ('İ'.toUpperCase() !== 'I') — aynı tuzak aylık raporda iki satırı
 // yanlış KPI'ya bağlamıştı.
 import { adGecer, tipEslesir, yerEslesir } from './aylikKalite.ts';
+import { hedefTablosu, hedefTabloHtml, hedefAksiyonlari } from './yggHedef.ts';
 import type { MaliyetSatir } from './kaliteMaliyet.ts';
 
 export interface YggAksiyon {
@@ -30,6 +31,7 @@ export interface YggBolum {
     otomatik: string[];     // canlı veriden (salt okunur)
     varsayilanMetin: string;// standart YGG metni (düzenlenebilir taslak)
     grafik?: string;        // maddeye ait grafik (HTML; canlı, KAYDEDİLMEZ)
+    oneriler?: YggAksiyon[];// ÖNERİLEN aksiyonlar (kullanıcı onaylayıp ekler)
     sabit: boolean;         // standart madde mi (silinse de geri gelmez, işaretlenir)
 }
 
@@ -115,8 +117,16 @@ export const yggBolumleri = (
         + (k.durum === 'basarili' ? 'hedefte' : k.durum === 'marjinal' ? 'marjinal' : 'hedef dışı');
 
     const B = (id: string, madde: string, baslik: string,
-        otomatik: string[], varsayilanMetin: string, grafik?: string): YggBolum =>
-        ({ id, madde, baslik, otomatik, varsayilanMetin, grafik, sabit: true });
+        otomatik: string[], varsayilanMetin: string, grafik?: string,
+        oneriler?: YggAksiyon[]): YggBolum =>
+        ({ id, madde, baslik, otomatik, varsayilanMetin, grafik, oneriler, sabit: true });
+
+    // Yeni yıl hedefleri: Yıl Karşılaştırma ekranıyla AYNI formül.
+    const hedefler = hedefTablosu(kpis, multiYearData, yil);
+    const tutmayanlar = hedefler.filter(h => h.tuttu === false);
+    const hedefAks = hedefAksiyonlari(hedefler, yil).map((a, i) => ({
+        id: 'oneri_' + i, konu: a.konu, sorumlu: a.sorumlu, termin: a.termin, durum: a.durum,
+    }));
 
     // Maddeye ait KPI kümeleri (grafikler bunlardan çizilir)
     // DİKKAT: 'iade ppm' kelimesi burada ARANMAZ. Türkçe katlamayla
@@ -467,14 +477,25 @@ export const yggBolumleri = (
             + `ilgili taraflara erişilebilir durumdadır; değişiklik ihtiyacı bulunmamaktadır.`),
 
         // ── Çıktılar ──
-        B('cikti_a', '9.3.3 a)', 'İyileştirme fırsatları (çıktı)',
-            [`${yil + 1} hedefleri için: `
-                + (basarisizlar.length
-                    ? `öncelik hedefi tutturamayan ${basarisizlar.length} KPI’da.`
-                    : 'tüm KPI’lar hedefte; hedeflerin sıkılaştırılması değerlendirilmeli.')],
-            `İyileştirme için FR100 ve FR001’de yeni hedefler belirlenerek yayımlanacaktır. `
-            + `İlgili KPI takip formlarında ${yil + 1} hedefleri güncellenmiş, kaynak ihtiyaçları `
-            + `için terminler planlanmıştır. Kararlar aşağıdaki aksiyon tablosuna işlenmiştir.`),
+        B('cikti_a', '9.3.3 a)', 'İyileştirme fırsatları (çıktı) — yeni kalite hedefleri',
+            [
+                `${yil + 1} yılı için ${hedefler.filter(h => h.yeniHedef !== null).length} KPI'da `
+                + `yeni hedef önerilmiştir (tabloda).`,
+                ...(tutmayanlar.length
+                    ? [`${yil} yılında hedefi tutturamayan ${tutmayanlar.length} KPI için aksiyon `
+                        + `önerisi hazırlanmıştır: `
+                        + tutmayanlar.slice(0, 12).map(h => h.kpi.kpi_adi).join('; ')
+                        + (tutmayanlar.length > 12 ? ` … (+${tutmayanlar.length - 12})` : '') + '.']
+                    : [`${yil} yılında hedefi tutturamayan KPI bulunmamaktadır.`]),
+            ],
+            `İyileştirme için FR100 ve FR001'de ${yil + 1} dönemi yeni hedefleri belirlenerek `
+            + `yayımlanmıştır. Yeni hedefler; önceki yılın gerçekleşeni, bu yılın hedefi ve bu yılın `
+            + `gerçekleşeni birlikte değerlendirilerek, hedefi tutturan ve önceki yıla göre iyileşen `
+            + `KPI'larda daha yüksek iyileştirme payıyla belirlenmiştir. Hedefi tutturamayan `
+            + `KPI'larda hedef GEVŞETİLMEMİŞ, mevcut hedef korunmuş ve hedefe ulaşmak için `
+            + `aşağıdaki aksiyonlar sorumlu ve terminle planlanmıştır. Kaynak ihtiyaçları için `
+            + `terminler ayrıca planlanmıştır.`,
+            hedefTabloHtml(hedefler, yil), hedefAks),
 
         B('cikti_b', '9.3.3 b)', 'KYS’de değişiklik ihtiyacı (çıktı)',
             [],
