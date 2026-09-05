@@ -425,8 +425,9 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         Bazı kaynaklar okunamadı: {uyari}
                     </div>
                 )}
-                <div className="mb-3 flex flex-wrap gap-3 items-center">
-                    <label className="text-xs">Ay
+                <div className="mb-3 flex flex-wrap gap-3 items-end">
+                    <label className="text-xs flex flex-col gap-1 w-32">
+                        <span>Ay</span>
                         <select className={alan} value={ay} onChange={e => setAy(Number(e.target.value))}>
                             {AYLAR.map((a, i) => {
                                 const k = aylikKaliteAnahtar(lokasyonId || lokasyon, yil, i + 1);
@@ -436,11 +437,11 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         </select>
                     </label>
                     <button onClick={() => setListeAcik(v => !v)}
-                        className="self-end mb-2 px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600
+                        className="px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600
                             hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">
                         📁 Kayıtlı raporlar{kayitli ? ` (${kayitli.length})` : ''}
                     </button>
-                    <span className="text-xs text-gray-600 dark:text-gray-300 self-end pb-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-300 flex-1 min-w-[16rem] pb-2">
                         Rapor <b>{lokasyon}</b> lokasyonuna aittir; her lokasyon ve ay ayrı saklanır.
                         Gri kutular ERP’den gelir — <b>elle değiştirilebilir</b>, değiştirirseniz
                         “otomatiğe dön” ile geri alabilirsiniz.
