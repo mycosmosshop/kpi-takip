@@ -12,6 +12,7 @@ import { exportFr216 } from './utils/fr216Export';
 import { buildFr100Html } from './utils/fr100Html';
 import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
+import YearComparisonModal from './components/YearComparisonModal';
 import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
@@ -1450,6 +1451,15 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     multiYearData={allKpiData}
                     initialKpiId={modal.data?.kpiId}
+                />
+            )}
+            {modal.type === 'year-comparison' && (
+                <YearComparisonModal
+                    isOpen={modal.type === 'year-comparison'}
+                    onClose={handleCloseModal}
+                    kpis={processedKpis}
+                    multiYearData={allKpiData}
+                    currentYear={currentYear}
                 />
             )}
             {modal.type === 'locations' && (

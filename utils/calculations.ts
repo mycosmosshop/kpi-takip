@@ -1,6 +1,6 @@
 
-import { Kpi, Status, ReviewPeriod } from '../types';
-import { AYLAR } from '../constants';
+import type { Kpi, Status, ReviewPeriod } from '../types';
+import { AYLAR } from '../constants.ts';
 
 // Bir ay aktif mi? TEK kontrol = "Veri Girilmeyecek Aylar" (pasifAylar).
 // Gözden Geçirme Periyodu artık hücreyi kilitlemez; yalnızca bu listeyi ön-doldurmak için preset olarak kullanılır

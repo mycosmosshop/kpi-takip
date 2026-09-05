@@ -192,6 +192,9 @@ const Header: React.FC<HeaderProps> = ({ year, allKpis, filters, setFilters, onA
                      <button onClick={() => onOpenModal('trend-chart')} title="Aylık trend grafiği (hedef çizgili)" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         <ChartBarIcon className="w-4 h-4" /> Trend Grafiği
                     </button>
+                     <button onClick={() => onOpenModal('year-comparison')} title="Geçen yılın hedefi ve gerçekleşeni ile bu yılın hedefini karşılaştır" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <ChartBarIcon className="w-4 h-4" /> Yıl Karşılaştırma
+                     </button>
                      <button onClick={() => setSummaryOpen(!isSummaryOpen)} className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
                         Özet Paneli {isSummaryOpen ? 'Kapat' : 'Aç'}
                     </button>

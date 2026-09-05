@@ -1,4 +1,4 @@
-import { KpiData, AppearanceTheme, Company, KpiLocation } from './types';
+import type { KpiData, AppearanceTheme, Company, KpiLocation } from './types';
 
 export const AYLAR = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
