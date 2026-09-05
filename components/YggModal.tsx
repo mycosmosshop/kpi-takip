@@ -9,6 +9,8 @@ import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
 import { katilimciCoz, YggKatilimci } from '../utils/ygg';
+// adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
+import { adGecer } from '../utils/aylikKalite';
 import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../utils/yggMail';
 import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
@@ -20,11 +22,12 @@ interface Props {
     kpis: Kpi[];
     aksiyonlar: ActionItem[];
     multiYearData: MultiYearKpiData;
-    lokasyon: string;
+    lokasyon: string;      // GÖSTERİM adı (“Ankara”)
+    lokasyonId?: string;   // bulut anahtarı (“ankara”) — DEĞİŞMEMELİ
     yil: number;
 }
 
-const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData, lokasyon, yil }) => {
+const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData, lokasyon, lokasyonId, yil }) => {
     const [bolumler, setBolumler] = useState<YggKayitBolum[]>([]);
     const [durum, setDurum] = useState<'yukleniyor' | 'hazir' | 'kaydediliyor' | 'kaydedildi' | 'hata'>('yukleniyor');
     const [hata, setHata] = useState('');
@@ -35,6 +38,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [mailKonu, setMailKonu] = useState('');
     const [mailNot, setMailNot] = useState('');
     const [mailDurum, setMailDurum] = useState<YggMailDurum | null>(null);
+    const [ara, setAra] = useState('');
     const [tarih, setTarih] = useState('');
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
@@ -49,7 +53,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         return () => { iptal = true; };
     }, [isOpen]);
 
-    const anahtar = yggAnahtar(lokasyon, yil);
+    // Anahtar ID'den: ad ile üretilirse “Çerkezköy” farklı anahtar
+    // olur ve eski kayıtlar kaybolurdu.
+    const anahtar = yggAnahtar(lokasyonId || lokasyon, yil);
     const standart = useMemo(
         () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet),
         [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet]);
@@ -106,6 +112,17 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         // Standart madde ise silme kaydı bırak; yoksa geri gelir.
         if (!id.startsWith('ek_')) setSilinenler(s => s.includes(id) ? s : [...s, id]);
     };
+
+    // Bölümün aranabilir tüm metni. Grafik HTML'i dışarıda: içinde stil
+    // adları var, "background" araması her bölümü eşlerdi.
+    const bolumMetni = (b: YggKayitBolum): string =>
+        [b.madde, b.baslik, b.metin,
+            (otoHarita.get(b.id) || []).join(' '),
+            b.aksiyonlar.map(a => `${a.konu} ${a.sorumlu} ${a.termin} ${a.durum}`).join(' ')].join(' ');
+
+    const gorunenBolumler = ara.trim()
+        ? bolumler.filter(b => adGecer(bolumMetni(b), [ara.trim()]))
+        : bolumler;
 
     // ── Katılımcılar ──
     const katEkle = () => setKatilimcilar(k => [...k, {
@@ -263,6 +280,26 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 </div>
             }>
             <div className="text-sm">
+                {/* Arama: "içinde şu var mı?" sorusunun cevabı */}
+                <div className="mb-3 flex items-center gap-2">
+                    <input value={ara} onChange={e => setAra(e.target.value)}
+                        placeholder="🔍 Raporda ara — madde, başlık, metin, veri satırı, aksiyon…"
+                        className={alan + ' flex-1'} />
+                    {ara.trim() && (
+                        <>
+                            <span className={'text-xs whitespace-nowrap '
+                                + (gorunenBolumler.length ? 'text-gray-600 dark:text-gray-300' : 'text-red-600')}>
+                                {gorunenBolumler.length
+                                    ? `${gorunenBolumler.length} bölümde bulundu`
+                                    : 'bulunamadı'}
+                            </span>
+                            <button onClick={() => setAra('')}
+                                className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">
+                                temizle
+                            </button>
+                        </>
+                    )}
+                </div>
                 {durum === 'hata' && (
                     <div className="mb-3 p-3 rounded bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                         Okunamadı: {hata}. <b>Kaydetmeyin</b> — kaydederseniz eski içeriğin üzerine yazılır.
@@ -390,7 +427,13 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         dangerouslySetInnerHTML={{ __html: grafik }} />
                 </div>
 
-                {bolumler.map(b => {
+                {ara.trim() && gorunenBolumler.length > 0 && (
+                    <div className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+                        Arama açık: {bolumler.length - gorunenBolumler.length} bölüm gizli.
+                        Yazdırma ve mail RAPORUN TAMAMINI içerir.
+                    </div>
+                )}
+                {gorunenBolumler.map(b => {
                     const oto = otoHarita.get(b.id) || [];
                     return (
                         <div key={b.id} className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

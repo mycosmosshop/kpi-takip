@@ -24,7 +24,8 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     kpis: Kpi[];
-    lokasyon: string;
+    lokasyon: string;      // GÖSTERİM adı (“Ankara”)
+    lokasyonId?: string;   // bulut anahtarı (“ankara”) — DEĞİŞMEMELİ
     yil: number;
 }
 
@@ -49,7 +50,7 @@ const kpiAyMetni = (k: Kpi | null, ay: number): string | null => {
             : ` · önceki ay ${sayi(onc)} → ${fark === 0 ? 'değişmedi' : (fark > 0 ? '▲ +' : '▼ ') + sayi(fark)}`);
 };
 
-const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil }) => {
+const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lokasyonId, yil }) => {
     const [ay, setAy] = useState(new Date().getMonth() + 1);
     const [kayitlar, setKayitlar] = useState<UygKayit[] | null>(null);
     const [onayli, setOnayli] = useState<OnayliKayit[] | null>(null);
@@ -60,7 +61,8 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yi
     const [hata, setHata] = useState('');
     const [uyari, setUyari] = useState('');
 
-    const anahtar = aylikKaliteAnahtar(lokasyon, yil, ay);
+    // Anahtar ID'den (bkz. YggModal): ad değişse de kayıt kaybolmasın.
+    const anahtar = aylikKaliteAnahtar(lokasyonId || lokasyon, yil, ay);
 
     // ERP kayıtları (yıl bazında bir kez). Müşteri listesi ve maliyet
     // ayrı kaynaklardan; biri düşerse diğeri çalışmaya devam etsin diye

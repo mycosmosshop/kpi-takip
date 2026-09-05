@@ -14,6 +14,15 @@ const sayi = (n: number | null | undefined): string =>
     (n === null || n === undefined || isNaN(Number(n))) ? '—'
         : Number(n).toLocaleString('tr-TR', { maximumFractionDigits: Math.abs(Number(n)) >= 1000 ? 0 : 2 });
 
+// Çubuk üstündeki etiket dar: büyük sayılar kısaltılır (tam değer
+// title'da durur). Kısaltma olmadan "1.816.749" yan yana 12 kez sığmaz.
+export const kisaSayi = (n: number): string => {
+    const a = Math.abs(n);
+    if (a >= 1e6) return (n / 1e6).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + 'M';
+    if (a >= 1e3) return (n / 1e3).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + 'B';
+    return n.toLocaleString('tr-TR', { maximumFractionDigits: a < 1 ? 2 : 1 });
+};
+
 const RENK = { basarili: '#22c55e', marjinal: '#eab308', basarisiz: '#ef4444', 'n/a': '#d1d5db' } as const;
 
 // Bir ayda kaç KPI hedefte? Değeri girilmemiş KPI SAYILMAZ — sayılsaydı
@@ -136,16 +145,21 @@ export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): strin
         // katılmazsa hedef çizgisi çerçevenin dışında kalır.
         const enBuyuk = Math.max(...dolu.map(Math.abs), Math.abs(Number(k.yeni_yil_hedef) || 0), 1);
         const hedefY = Math.min(Math.abs(Number(k.yeni_yil_hedef) || 0) / enBuyuk, 1) * 100;
+        // Değer etiketleri ve çubuklar AYRI iki şeritte; ikisi de 12 eşit
+        // sütun olduğu için etiket her zaman kendi ayının üstünde kalır.
+        const etiketler = degerler.map((v, i) => `<div style="flex:1;min-width:0;text-align:center;
+            font-size:6.5pt;color:#555;line-height:10px;height:10px;overflow:hidden"
+            title="${esc(AYLAR[i])}">${v === null ? '' : esc(kisaSayi(v))}</div>`).join('');
         const kutu = degerler.map((v, i) => {
             if (v === null) {
-                return `<div style="flex:1;min-width:0;height:34px;border-bottom:1px solid #e5e7eb"
+                return `<div style="flex:1;min-width:0;height:100%"
                     title="${esc(AYLAR[i])}: veri yok"></div>`;
             }
             const y = Math.max((Math.abs(v) / enBuyuk) * 100, 2);
             const iyi = hedefiTuttu(k, v);
-            return `<div style="flex:1;min-width:0;height:34px;display:flex;align-items:flex-end;
-                border-bottom:1px solid #e5e7eb" title="${esc(AYLAR[i])}: ${esc(sayi(v))} ${esc(k.birim)}">
-                <div style="width:78%;margin:0 auto;height:${y}%;border-radius:2px 2px 0 0;
+            return `<div style="flex:1;min-width:0;height:100%;display:flex;align-items:flex-end"
+                title="${esc(AYLAR[i])}: ${esc(sayi(v))} ${esc(k.birim)}">
+                <div style="width:44%;margin:0 auto;height:${y}%;border-radius:2px 2px 0 0;
                 background:${iyi ? RENK.basarili : RENK.basarisiz}"></div></div>`;
         }).join('');
         return `<tr>
@@ -153,11 +167,15 @@ export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): strin
                 overflow:hidden;text-overflow:ellipsis">${esc(k.kpi_adi)}
                 <span style="color:#888">(${esc(k.birim)})</span></td>
             <td style="padding:2px 4px;width:100%">
-              <div style="position:relative;display:flex;gap:2px">
-                ${kutu}
-                <div style="position:absolute;left:0;right:0;bottom:${hedefY}%;height:0;
-                  border-top:1px dashed #444" title="Hedef ${esc(sayi(k.yeni_yil_hedef))}"></div>
-              </div>
+              ${dolu.length === 0
+                ? `<div style="font-size:8.5pt;color:#999;padding:6px 0">${yil} için aylık veri girilmemiş.</div>`
+                : `<div style="display:flex;gap:2px">${etiketler}</div>
+                   <div style="position:relative;display:flex;gap:2px;height:30px;
+                     border-bottom:1px solid #e5e7eb">
+                     ${kutu}
+                     <div style="position:absolute;left:0;right:0;bottom:${hedefY}%;height:0;
+                       border-top:1px dashed #444" title="Hedef ${esc(sayi(k.yeni_yil_hedef))}"></div>
+                   </div>`}
             </td>
             <td style="padding:2px 6px;text-align:right;font-size:9pt;white-space:nowrap">
               ${esc(sayi(k.ortalama))} / ${esc(sayi(k.yeni_yil_hedef))}</td>
@@ -179,6 +197,7 @@ export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): strin
         </tbody></table>
         <div style="font-size:8pt;color:#888;margin-top:2px">
           Kesikli çizgi = hedef · yeşil: o ay hedefi tuttu · boş sütun: veri girilmemiş
+          · çubuk üstündeki değerler kısaltılmıştır (B = bin, M = milyon)
           ${kpis.length > 8 ? ` · ilk 8 KPI gösteriliyor (${kpis.length} KPI)` : ''}
         </div>
       </div>`;
@@ -195,7 +214,10 @@ export const maliyetGrafikHtml = (aylik: MaliyetAy[], yil: number): string => {
         v <= 0 ? '' : `<div style="height:${(v / enBuyuk) * 100}%;background:${renk}"
             title="${esc(AYLAR[m.ay - 1])} ${esc(ad)}: ${esc(sayi(v))} TL"></div>`;
     const sutun = aylik.map(m => `<div style="flex:1;text-align:center;min-width:0">
-        <div style="height:76px;display:flex;flex-direction:column-reverse;justify-content:flex-start">
+        <div style="font-size:7pt;color:#555;line-height:11px;height:11px;overflow:hidden"
+          title="${esc(AYLAR[m.ay - 1])}: ${esc(sayi(top(m)))} TL">${esc(kisaSayi(top(m)))}</div>
+        <div style="height:70px;display:flex;flex-direction:column-reverse;justify-content:flex-start;
+          width:72%;margin:0 auto">
           ${parca(m.ted, '#ef4444', 'tedarikçi', m)}
           ${parca(m.dis, '#f59e0b', 'dış', m)}
           ${parca(m.ic, '#3b82f6', 'iç', m)}
@@ -213,6 +235,7 @@ export const maliyetGrafikHtml = (aylik: MaliyetAy[], yil: number): string => {
           <span style="color:#f59e0b">■</span> dış başarısızlık
           <span style="color:#ef4444">■</span> tedarikçi
           <span style="color:#9ca3af">■</span> diğer
+          · sütun üstündeki tutarlar kısaltılmıştır (B = bin, M = milyon)
           · birim fiyatı bulunamayan kayıtlar maliyete girmez
         </div>
       </div>`;

@@ -1472,7 +1472,8 @@ const App: React.FC = () => {
                     isOpen={modal.type === 'aylik-kalite'}
                     onClose={handleCloseModal}
                     kpis={processedKpis}
-                    lokasyon={currentLocation}
+                    lokasyon={currentLocObj?.name || currentLocation}
+                    lokasyonId={currentLocation}
                     yil={currentYear}
                 />
             )}
@@ -1483,7 +1484,8 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     aksiyonlar={currentActionData.items || []}
                     multiYearData={allKpiData}
-                    lokasyon={currentLocation}
+                    lokasyon={currentLocObj?.name || currentLocation}
+                    lokasyonId={currentLocation}
                     yil={currentYear}
                 />
             )}

@@ -126,9 +126,14 @@ export const yggBolumleri = (
         || adGecer(k.kpi_adi || '', ['tedarik']));
     const bakimKpi = kpis.filter(k => k.kaynak?.type === 'cmms'
         || adGecer(k.kpi_adi || '', ['mttr', 'mtbf', 'arıza', 'bakım']));
-    const memnuniyetKpi = kpiAra(['memnuniyet', 'müşteri şikayet', 'şikayet']);
+    // MÜŞTERİ memnuniyeti maddesine PERSONEL memnuniyeti karışmamalı:
+    // "memnuniyet" kelimesi ikisinde de geçiyor; personel anketi insan
+    // kaynağı maddesine (9.3.2 d) aittir.
+    const memnuniyetKpi = kpis.filter(k => adGecer(k.kpi_adi || '', ['memnuniyet', 'şikayet'])
+        && !adGecer(k.kpi_adi || '', ['personel', 'çalışan']));
     const egitimKpi = kpis.filter(k => k.kaynak?.type === 'egitim'
-        || adGecer(k.kpi_adi || '', ['eğitim', 'polivalans', 'devamsızlık', 'turnover']));
+        || adGecer(k.kpi_adi || '', ['eğitim', 'polivalans', 'devamsızlık', 'turnover',
+            'personel memnuniyet', 'çalışan memnuniyet', 'iş kazası']));
     const uygunlukKpi = kpiAra(['ppm', 'hurda', 'iade', 'fire', 'uygunsuzluk']);
     const verimlilikKpi = kpiAra(['verimlilik', 'oee', 'kapasite', 'doluluk', 'fire']);
     const maliyetKpi = kpiAra(['maliyet', 'kalitesizlik', 'hurda']);
@@ -159,6 +164,43 @@ export const yggBolumleri = (
 
     const L = lokasyon;
     return [
+        B('gundem', 'Gündem', 'Toplantı gündem maddeleri',
+            [],
+            `YGG TOPLANTI GİRDİLERİ\n`
+            + `a) Önceki yönetim incelemelerinden alınan eylemlerin durumu\n`
+            + `b) Kalite yönetim sistemi ile ilgili iç ve dış konulardaki değişiklikler; `
+            + `bilimsel ve teknolojik gelişmelerin takibi\n`
+            + `c) KYS'nin performansı ve etkinliği hakkında bilgi (eğilimler dâhil):\n`
+            + `   1) İlgili taraflardan müşteri memnuniyeti ve geri bildirim\n`
+            + `   2) Kalite hedeflerinin ne ölçüde karşılandığı (FR100 ve yeni hedefler)\n`
+            + `   3) Süreç performansı ile ürün ve hizmetlerin uygunluğu (ürün güvenliği)\n`
+            + `   4) Uygunsuzluklar ve düzeltici faaliyetler (ürün güvenliği uygunsuzlukları)\n`
+            + `   5) İzleme ve ölçüm sonuçları\n`
+            + `   6) İç ve dış denetim sonuçları\n`
+            + `   7) Dış sağlayıcıların (tedarikçi) performansı\n`
+            + `d) Kaynakların yeterliliği (ürün güvenliği için gereken kaynaklar dâhil)\n`
+            + `e) Risk ve fırsatlar için alınan önlemlerin etkinliği (md. 6.1); acil durum `
+            + `planları (yangın, enerji kesintisi, tedarik kesintisi vb.)\n`
+            + `f) İyileştirme fırsatları (FR100'de yeni hedefler, kaynak terminleri)\n\n`
+            + `TAMAMLAYICI GİRDİLER (IATF 16949 md. 9.3.2.1)\n`
+            + `a) Düşük kalite maliyeti (dahili ve harici uygunsuzluk maliyeti, bütçeye oranı)\n`
+            + `b) Süreç etkinliğinin ölçümü (FR100 / FR001)\n`
+            + `c) Proses verimliliği ölçümleri\n`
+            + `d) Ürün uygunluğu (şikayetlerin ürün güvenliğine etkisi)\n`
+            + `e) Operasyon değişiklikleri ve imalat fizibilite değerlendirmeleri (md. 7.1.3.1)\n`
+            + `f) Müşteri memnuniyeti (ISO 9001 md. 9.1.2) ve müşteri DÖF durumu\n`
+            + `g) Bakım hedeflerine göre performans (MTTR / MTBF)\n`
+            + `h) Garanti performansı (varsa) — garanti sağlamamaktayız\n`
+            + `i) Müşteri puan kartlarının gözden geçirilmesi (varsa)\n`
+            + `j) Risk analizi (HTEA/FMEA) ile tanımlanan potansiyel saha arızaları\n`
+            + `k) Gerçek saha arızaları ve güvenlik üzerindeki etkileri\n\n`
+            + `EK: Ürün güvenliği ve yanmazlık (yanma) testleri (md. 4.4.1.2), kalite `
+            + `politikasının uygunluğu\n\n`
+            + `YGG ÇIKTILARI\n`
+            + `a) İyileştirme fırsatları (FR100/FR001'de yeni hedefler, kaynak terminleri)\n`
+            + `b) Kalite yönetim sisteminde değişiklik ihtiyacı\n`
+            + `c) Kaynak ihtiyaçları`),
+
         B('girdi_a', '9.3.2 a)', 'Önceki yönetim incelemelerinden alınan eylemlerin durumu',
             aksiyonlar.length === 0
                 ? ['Aksiyonlar ekranında bu lokasyon/yıl için kayıt yok.']
