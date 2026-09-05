@@ -125,7 +125,13 @@ export const maliyetDetayCek = async (): Promise<MaliyetDetay[]> =>
 export const erpPafKalemleri = (
     satirlar: MaliyetSatir[], lokasyon: string, yil: number, ay?: number,
 ): { [id: string]: number } => {
-    const t: { [id: string]: number } = {};
+    // ERP verisi ÇEKİLMİŞSE üç kalem de dolar; o dönem kaydı olmayan tip
+    // 0 TL'dir ("o dönem dış başarısızlık olmadı"). Veri hiç yoksa hiçbiri
+    // dolmaz — "girilmedi" ile "0 TL" ayrımı korunur.
+    // Ölçüt YIL KAPSAMI: o yıla ait hiç kayıt yoksa veri çekilmemiş
+    // demektir → "girilmedi". Yıl varsa, kaydı olmayan tip gerçekten 0'dır.
+    if (!satirlar || !satirlar.some(r => say(r.yil) === yil)) return {};
+    const t: { [id: string]: number } = { i_hurda: 0, x_iade: 0, i_tedarikci: 0 };
     (satirlar || []).forEach(r => {
         if (say(r.yil) !== yil) return;
         if (ay !== undefined && say(r.ay) !== ay) return;
