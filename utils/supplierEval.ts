@@ -51,7 +51,7 @@ export const fetchSupplierEvalLocations = async (): Promise<string[]> => {
 };
 
 // supplier_sync blob'unu bir kez oku (kategori/durum/skorlar/filtreler)
-const readSupplierSync = async (): Promise<any> => {
+export const readSupplierSync = async (): Promise<any> => {
     try {
         const erp = getErpClient();
         if (!erp) return null;

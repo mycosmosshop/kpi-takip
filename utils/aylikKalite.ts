@@ -16,9 +16,9 @@ const UYG_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const UYG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
 
 export interface UygKayit {
-    tipi?: string; tespitYeri?: string; cariAdi?: string; stokAdi?: string;
-    hataliMiktar?: number; kontrolMiktar?: number; uygunsuzlukTarih?: string;
-    tarif?: string; makine?: string;
+    tipi?: string; tespitYeri?: string; cariAdi?: string; stokAdi?: string; stokKodu?: string;
+    hataliMiktar?: number; kontrolMiktar?: number; partiHacmi?: number; uygunsuzlukTarih?: string;
+    tarif?: string; makine?: string; hataTipi?: string;
 }
 
 // Türkçe harf farkını yok say: "ÇERKEZKÖY TEKNIK" ile "Çerkezköy" eşleşsin.
@@ -45,8 +45,13 @@ const TIP = {
     ted: 'TEDARIKCI',
 };
 
+// Tip metni hangi sınıfa ait? ("Iç basarisizlik" → 'ic'). Türkçe harf farkı
+// katlanır; maliyet tablosu da AYNI metinleri taşıdığı için ortak kullanılır.
+export const tipEslesir = (tipMetni: string, hangi: keyof typeof TIP): boolean =>
+    sade(tipMetni).indexOf(TIP[hangi]) === 0;
+
 export const tipiOlan = (k: UygKayit, hangi: keyof typeof TIP): boolean =>
-    sade(k.tipi).indexOf(TIP[hangi]) === 0;
+    tipEslesir(k.tipi || '', hangi);
 
 export interface KirilimSatir { ad: string; adet: number; miktar: number; oncekiMiktar: number | null; }
 
@@ -87,6 +92,44 @@ export const ilkN = (
         .slice(0, n);
 };
 
+// PPM = Σhatalı / Σparti hacmi × 1e6 — Uygunsuzluk Analizi uygulamasının
+// kullandığı tanımın AYNISI. Farklı bir payda seçmek ikinci bir "doğru"
+// sayı üretirdi. Parti hacmi yoksa PPM hesaplanmaz (null), 0 yazılmaz.
+export interface PpmSonuc { ppm: number | null; hatali: number; parti: number; kayit: number; }
+
+export const ppmParti = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+    hangi: 'ic' | 'dis' | 'ted',
+): PpmSonuc => {
+    const r: PpmSonuc = { ppm: null, hatali: 0, parti: 0, kayit: 0 };
+    (kayitlar || []).forEach(k => {
+        if (!tipiOlan(k, hangi)) return;
+        if (!yerEslesir(k.tespitYeri || '', lokasyon)) return;
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        if (!t || t.yil !== yil || t.ay !== ay) return;
+        r.kayit++;
+        r.hatali += Number(k.hataliMiktar) || 0;
+        r.parti += Number(k.partiHacmi) || Number(k.kontrolMiktar) || 0;
+    });
+    if (r.parti > 0) r.ppm = Math.round((r.hatali / r.parti) * 1e6);
+    return r;
+};
+
+// KPI adını Türkçe'ye DAYANIKLI ara. JS'te /iç ppm/i ifadesi "İç PPM Oranı"yı
+// BULAMAZ ('İ'.toUpperCase() === 'İ' ≠ 'I'); rapor bu yüzden hem "KPI tanımlı
+// değil" diyor hem de "Toplam İade PPM" yerine adında düz 'i' olan TEDARİKÇİ
+// KPI'sını yakalıyordu. Arama sade() ile katlanır.
+export const adGecer = (ad: string, kelimeler: string[]): boolean => {
+    const a = sade(ad);
+    return kelimeler.some(k => a.indexOf(sade(k)) >= 0);
+};
+
+export const kpiAra = <T extends { kpi_adi: string }>(
+    kpis: T[], iceren: string[], haric: string[] = [],
+): T | null =>
+    (kpis || []).find(k => adGecer(k.kpi_adi || '', iceren)
+        && !(haric.length && adGecer(k.kpi_adi || '', haric))) || null;
+
 export const sayimlar = (
     kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
 ): { ic: number; dis: number; ted: number; icMiktar: number; disMiktar: number; tedMiktar: number; musteriler: string[]; tedarikciler: string[] } => {
@@ -112,7 +155,7 @@ export const uygunsuzluklariCek = async (yil: number): Promise<UygKayit[]> => {
     if (!sb || !sb.createClient) throw new Error('Supabase istemcisi yüklenemedi.');
     const c = sb.createClient(UYG_URL, UYG_KEY);
     const { data, error } = await c.from('uygunsuzluk_records')
-        .select('tipi,tespitYeri,cariAdi,stokAdi,hataliMiktar,kontrolMiktar,uygunsuzlukTarih,tarif,makine')
+        .select('tipi,tespitYeri,cariAdi,stokAdi,stokKodu,hataliMiktar,kontrolMiktar,partiHacmi,uygunsuzlukTarih,tarif,makine,hataTipi')
         .limit(20000);
     if (error) throw error;
     // Yıl filtresi burada: tarih "GG.AA.YYYY" metin olduğu için sunucuda süzülemiyor.
@@ -126,11 +169,30 @@ export const uygunsuzluklariCek = async (yil: number): Promise<UygKayit[]> => {
 export interface RaporSatir {
     id: string;
     kriter: string;
-    otomatik: string;   // ERP/KPI'dan üretilen özet (salt okunur)
+    otomatik: string;   // ERP/KPI'dan üretilen özet (canlı, kaydedilmez)
+    otoElle?: string;   // kullanıcı gri kutuyu elle değiştirdiyse
     ozet: string;       // kullanıcının yazdığı
     aksiyon: string;    // kullanıcının yazdığı
+    sorumlu?: string;
+    termin?: string;    // GG.AA.YYYY veya YYYY-AA-GG (tarih seçici)
     silinebilir: boolean;
 }
+
+// Kayıtlı satırlar + standart satırlar. YGG ile aynı desen: SİLİNEN satır
+// geri gelmemeli, bu yüzden silinenlerin id'si ayrıca tutulur — yoksa
+// standart liste her açılışta onları yeniden eklerdi.
+export const aylikBirlestir = (
+    standart: RaporSatir[], kayit: RaporSatir[] | null, silinenler: string[] = [],
+): RaporSatir[] => {
+    const silinen = new Set(silinenler || []);
+    if (!kayit) return standart.filter(b => !silinen.has(b.id));
+    const kayitli = new Set(kayit.map(x => x.id));
+    const sonuc = kayit.filter(x => !silinen.has(x.id));
+    standart.forEach(b => {
+        if (!kayitli.has(b.id) && !silinen.has(b.id)) sonuc.push(b);
+    });
+    return sonuc;
+};
 
 export const aylikKaliteAnahtar = (lokasyon: string, yil: number, ay: number): string =>
     'aylikkalite_' + String(lokasyon || '').trim().toLocaleLowerCase('tr').replace(/\s+/g, '_')
