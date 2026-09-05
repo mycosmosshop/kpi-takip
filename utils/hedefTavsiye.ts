@@ -15,13 +15,38 @@ export const IYILESTIRME = 0.05;   // %5
 export const yuvarla = (v: number): number =>
     Math.abs(v) >= 1000 ? Math.round(v) : Math.round(v * 100) / 100;
 
-// gercek: KPI'nın BU yılki gerçekleşen ortalaması (kpi.ortalama).
-// Veri yoksa tavsiye YOK — uydurulmuş hedef, hedef değildir.
-export const tavsiyeHedef = (
+export interface TavsiyeSonuc {
+    hedef: number;          // önerilen yeni hedef
+    taban: number;          // ağırlıklı taban
+    pay: number;            // uygulanan iyileştirme payı (0.01-0.10)
+    tuttu: boolean;         // bu yıl hedef tutturuldu mu
+    iyilesme: boolean | null; // önceki yıla göre iyileşme (kayıt yoksa null)
+    korundu: boolean;       // hesap mevcut hedeften gevşek çıktı, hedef korundu
+    aciklama: string;
+}
+
+// Bir sonraki yılın hedefi: BU yılın gerçekleşeni + BU yılın hedefi +
+// ÖNCEKİ yılın gerçekleşeni birlikte değerlendirilir.
+//
+//   taban = 0,5×gerçekleşen + 0,3×hedef + 0,2×önceki yıl gerçekleşen
+//           (önceki yıl kaydı yoksa 0,6×gerçekleşen + 0,4×hedef)
+//   pay   = %5 taban ± performans:  hedefi tutturduysa +%2, tutturamadıysa −%3,
+//           önceki yıla göre iyileştiyse +%2 · sınır [%1, %10]
+//   hedef = taban ± pay (karşılaştırma yönüne göre)
+//
+// Neden ağırlıklı: gerçekleşeni doğrudan hedefe çevirmek, hedefin çok
+// altında/üstünde kalan KPI'da hedefi anlamsızlaştırır; hedefi aynen tutmak
+// da iyileşmeyi ödüllendirmez. Önceki yıl, tek yıllık sıçramanın hedefi
+// savurmasını engeller.
+//
+// SON KURAL: tavsiye, MEVCUT HEDEFTEN GEVŞEK OLAMAZ. Hedefi tutturamayan
+// KPI'da hesap hedefi geriye çeker; hedefi gevşetmek yönetim kararıdır,
+// otomatik öneri bunu yapmamalıdır — bu durumda mevcut hedef korunur.
+export const tavsiyeDetay = (
     kpi: Kpi,
     gercek: number | null | undefined,
-    oran: number = IYILESTIRME,
-): number | null => {
+    oncekiGercek?: number | null,
+): TavsiyeSonuc | null => {
     if (gercek === null || gercek === undefined) return null;
     const g = Number(gercek);
     const h = Number(kpi.yeni_yil_hedef);
@@ -31,8 +56,44 @@ export const tavsiyeHedef = (
     const kucukIyi = kpi.karsilastirma === '<=' || kpi.karsilastirma === '<';
     const buyukIyi = kpi.karsilastirma === '>=' || kpi.karsilastirma === '>';
     if (!kucukIyi && !buyukIyi) return null;
-    const orta = (h + g) / 2;
-    return yuvarla(kucukIyi ? orta * (1 - oran) : orta * (1 + oran));
+
+    const o = (oncekiGercek === null || oncekiGercek === undefined
+        || isNaN(Number(oncekiGercek))) ? null : Number(oncekiGercek);
+    const taban = o === null ? (0.6 * g + 0.4 * h) : (0.5 * g + 0.3 * h + 0.2 * o);
+
+    const tuttu = kucukIyi ? g <= h : g >= h;
+    const iyilesme = o === null ? null : (kucukIyi ? g < o : g > o);
+    // Pay dört değerden birini alır: %2 (tutturamadı, gerileme),
+    // %4 (tutturamadı ama iyileşme), %7 (tuttu), %9 (tuttu + iyileşme).
+    // Ayrıca sınır konmuyor — pay negatife düşse bile hedefi gevşetmeyi
+    // aşağıdaki "mevcut hedeften gevşek olamaz" kuralı zaten engelliyor;
+    // erişilemeyen bir clamp, sınanamayan ölü kod olurdu.
+    const pay = IYILESTIRME + (tuttu ? 0.02 : -0.03) + (iyilesme ? 0.02 : 0);
+
+    const ham = kucukIyi ? taban * (1 - pay) : taban * (1 + pay);
+    const kisitli = kucukIyi ? Math.min(ham, h) : Math.max(ham, h);
+    const korundu = yuvarla(kisitli) !== yuvarla(ham);
+
+    const y1 = (x: number) => x.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    const aciklama = `Taban = ${o === null ? '0,6×gerçekleşen + 0,4×hedef' : '0,5×gerçekleşen + 0,3×hedef + 0,2×önceki yıl'}`
+        + ` = ${y1(yuvarla(taban))}`
+        + ` · pay %${y1(pay * 100)} (${tuttu ? 'hedef tutturuldu +%2' : 'hedef tutturulamadı −%3'}`
+        + `${iyilesme === null ? ', önceki yıl kaydı yok' : iyilesme ? ', önceki yıla göre iyileşme +%2' : ', önceki yıla göre gerileme'})`
+        + ` → ${y1(yuvarla(ham))}`
+        + (korundu ? ` · hesap mevcut hedeften (${y1(h)}) gevşek çıktı, HEDEF KORUNDU` : '');
+
+    return { hedef: yuvarla(kisitli), taban: yuvarla(taban), pay, tuttu, iyilesme, korundu, aciklama };
+};
+
+// gercek: KPI'nın BU yılki gerçekleşen ortalaması (kpi.ortalama).
+// Veri yoksa tavsiye YOK — uydurulmuş hedef, hedef değildir.
+export const tavsiyeHedef = (
+    kpi: Kpi,
+    gercek: number | null | undefined,
+    oncekiGercek?: number | null,
+): number | null => {
+    const d = tavsiyeDetay(kpi, gercek, oncekiGercek);
+    return d ? d.hedef : null;
 };
 
 // Tavsiye sütunundan gerçekten atanacak hedefler. Kaldırılan KPI ve

@@ -8,6 +8,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { maliyetCek, MaliyetSatir } from '../utils/kaliteMaliyet';
+import { katilimciCoz, YggKatilimci } from '../utils/ygg';
+import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../utils/yggMail';
 import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
 import Modal from './Modal';
@@ -27,6 +29,12 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [durum, setDurum] = useState<'yukleniyor' | 'hazir' | 'kaydediliyor' | 'kaydedildi' | 'hata'>('yukleniyor');
     const [hata, setHata] = useState('');
     const [katilanlar, setKatilanlar] = useState('');
+    const [katilimcilar, setKatilimcilar] = useState<YggKatilimci[]>([]);
+    const [mailAcik, setMailAcik] = useState(false);
+    const [mailCc, setMailCc] = useState('');
+    const [mailKonu, setMailKonu] = useState('');
+    const [mailNot, setMailNot] = useState('');
+    const [mailDurum, setMailDurum] = useState<YggMailDurum | null>(null);
     const [tarih, setTarih] = useState('');
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
@@ -67,6 +75,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 setSilinenler(sil);
                 setBolumler(yggBirlestir(standart, Array.isArray(o.bolumler) ? o.bolumler : null, sil));
                 setKatilanlar(o.katilanlar || '');
+                // Eski kayıtta yalnızca metin vardı; göç edilmezse
+                // katılımcılar boş görünürdü.
+                setKatilimcilar(Array.isArray(o.katilimcilar) && o.katilimcilar.length
+                    ? o.katilimcilar as YggKatilimci[]
+                    : katilimciCoz(o.katilanlar || ''));
                 setTarih(o.tarih || '');
                 setDurum('hazir');
             })
@@ -80,7 +93,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const kaydet = async () => {
         setDurum('kaydediliyor'); setHata('');
         try {
-            await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, tarih, guncelleme: new Date().toISOString() });
+            await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, katilimcilar, tarih, guncelleme: new Date().toISOString() });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
         } catch (e: any) { setHata(String(e?.message || e)); setDurum('hata'); }
     };
@@ -92,6 +105,52 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         setBolumler(b => b.filter(x => x.id !== id));
         // Standart madde ise silme kaydı bırak; yoksa geri gelir.
         if (!id.startsWith('ek_')) setSilinenler(s => s.includes(id) ? s : [...s, id]);
+    };
+
+    // ── Katılımcılar ──
+    const katEkle = () => setKatilimcilar(k => [...k, {
+        id: 'kt_' + Date.now(), ad: '', gorev: '', eposta: '',
+    }]);
+    const katGuncelle = (id: string, alan: keyof YggKatilimci, v: string) =>
+        setKatilimcilar(k => k.map(x => x.id === id ? { ...x, [alan]: v } : x));
+    const katSil = (id: string) => setKatilimcilar(k => k.filter(x => x.id !== id));
+
+    // ── Mail ──
+    const mailAlicilar = adresListesi(katilimcilar.map(k => k.eposta));
+    const mailCcListe = adresListesi(mailCc);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let iptal = false;
+        yggMailDurumOku().then(d => { if (!iptal) setMailDurum(d); }).catch(() => { });
+        return () => { iptal = true; };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (mailAcik && !mailKonu) {
+            setMailKonu(`${yil} Yılı Yönetimin Gözden Geçirmesi (YGG) — ${lokasyon}`);
+        }
+    }, [mailAcik, mailKonu, yil, lokasyon]);
+
+    const mailYolla = async () => {
+        if (!mailAlicilar.length) { setHata('Katılımcılarda geçerli e-posta yok.'); return; }
+        setDurum('kaydediliyor'); setHata('');
+        try {
+            // Rapor mailde de AYNI belge olsun diye raporHtml() kullanılır.
+            const not = mailNot.trim()
+                ? `<p style="background:#f4f6f8;padding:8px;border-left:3px solid #888">${esc(mailNot).replace(/\n/g, '<br>')}</p>`
+                : '';
+            await yggMailGonder({
+                lokasyon, yil,
+                konu: mailKonu || `${yil} YGG — ${lokasyon}`,
+                alicilar: mailAlicilar,
+                cc: mailCcListe,
+                html: raporHtml().replace('<h1>', not + '<h1>'),
+            });
+            setMailAcik(false);
+            setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
+            setMailDurum({ ...(mailDurum || {}), istekDurum: 'kuyrukta' });
+        } catch (e: any) { setHata('Mail isteği yazılamadı: ' + String(e?.message || e)); setDurum('hata'); }
     };
 
     const bolumEkle = () => setBolumler(b => [...b, {
@@ -113,8 +172,17 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const yazdir = () => {
         const w = window.open('', '_blank');
         if (!w) return;
-        const esc = (t: string) => String(t || '')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        w.document.write(raporHtml());
+        w.document.close(); w.focus();
+    };
+
+    const esc = (t: string) => String(t || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Rapor HTML'i TEK yerde üretilir: yazdırma ve mail AYNI belgeyi
+    // kullanır. İki ayrı üretici olsaydı biri güncellenip diğeri
+    // unutulurdu (grafiklerde bunun bedeli ödendi).
+    const raporHtml = (): string => {
         const govde = bolumler.map(b => {
             const oto = otoHarita.get(b.id) || [];
             const aks = b.aksiyonlar.length ? `
@@ -127,7 +195,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 ${grafikHarita.get(b.id) || ''}
                 ${aks}`;
         }).join('');
-        w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="tr"><head><meta charset="utf-8">
             <title>YGG ${esc(lokasyon)} ${yil}</title><style>
             body{font-family:Segoe UI,Arial,sans-serif;font-size:11.5pt;color:#111;margin:24px;line-height:1.5}
             h1{font-size:15pt;margin:0 0 3px} h2{font-size:11pt;color:#444;margin:0 0 16px;font-weight:normal}
@@ -143,15 +211,19 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             </style></head><body>
             <h1>${yil} YILI YÖNETİMİN GÖZDEN GEÇİRMESİ TOPLANTISI (YGG)</h1>
             <h2>Lokasyon: ${esc(lokasyon)}</h2>
-            <div class="ust"><b>Toplantı tarihi/saati:</b> ${esc(tarih) || '—'}<br>
-            <b>Katılanlar:</b> ${esc(katilanlar) || '—'}</div>
+            <div class="ust"><b>Toplantı tarihi/saati:</b> ${esc(tarih) || '—'}</div>
+            <h3><span class="md">Katılımcılar</span> Toplantıya katılanlar</h3>
+            ${katilimcilar.length
+                ? `<table class="aks"><thead><tr><th>Ad Soyad</th><th>Görev</th><th>E-posta</th></tr></thead>
+                   <tbody>${katilimcilar.map(k => `<tr><td>${esc(k.ad)}</td><td>${esc(k.gorev)}</td>
+                   <td>${esc(k.eposta)}</td></tr>`).join('')}</tbody></table>`
+                : `<p>${esc(katilanlar) || '—'}</p>`}
             <h3><span class="md">KPI</span> ${yil} yılı KPI performans özeti</h3>
             ${grafik}
             ${govde}
             <p style="margin-top:20px;font-size:9pt;color:#666">Madde işaretli satırlar KPI Takip
             uygulamasındaki ${esc(lokasyon)} / ${yil} verisinden ${new Date().toLocaleString('tr-TR')}
-            tarihinde üretilmiştir.</p></body></html>`);
-        w.document.close(); w.focus();
+            tarihinde üretilmiştir.</p></body></html>`;
     };
 
     const alan = 'w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded '
@@ -179,6 +251,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         🖨️ Yazdır / PDF
                     </button>
+                    <button onClick={() => setMailAcik(true)}
+                        className="px-3 py-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded
+                            text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+                        📧 Katılımcılara maille gönder
+                    </button>
                     <button onClick={kaydet} disabled={durum === 'yukleniyor' || durum === 'kaydediliyor'}
                         className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                         Kaydet
@@ -197,11 +274,104 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                             <input className={alan} value={tarih} onChange={e => setTarih(e.target.value)}
                                 placeholder="07.01.2027 10:00" />
                         </label>
-                        <label className="text-xs">Katılanlar
+                        <label className="text-xs">Toplantı yeri / notu
                             <input className={alan} value={katilanlar} onChange={e => setKatilanlar(e.target.value)}
-                                placeholder="Y. ULKAT, V. PEKATİK, …" />
+                                placeholder="Toplantı salonu, çevrim içi vb." />
                         </label>
                     </div>
+
+                    {/* Katılımcılar: mailin alıcı listesi de buradan çıkar. */}
+                    <div className="mt-3">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="text-xs font-semibold">Toplantıya katılanlar</div>
+                            <button onClick={katEkle}
+                                className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600
+                                    hover:bg-white dark:hover:bg-gray-700">＋ Katılımcı ekle</button>
+                        </div>
+                        <table className="w-full border-collapse text-xs">
+                            <thead>
+                                <tr className="bg-white/60 dark:bg-gray-800/60">
+                                    <th className="p-1 text-left">Ad Soyad</th>
+                                    <th className="p-1 text-left w-1/3">Görev</th>
+                                    <th className="p-1 text-left w-1/3">E-posta (mail buraya gider)</th>
+                                    <th className="w-6"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {katilimcilar.map(k => (
+                                    <tr key={k.id}>
+                                        <td className="p-1"><input className={mini + ' w-full'} value={k.ad}
+                                            onChange={e => katGuncelle(k.id, 'ad', e.target.value)} placeholder="Ad Soyad" /></td>
+                                        <td className="p-1"><input className={mini + ' w-full'} value={k.gorev}
+                                            onChange={e => katGuncelle(k.id, 'gorev', e.target.value)} placeholder="Görev / ünvan" /></td>
+                                        <td className="p-1"><input className={mini + ' w-full'} value={k.eposta} type="email"
+                                            onChange={e => katGuncelle(k.id, 'eposta', e.target.value)} placeholder="ad@sanifoam.com.tr" /></td>
+                                        <td className="p-1 text-center">
+                                            <button onClick={() => katSil(k.id)}
+                                                className="text-red-600 hover:text-red-800">✕</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {katilimcilar.length === 0 && (
+                                    <tr><td colSpan={4} className="p-2 text-center text-gray-500">
+                                        Katılımcı eklenmedi. “＋ Katılımcı ekle” ile başlayın.
+                                    </td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                        <div className="text-[11px] text-gray-600 dark:text-gray-300 mt-1">
+                            {mailAlicilar.length} geçerli e-posta
+                            {mailDurum?.sonGonderim && ` · son gönderim: ${mailDurum.sonGonderim}`}
+                            {mailDurum?.istekDurum === 'kuyrukta' && ' · gönderim isteği kuyrukta'}
+                        </div>
+                    </div>
+
+                    {/* Mail onay kutusu — onaylı tedarikçi sistemindeki akışın aynısı */}
+                    {mailAcik && (
+                        <div className="mt-3 p-3 rounded border border-indigo-300 dark:border-indigo-700
+                            bg-white dark:bg-gray-800">
+                            <div className="font-semibold text-sm mb-2">📧 YGG raporunu maille gönder</div>
+                            <label className="text-xs block mb-2">Konu
+                                <input className={alan} value={mailKonu} onChange={e => setMailKonu(e.target.value)} />
+                            </label>
+                            <div className="text-xs mb-2">
+                                <b>Alıcılar ({mailAlicilar.length}):</b>
+                                <div className="mt-1 max-h-24 overflow-auto p-2 rounded bg-gray-50 dark:bg-gray-700">
+                                    {mailAlicilar.length
+                                        ? mailAlicilar.map((a, i) => <div key={a}>{i + 1}. {a}</div>)
+                                        : <span className="text-red-600">Katılımcılarda geçerli e-posta yok —
+                                            önce katılımcı tablosuna e-posta girin.</span>}
+                                </div>
+                            </div>
+                            <label className="text-xs block mb-2">CC (virgül veya satırla ayırın)
+                                <input className={alan} value={mailCc} onChange={e => setMailCc(e.target.value)}
+                                    placeholder="kalite@sanifoam.com.tr, ..." />
+                                {mailCcListe.length > 0 && (
+                                    <span className="text-[11px] text-gray-500">CC: {mailCcListe.join(', ')}</span>
+                                )}
+                            </label>
+                            <label className="text-xs block mb-2">Mailin başına eklenecek not (isteğe bağlı)
+                                <textarea className={alan} rows={2} value={mailNot}
+                                    onChange={e => setMailNot(e.target.value)} />
+                            </label>
+                            <div className="text-[11px] text-gray-600 dark:text-gray-300 mb-2">
+                                Mail, <b>yerel gönderim görevi</b> (perf-mail, 15 dakikada bir) tarafından
+                                Outlook’tan gönderilir — onaylı tedarikçi sistemindeki akışın aynısı.
+                                Rapor, ekrandaki hâliyle (grafikler dâhil) gönderilir.
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                                <button onClick={() => setMailAcik(false)}
+                                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded">
+                                    Vazgeç
+                                </button>
+                                <button onClick={mailYolla} disabled={!mailAlicilar.length}
+                                    className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded
+                                        hover:bg-indigo-700 disabled:bg-gray-400">
+                                    Gönderim isteği oluştur ({mailAlicilar.length})
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <p className="text-xs text-gray-600 dark:text-gray-300 mt-2">
                         Bu rapor <b>yalnızca {lokasyon}</b> lokasyonuna aittir; notlar her lokasyon ve
                         yıl için ayrı saklanır. Metinler standart YGG taslağıyla dolu gelir —

@@ -11,7 +11,7 @@ import { Kpi, MultiYearKpiData } from '../types';
 import {
     karsilastir, sapmaVar, hedefDegisimi, KarsilastirmaSatiri,
 } from '../utils/yilKarsilastirma';
-import { tavsiyeHedef, atanacakHedefler, IYILESTIRME } from '../utils/hedefTavsiye';
+import { tavsiyeDetay, atanacakHedefler, IYILESTIRME, TavsiyeSonuc } from '../utils/hedefTavsiye';
 import Modal from './Modal';
 
 interface Props {
@@ -90,9 +90,12 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
     // Tavsiye edilen hedef: (bu yılın hedefi + gerçekleşeni) / 2, üzerine %5
     // iyileştirme. Elle düzeltme varsa o geçerlidir.
     const oneriler = useMemo(() => {
-        const m = new Map<string, number | null>();
-        satirlar.forEach(s => m.set(s.kpi.id,
-            s.tip === 'kaldirildi' ? null : tavsiyeHedef(s.kpi, s.buGercek)));
+        const m = new Map<string, TavsiyeSonuc | null>();
+        satirlar.forEach(s => m.set(s.kpi.id, s.tip === 'kaldirildi'
+            ? null
+            // Önceki yılın GERÇEKLEŞENİ de hesaba girer (tek yıllık sıçrama
+            // hedefi savurmasın).
+            : tavsiyeDetay(s.kpi, s.buGercek, s.gecenGercek)));
         return m;
     }, [satirlar]);
 
@@ -100,7 +103,7 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
         const d = duzeltme[s.kpi.id];
         if (d !== undefined) return d;
         const o = oneriler.get(s.kpi.id);
-        return (o === null || o === undefined) ? '' : String(o);
+        return (o === null || o === undefined) ? '' : String(o.hedef);
     };
 
     // Atanacaklar: SADECE görünen satırlar. Filtre, seçimin kendisidir —
@@ -218,8 +221,12 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
                                 <th className={th + ' text-right bg-indigo-50 dark:bg-indigo-900/30'}
                                     style={{ minWidth: 130 }}>
                                     {sonrakiYil} tavsiye
-                                    <div className="font-normal normal-case text-[10px] text-gray-500 dark:text-gray-400">
-                                        (hedef+gerçekleşen)/2, %{IYILESTIRME * 100} iyileştirme
+                                    <div className="font-normal normal-case text-[10px] text-gray-500 dark:text-gray-400"
+                                        title={`Taban = 0,5×${currentYear} gerçekleşen + 0,3×${currentYear} hedef + 0,2×${oncekiYil} gerçekleşen`
+                                            + ` · pay %${IYILESTIRME * 100} ± performans (hedefi tutturana +%2, tutturamayana −%3,`
+                                            + ` önceki yıla göre iyileşene +%2) · tavsiye mevcut hedeften gevşek olamaz`}>
+                                        0,5×gerçekleşen + 0,3×hedef + 0,2×önceki yıl<br />
+                                        ± performansa göre %1–%10 iyileştirme
                                     </div>
                                 </th>
                             </tr>
@@ -235,9 +242,10 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
                                         const d = hedefDegisimi(s);
                                         const sap = sapmaVar(s);
                                         const kaldirildi = s.tip === 'kaldirildi';
-                                        const oneri = oneriler.get(s.kpi.id);
+                                        const oneri = oneriler.get(s.kpi.id) || null;
+                                        const oneriDeger = oneri ? oneri.hedef : null;
                                         const elle = duzeltme[s.kpi.id] !== undefined
-                                            && duzeltme[s.kpi.id] !== (oneri === null || oneri === undefined ? '' : String(oneri));
+                                            && duzeltme[s.kpi.id] !== (oneriDeger === null ? '' : String(oneriDeger));
                                         return (
                                             <tr key={s.tip + '|' + s.kpi.id}
                                                 className={'hover:bg-blue-50/60 dark:hover:bg-gray-700/60 '
@@ -303,7 +311,7 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
                                                                     ? (s.buGercek === null
                                                                         ? `${currentYear} gerçekleşen değeri yok — tavsiye üretilmez`
                                                                         : '“=” hedefte iyileştirme yönü yok — tavsiye üretilmez')
-                                                                    : `Tavsiye: (${fmt(s.buHedef)} + ${fmt(s.buGercek)}) / 2 = ${fmt(((Number(s.buHedef) + Number(s.buGercek)) / 2))} → %${IYILESTIRME * 100} iyileştirme = ${fmt(oneri)}`}
+                                                                    : oneri.aciklama}
                                                                 onChange={e => setDuzeltme(p => ({ ...p, [s.kpi.id]: e.target.value }))}
                                                                 className={'w-24 px-2 py-1 text-right tabular-nums rounded border text-sm '
                                                                     + (elle ? 'border-indigo-500 bg-white dark:bg-gray-800 font-semibold'
@@ -311,10 +319,14 @@ const YearComparisonModal: React.FC<Props> = ({ isOpen, onClose, kpis, multiYear
                                                             <span className="text-gray-400 text-xs w-3">{opSym(s.kpi.karsilastirma)}</span>
                                                         </div>
                                                     )}
+                                                    {oneri && oneri.korundu && !elle && (
+                                                        <div className="text-[10px] text-amber-700 dark:text-amber-400"
+                                                            title={oneri.aciklama}>hedef korundu</div>
+                                                    )}
                                                     {elle && (
                                                         <button className="text-[10px] text-indigo-600 hover:underline"
                                                             onClick={() => setDuzeltme(p => { const n = { ...p }; delete n[s.kpi.id]; return n; })}>
-                                                            tavsiyeye dön ({fmt(oneri)})
+                                                            tavsiyeye dön ({fmt(oneriDeger)})
                                                         </button>
                                                     )}
                                                 </td>

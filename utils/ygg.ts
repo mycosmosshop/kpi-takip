@@ -33,6 +33,30 @@ export interface YggBolum {
     sabit: boolean;         // standart madde mi (silinse de geri gelmez, işaretlenir)
 }
 
+export interface YggKatilimci {
+    id: string; ad: string; gorev: string; eposta: string;
+}
+
+// Eski kayıtlarda katılımcılar tek metin alanıydı ("Ali Veli, Ayşe Yılmaz").
+// Satır/virgül/noktalı virgülden ayrılır; varsa "Ad <a@b.c>" biçiminden
+// e-posta ayıklanır. Göç yapılmazsa eski toplantıların katılımcıları
+// ekrandan SİLİNMİŞ gibi görünürdü.
+export const katilimciCoz = (metin: string): YggKatilimci[] =>
+    String(metin || '')
+        .split(/[;,\n]/)
+        .map(x => x.trim())
+        .filter(x => x.length > 0)
+        .map((x, i) => {
+            const m = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.exec(x);
+            const ad = x.replace(/[<>]/g, ' ').replace(m ? m[0] : '', '').trim();
+            return {
+                id: 'k_' + i + '_' + Math.random().toString(36).slice(2, 7),
+                ad: ad || (m ? m[0] : x),
+                gorev: '',
+                eposta: m ? m[0] : '',
+            };
+        });
+
 // Kullanıcının kaydettiği hâl
 export interface YggKayitBolum {
     id: string; madde: string; baslik: string; metin: string;
