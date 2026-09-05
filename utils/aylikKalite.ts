@@ -1,0 +1,137 @@
+// Aylık Kalite Raporu — LOKASYON bazlı, ERP verisinden.
+//
+// Kaynak: uygunsuzluk_records (LeanSys → Supabase). Alanlar:
+//   tipi         : "Iç basarisizlik" | "Dis Basarisizlik" | "Tedarikçi" | "Diger"
+//   tespitYeri   : "ANKARA SUBESI", "ÇERKEZKÖY TEKNIK", "VELIKÖY SUBESI"...
+//   cariAdi      : müşteri (dış başarısızlıkta), tedarikçi (tedarikçi tipinde)
+//   stokAdi      : ürün
+//   hataliMiktar : hatalı adet
+//   uygunsuzlukTarih : "GG.AA.YYYY"
+//
+// PPM'in kendisi KPI tablosundan gelir (zaten ERP'den çekilip doğrulanmış);
+// burada üretilen şey KIRILIM: ilk 3 müşteri / ilk 3 ürün ve önceki ay trendi.
+// PPM'i burada yeniden hesaplamak iki farklı sayı doğururdu.
+
+const UYG_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
+const UYG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+
+export interface UygKayit {
+    tipi?: string; tespitYeri?: string; cariAdi?: string; stokAdi?: string;
+    hataliMiktar?: number; kontrolMiktar?: number; uygunsuzlukTarih?: string;
+    tarif?: string; makine?: string;
+}
+
+// Türkçe harf farkını yok say: "ÇERKEZKÖY TEKNIK" ile "Çerkezköy" eşleşsin.
+const TR: { [k: string]: string } = { 'Ç': 'C', 'Ö': 'O', 'Ü': 'U', 'İ': 'I', 'I': 'I', 'Ş': 'S', 'Ğ': 'G' };
+export const sade = (x: string): string =>
+    String(x || '').toLocaleUpperCase('tr').trim().replace(/[ÇÖÜİIŞĞ]/g, c => TR[c]);
+
+// tespitYeri lokasyona ait mi? "ANKARA SUBESI" → "Ankara"
+export const yerEslesir = (tespitYeri: string, lokasyon: string): boolean => {
+    const y = sade(tespitYeri), l = sade(lokasyon);
+    return !!l && y.indexOf(l) === 0;
+};
+
+// "GG.AA.YYYY" → {yil, ay}. Başka biçim gelirse null — tarihi tahmin etme.
+export const tarihAyir = (t: string): { yil: number; ay: number } | null => {
+    const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(t || '').trim());
+    if (!m) return null;
+    return { yil: Number(m[3]), ay: Number(m[2]) };
+};
+
+const TIP = {
+    ic: 'IC BASARISIZLIK',
+    dis: 'DIS BASARISIZLIK',
+    ted: 'TEDARIKCI',
+};
+
+export const tipiOlan = (k: UygKayit, hangi: keyof typeof TIP): boolean =>
+    sade(k.tipi).indexOf(TIP[hangi]) === 0;
+
+export interface KirilimSatir { ad: string; adet: number; miktar: number; oncekiMiktar: number | null; }
+
+// Belirli tipteki kayıtları bir alana göre topla, ilk N'i döndür.
+// Önceki ay değeri KARŞILAŞTIRMA için taşınır ("önceki aya ait trend").
+export const ilkN = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+    hangi: 'ic' | 'dis' | 'ted', alan: 'cariAdi' | 'stokAdi', n = 3,
+): KirilimSatir[] => {
+    const oncekiAy = ay === 1 ? 12 : ay - 1;
+    const oncekiYil = ay === 1 ? yil - 1 : yil;
+    const buAy = new Map<string, { adet: number; miktar: number }>();
+    const gecen = new Map<string, number>();
+
+    (kayitlar || []).forEach(k => {
+        if (!tipiOlan(k, hangi)) return;
+        if (!yerEslesir(k.tespitYeri || '', lokasyon)) return;
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        if (!t) return;
+        const ad = String(k[alan] || '').trim() || '(tanımsız)';
+        const mik = Number(k.hataliMiktar) || 0;
+        if (t.yil === yil && t.ay === ay) {
+            const v = buAy.get(ad) || { adet: 0, miktar: 0 };
+            v.adet++; v.miktar += mik; buAy.set(ad, v);
+        } else if (t.yil === oncekiYil && t.ay === oncekiAy) {
+            gecen.set(ad, (gecen.get(ad) || 0) + mik);
+        }
+    });
+
+    return Array.from(buAy.entries())
+        .map(([ad, v]) => ({
+            ad, adet: v.adet, miktar: v.miktar,
+            // Önceki ayda kaydı yoksa 0 değil NULL: "0 hata" ile "kayıt yok"
+            // farklı şeyler; 0 yazmak sahte iyileşme gösterirdi.
+            oncekiMiktar: gecen.has(ad) ? gecen.get(ad)! : null,
+        }))
+        .sort((a, b) => b.miktar - a.miktar || b.adet - a.adet)
+        .slice(0, n);
+};
+
+export const sayimlar = (
+    kayitlar: UygKayit[], lokasyon: string, yil: number, ay: number,
+): { ic: number; dis: number; ted: number; icMiktar: number; disMiktar: number; tedMiktar: number; musteriler: string[]; tedarikciler: string[] } => {
+    const r = { ic: 0, dis: 0, ted: 0, icMiktar: 0, disMiktar: 0, tedMiktar: 0,
+        musteriler: [] as string[], tedarikciler: [] as string[] };
+    const mus = new Set<string>(), ted = new Set<string>();
+    (kayitlar || []).forEach(k => {
+        if (!yerEslesir(k.tespitYeri || '', lokasyon)) return;
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        if (!t || t.yil !== yil || t.ay !== ay) return;
+        const mik = Number(k.hataliMiktar) || 0;
+        if (tipiOlan(k, 'ic')) { r.ic++; r.icMiktar += mik; }
+        else if (tipiOlan(k, 'dis')) { r.dis++; r.disMiktar += mik; if (k.cariAdi) mus.add(k.cariAdi); }
+        else if (tipiOlan(k, 'ted')) { r.ted++; r.tedMiktar += mik; if (k.cariAdi) ted.add(k.cariAdi); }
+    });
+    r.musteriler = Array.from(mus).sort();
+    r.tedarikciler = Array.from(ted).sort();
+    return r;
+};
+
+export const uygunsuzluklariCek = async (yil: number): Promise<UygKayit[]> => {
+    const sb = (window as any).supabase;
+    if (!sb || !sb.createClient) throw new Error('Supabase istemcisi yüklenemedi.');
+    const c = sb.createClient(UYG_URL, UYG_KEY);
+    const { data, error } = await c.from('uygunsuzluk_records')
+        .select('tipi,tespitYeri,cariAdi,stokAdi,hataliMiktar,kontrolMiktar,uygunsuzlukTarih,tarif,makine')
+        .limit(20000);
+    if (error) throw error;
+    // Yıl filtresi burada: tarih "GG.AA.YYYY" metin olduğu için sunucuda süzülemiyor.
+    return (data || []).filter((k: UygKayit) => {
+        const t = tarihAyir(k.uygunsuzlukTarih || '');
+        return t && t.yil === yil;
+    });
+};
+
+// Rapor satırı — kullanıcı ekleyip çıkarabilir, sırasını koruyabilir.
+export interface RaporSatir {
+    id: string;
+    kriter: string;
+    otomatik: string;   // ERP/KPI'dan üretilen özet (salt okunur)
+    ozet: string;       // kullanıcının yazdığı
+    aksiyon: string;    // kullanıcının yazdığı
+    silinebilir: boolean;
+}
+
+export const aylikKaliteAnahtar = (lokasyon: string, yil: number, ay: number): string =>
+    'aylikkalite_' + String(lokasyon || '').trim().toLocaleLowerCase('tr').replace(/\s+/g, '_')
+    + '_' + yil + '_' + String(ay).padStart(2, '0');

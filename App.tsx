@@ -14,6 +14,7 @@ import ActionItemsModal from './components/ActionItemsModal';
 import TrendChartModal from './components/TrendChartModal';
 import YearComparisonModal from './components/YearComparisonModal';
 import YggModal from './components/YggModal';
+import AylikKaliteModal from './components/AylikKaliteModal';
 import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
@@ -1452,6 +1453,15 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     multiYearData={allKpiData}
                     initialKpiId={modal.data?.kpiId}
+                />
+            )}
+            {modal.type === 'aylik-kalite' && (
+                <AylikKaliteModal
+                    isOpen={modal.type === 'aylik-kalite'}
+                    onClose={handleCloseModal}
+                    kpis={processedKpis}
+                    lokasyon={currentLocation}
+                    yil={currentYear}
                 />
             )}
             {modal.type === 'ygg' && (
