@@ -421,7 +421,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         <div className="text-[11px] text-gray-600 dark:text-gray-300 mb-2">
                             İç/dış başarısızlık ve tedarikçi kaynaklı tutarlar ERP'den (uygunsuzluk ×
                             birim fiyat) otomatik gelir. <b>Önleme ve değerleme kalemlerinin tutarı
-                            ERP'de yoktur</b> — yıllık toplamı buraya girin; aylık Kalite Raporu'nda
+                            ERP'de yoktur</b> — yıllık toplamı buraya girin; Kalite Raporu'nda (ay bazlı)
                             girdiyseniz oradan toplanır ve burada görünür. Buraya yazdığınız değer
                             aylık toplamı ezer. Boş bırakılan kalem <b>0 TL sayılmaz</b>, eksik sayılır.
                         </div>
