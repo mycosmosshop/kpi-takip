@@ -152,7 +152,7 @@ export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): strin
             <td style="padding:2px 6px;font-size:9pt;white-space:nowrap;max-width:190px;
                 overflow:hidden;text-overflow:ellipsis">${esc(k.kpi_adi)}
                 <span style="color:#888">(${esc(k.birim)})</span></td>
-            <td style="padding:2px 4px">
+            <td style="padding:2px 4px;width:100%">
               <div style="position:relative;display:flex;gap:2px">
                 ${kutu}
                 <div style="position:absolute;left:0;right:0;bottom:${hedefY}%;height:0;
@@ -166,10 +166,17 @@ export const bolumGrafikHtml = (kpis: Kpi[], yil: number, baslik: string): strin
 
     return `<div style="margin:6px 0 10px">
         <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">${esc(baslik)} — ${yil} aylık seyir</div>
-        <table style="border-collapse:collapse;width:100%"><tbody>${satirlar}</tbody></table>
-        <div style="display:flex;gap:2px;margin-left:0">
-          ${AYLAR.map(a => `<div style="flex:1;text-align:center;font-size:7.5pt;color:#999">${esc(a.slice(0, 1))}</div>`).join('')}
-        </div>
+        <table style="border-collapse:collapse;width:100%"><tbody>${satirlar}
+          <tr>
+            <td></td>
+            <td style="padding:3px 4px 0;width:100%">
+              <div style="display:flex;gap:2px">
+                ${AYLAR.map(a => `<div style="flex:1;min-width:0;text-align:center;font-size:7.5pt;color:#999">${esc(a.slice(0, 1))}</div>`).join('')}
+              </div>
+            </td>
+            <td></td>
+          </tr>
+        </tbody></table>
         <div style="font-size:8pt;color:#888;margin-top:2px">
           Kesikli çizgi = hedef · yeşil: o ay hedefi tuttu · boş sütun: veri girilmemiş
           ${kpis.length > 8 ? ` · ilk 8 KPI gösteriliyor (${kpis.length} KPI)` : ''}
