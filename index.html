@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KPI Takip Tablosu</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  /* jsdelivr'a ulasilamazsa (gecici kesinti / kurumsal filtre) YEDEK CDN.
+     document.write SENKRON yukler: sonraki betikler window.supabase'i hazir bulur.
+     Tek CDN'e bagli kalindiginda portal "null (reading 'auth')" hatasi veriyordu. */
+  if (!(window.supabase && window.supabase.createClient)) {
+    document.write('<scr' + 'ipt src="https://unpkg.com/@supabase/supabase-js@2"><' + '/scr' + 'ipt>');
+  }
+</script>
   <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
