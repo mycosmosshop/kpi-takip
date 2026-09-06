@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggAnahtarCoz, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
-import { hedefCoz } from '../utils/yggHedef';
+import { hedefCoz, hedefTablosu } from '../utils/yggHedef';
 import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
@@ -47,9 +47,12 @@ interface Props {
     lokasyon: string;      // GÖSTERİM adı (“Ankara”)
     lokasyonId?: string;   // bulut anahtarı (“ankara”) — DEĞİŞMEMELİ
     yil: number;
+    // Yeni hedefleri KPI tablosuna işler (Yıl Karşılaştırma ile aynı fonksiyon)
+    onAssignTargets?: (hedefler: { [kpiId: string]: number }) => void;
 }
 
-const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData, lokasyon, lokasyonId, yil }) => {
+const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData,
+    lokasyon, lokasyonId, yil, onAssignTargets }) => {
     const [bolumler, setBolumler] = useState<YggKayitBolum[]>([]);
     const [durum, setDurum] = useState<'yukleniyor' | 'hazir' | 'kaydediliyor' | 'kaydedildi' | 'hata'>('yukleniyor');
     const [hata, setHata] = useState('');
@@ -372,6 +375,38 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
 
     const esc = (t: string) => String(t || '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // KPI tablosuna işlenecek yeni hedefler: elle değiştirilen varsa O geçerli,
+    // yoksa hesaplanan öneri. Değeri olmayan (—) KPI atlanır; boş hedef yazmak
+    // mevcut hedefi silmek olurdu.
+    const hedefSatirlari = useMemo(
+        () => hedefTablosu(kpis, multiYearData, yil), [kpis, multiYearData, yil]);
+    const atanacakHedefler = useMemo(() => {
+        const h: { [kpiId: string]: number } = {};
+        hedefSatirlari.forEach(s => {
+            const v = Object.prototype.hasOwnProperty.call(elleHedefler, s.kpi.id)
+                ? elleHedefler[s.kpi.id] : s.yeniHedef;
+            if (v !== null && v !== undefined && isFinite(Number(v))) h[s.kpi.id] = Number(v);
+        });
+        return h;
+    }, [hedefSatirlari, elleHedefler]);
+
+    const hedefleriAta = () => {
+        const sayi = Object.keys(atanacakHedefler).length;
+        if (!onAssignTargets || !sayi) return;
+        const sonraki = yil + 1;
+        const mevcut = (multiYearData[sonraki]?.kpis || []).length;
+        const elle = hedefSatirlari.filter(
+            s => Object.prototype.hasOwnProperty.call(elleHedefler, s.kpi.id)).length;
+        if (!window.confirm(`${sayi} KPI için ${sonraki} hedefi KPI tablosuna işlenecek`
+            + (elle ? ` (${elle} tanesi elle değiştirdiğiniz değer).` : '.')
+            + '\n\n' + (mevcut
+                ? `${sonraki} yılında zaten ${mevcut} KPI var; eşleşenlerin hedefi GÜNCELLENECEK.`
+                : `${sonraki} yılı henüz yok; ${yil} KPI'ları bu hedeflerle kopyalanacak `
+                  + '(aylık veriler boş).')
+            + '\n\nDevam edilsin mi?')) return;
+        onAssignTargets(atanacakHedefler);
+    };
 
     // Yeni hedef hücresi düzenlendi. Tablo HTML olarak basıldığı için olay
     // yakalamayla dinlenir; hücre data-hedef-id taşır (KPI adı DEĞİL — aynı
@@ -831,6 +866,23 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                         onBlur={hedefHucreDegisti}
                                         onKeyDown={hedefHucreTus}
                                         dangerouslySetInnerHTML={{ __html: grafikHarita.get(b.id) as string }} />
+                                )}
+                                {/* Hedef tablosunun ALTINDA: tablodaki değerleri
+                                    (elle değiştirilenler dâhil) KPI tablosuna işler. */}
+                                {b.id === 'cikti_a' && onAssignTargets
+                                    && Object.keys(atanacakHedefler).length > 0 && (
+                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                        <button onClick={hedefleriAta}
+                                            className="px-3 py-1.5 text-xs rounded bg-blue-600 text-white
+                                                hover:bg-blue-700">
+                                            📌 {yil + 1} hedeflerini KPI tablosuna işle
+                                            ({Object.keys(atanacakHedefler).length})
+                                        </button>
+                                        <span className="text-[11px] text-gray-600 dark:text-gray-300">
+                                            Yukarıdaki tablodaki değerler yazılır — elle
+                                            değiştirdikleriniz dâhil. Onay sorulur.
+                                        </span>
+                                    </div>
                                 )}
 
                                 {(oneriHarita.get(b.id) || []).length > 0 && (() => {

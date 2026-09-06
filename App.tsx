@@ -1484,6 +1484,10 @@ const App: React.FC = () => {
                     lokasyon={currentLocObj?.name || currentLocation}
                     lokasyonId={currentLocation}
                     yil={currentYear}
+                    // YGG'deki yeni hedefleri KPI tablosuna işler — Yıl
+                    // Karşılaştırma ekranıyla AYNI fonksiyon; iki ayrı yazma
+                    // yolu olsaydı hedefler birbirinden ayrışırdı.
+                    onAssignTargets={handleAssignTargets}
                 />
             )}
             {modal.type === 'year-comparison' && (
