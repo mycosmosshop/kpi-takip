@@ -178,6 +178,10 @@ const tl = (n: number | null): string =>
 // Yazdırma/mail için false: kapalı <details> içeriği çıktıya BASILMIYOR
 // (Chrome content-visibility'yi CSS ile açtırmıyor — denendi), rapor eksik
 // çıkardı.
+// Ekrandaki katlanabilir PAF tablosunun sınıfı. Rapor üretilirken bu
+// <details> AÇIK mı diye bakılır; kapalıysa kalem tablosu rapora girmez.
+export const PAF_DETAY_SINIFI = 'paf-kalem-detay';
+
 export const pafTabloHtml = (
     kalemler: PafKalem[], o: PafOzet, katlanabilir = false,
 ): string => {
@@ -205,10 +209,10 @@ export const pafTabloHtml = (
         ${PAF_KATALOG.filter(t => t.kategori === kat).map(satir).join('')}`;
 
     // Kalem tablosu KATLANABİLİR: ekranda grafik yeter, ayrıntı isteyen açar.
-    // <details> yerleşik HTML — JS gerekmez; yazdırmada CSS ile açılır
-    // (bkz. modallerin @media print kuralı), böylece çıktı eksilmez.
+    // PAF_DETAY_SECICI ile sorgulanır: ekranda KAPALIYSA rapora (PDF/mail) da
+    // girmez — kullanıcı ayrıntıyı görmek istemiyorsa alıcı da görmemeli.
     const bas = katlanabilir
-        ? `<details style="margin:6px 0 10px">
+        ? `<details class="${PAF_DETAY_SINIFI}" style="margin:6px 0 10px">
             <summary style="font-size:9.5pt;font-weight:600;cursor:pointer;user-select:none">
               Kalite maliyeti — PAF kalem tablosu (toplam ${esc(tl(o.toplam))}) · aç/kapa</summary>`
         : `<div style="margin:6px 0 10px">

@@ -11,6 +11,7 @@ import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliye
 import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
     PafKalem, PafKategori, pafOzet, PAF_KATALOG, PAF_ADI, PAF_GRUP_ADI,
+    pafTabloHtml, PAF_DETAY_SINIFI,
 } from '../utils/paf';
 import { katilimciCoz, YggKatilimci } from '../utils/ygg';
 import { yggKatilimcilari } from '../utils/kadro';
@@ -364,6 +365,17 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const esc = (t: string) => String(t || '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    // PAF kalem tablosu rapora (PDF/mail) YALNIZ ekranda açık bırakılmışsa
+    // girer. Ekranda kapalıyken göndermek, kullanıcının görmek istemediği
+    // veri giriş ayrıntısını alıcıya yollamak olurdu.
+    // DOM'dan okunur: <details> durumu React state'i değil.
+    const pafDetayAcik = (): boolean => {
+        try {
+            const d = document.querySelector('.' + PAF_DETAY_SINIFI);
+            return !!d && (d as HTMLDetailsElement).open;
+        } catch { return false; }
+    };
+
     // Rapor HTML'i TEK yerde üretilir: yazdırma ve mail AYNI belgeyi
     // kullanır. İki ayrı üretici olsaydı biri güncellenip diğeri
     // unutulurdu (grafiklerde bunun bedeli ödendi).
@@ -378,6 +390,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 ${b.metin ? `<p>${esc(b.metin).replace(/\n/g, '<br>')}</p>` : ''}
                 ${oto.length ? `<ul class="oto">${oto.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
                 ${grafikYazdirHarita.get(b.id) || ''}
+                ${b.id === 'iatf_a' && pafDetayAcik() && pafToplam.girilen > 0
+                    ? pafTabloHtml(pafListe, pafToplam, false) : ''}
                 ${aks}`;
         }).join('');
         return `<!doctype html><html lang="tr"><head><meta charset="utf-8">

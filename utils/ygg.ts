@@ -401,14 +401,16 @@ export const yggBolumleri = (
             + `modeline göre ayrılmıştır: uygunluk maliyeti (önleme + değerleme) bir YATIRIM, `
             + `uygunsuzluk maliyeti (iç + dış başarısızlık) bir KAYIPTIR; önlemeye ayrılan pay `
             + `başarısızlık maliyetini katlayarak düşürür (1-10-100 kuralı). ${PAF_IATF_NOTU}`,
-            // Ekranda kalem tablosu KATLANIR (ok ile açılır); yazdırmada açık.
+            // Ekranda kalem tablosu KATLANIR (ok ile açılır).
             maliyetGrafikHtml(maliyetAylik, yil)
             + (pafToplam && pafToplam.girilen > 0
                 ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam, true) : ''),
             undefined,
+            // Rapora (PDF/mail) yalnız ÖZET grafik girer. Kalem tablosu, ekranda
+            // açık bırakılmışsa YggModal tarafından eklenir — kapalıyken
+            // gönderilmesi istenmiyor (veri girişini gösteren ayrıntı).
             maliyetGrafikHtml(maliyetAylik, yil)
-            + (pafToplam && pafToplam.girilen > 0
-                ? pafGrafikHtml(pafToplam) + pafTabloHtml(pafKalemler || [], pafToplam, false) : '')),
+            + (pafToplam && pafToplam.girilen > 0 ? pafGrafikHtml(pafToplam) : '')),
 
         B('iatf_b', '9.3.2.1 b)', 'Süreç etkinliğinin ölçümü',
             Array.from(prosesler.entries()).map(([p, list]) => {
