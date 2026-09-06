@@ -83,6 +83,9 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     // olmayanlar elle girilir, kayıtla birlikte saklanır.
     const [pafKalemler, setPafKalemler] = useState<PafKalem[]>([]);
     const [pafAcik, setPafAcik] = useState(false);
+    // Kalite maliyeti dağılımı rapora (yazdırma + mail PDF) girsin mi?
+    // Varsayılan KAPALI: istenmediği hâlde her çıktıya eklenmesin.
+    const [pafRapora, setPafRapora] = useState(false);
 
     // Anahtar ID'den (bkz. YggModal): ad değişse de kayıt kaybolmasın.
     const anahtar = aylikKaliteAnahtar(lokasyonId || lokasyon, yil, ay);
@@ -351,6 +354,8 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                 const sil = (v && Array.isArray(v.silinenler)) ? v.silinenler as string[] : [];
                 setSilinenler(sil);
                 setPafKalemler(Array.isArray(v?.pafKalemler) ? v.pafKalemler as PafKalem[] : []);
+                // Eski kayıtlarda alan yok: yokken KAPALI (rapora ekleme).
+                setPafRapora(v?.pafRapora === true);
                 setSatirlar(aylikBirlestir(varsayilan(), kayitli, sil));
                 setDurum('hazir');
             })
@@ -368,6 +373,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                 satirlar: satirlar.map(s => ({ ...s, otomatik: '' })),
                 silinenler,
                 pafKalemler,
+                pafRapora,          // "rapora ekle" tiki: her açılışta tekrar işaretlenmesin
                 guncelleme: new Date().toISOString(),
             });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
@@ -498,7 +504,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <table><thead><tr><th>Kriter</th><th>Özet Açıklama</th><th>Aksiyon</th>
             <th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
             <tbody>${tr}</tbody></table>
-            ${paf.toplam > 0 || paf.girilen > 0 ? pafGrafikHtml(paf) : ''}
+            ${pafRapora && (paf.toplam > 0 || paf.girilen > 0) ? pafGrafikHtml(paf) : ''}
             <p style="margin-top:16px;font-size:9pt;color:#666">Gri kutulardaki özetler
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
             listesinden ve KPI tablosundan ${new Date().toLocaleString('tr-TR')} tarihinde
@@ -630,6 +636,18 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         💰 Kalite maliyeti (PAF){paf.toplam > 0
                             ? ` — ${paf.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : ''}
                     </button>
+                    {/* Rapora eklensin mi? Varsayılan KAPALI — istenmediği hâlde
+                        her çıktıya maliyet dağılımı girmesin. */}
+                    <label className="flex items-center gap-1.5 text-xs px-2 py-2 rounded border
+                        border-emerald-300 dark:border-emerald-700 cursor-pointer whitespace-nowrap
+                        text-emerald-900 dark:text-emerald-200
+                        hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                        title="İşaretliyse kalite maliyeti dağılımı yazdırma ve mail PDF'ine eklenir">
+                        <input type="checkbox" checked={pafRapora}
+                            onChange={e => setPafRapora(e.target.checked)}
+                            className="w-4 h-4 cursor-pointer" />
+                        rapora ekle
+                    </label>
                     <span className="text-xs text-gray-600 dark:text-gray-300 flex-1 min-w-[16rem] pb-2">
                         Rapor <b>{lokasyon}</b> lokasyonuna aittir; her lokasyon ve ay ayrı saklanır.
                         Gri kutular ERP’den gelir — <b>elle değiştirilebilir</b>, değiştirirseniz
