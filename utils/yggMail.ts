@@ -7,6 +7,10 @@
 // Kuyruk Supabase'de (egt_ayar, anahtar → JSON) tutulur; Drive köprüsünün
 // gizli anahtarı bu uygulamaya girmez.
 
+// katla: Türkçe İ/ı katlar. Konu eşleştirmede şart — "Çerkezköy" ile
+// "ÇERKEZKÖY" JS'in kendi büyütmesiyle eşleşmiyor.
+import { katla } from './vurgu.ts';
+
 const MAIL_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const MAIL_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
 
@@ -82,6 +86,37 @@ const oku = async (anahtar: string): Promise<any> => {
 
 export const yggMailDurumOku = async (anahtar: string = YGG_DURUM): Promise<YggMailDurum | null> =>
     oku(anahtar);
+
+// "Son gönderim" TÜM lokasyonların YGG'si için TEK kayıtta tutulur; hangi
+// rapora ait olduğu yalnız KONUdan anlaşılır. Konu bu raporun parçalarını
+// (lokasyon, yıl, ay) taşımıyorsa "gönderildi" DENMEZ — başka lokasyonun
+// gönderimi bu raporu gönderilmiş göstermemeli.
+export const konuEslesir = (
+    konuMetni: string | undefined,
+    parcalar: (string | number)[],
+): boolean => {
+    const konu = katla(String(konuMetni || ''));
+    // Parçasız çağrı [].every ile HER konuyu eşleştirirdi: ayrım yapamadığımız
+    // durumda işaret koymak, gönderilmemiş raporu gönderilmiş göstermek olur.
+    if (!konu || !parcalar.length) return false;
+    return parcalar.every(p => {
+        const k = katla(String(p ?? '')).trim();
+        return !!k && konu.indexOf(k) >= 0;
+    });
+};
+
+export const buRaporGonderildi = (
+    durum: YggMailDurum | null | undefined,
+    parcalar: (string | number)[],
+): boolean => !!durum?.sonGonderim && konuEslesir(durum.konu, parcalar);
+
+// Bu raporun gönderim isteği kuyrukta mı? (yerel görev 15 dk'da bir yollar)
+export const buRaporKuyrukta = (
+    durum: YggMailDurum | null | undefined,
+    parcalar: (string | number)[],
+): boolean => durum?.istekDurum === 'kuyrukta'
+    && !buRaporGonderildi(durum, parcalar)
+    && konuEslesir(durum?.konu, parcalar);
 
 export const yggMailBekleyen = async (anahtar: string = YGG_ISTEK): Promise<YggMailIstek | null> => {
     const v = await oku(anahtar);

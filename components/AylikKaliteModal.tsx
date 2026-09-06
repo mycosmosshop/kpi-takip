@@ -19,8 +19,8 @@ import { readSupplierSync } from '../utils/supplierEval';
 import { maliyetCek, maliyetOzet, MaliyetSatir, maliyetDetayCek, maliyetDetayFiltre, MaliyetDetay,
     fiyatKaynakMetni, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
-import { yggMailGonder, yggMailDurumOku, KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI }
-    from '../utils/yggMail';
+import { yggMailGonder, yggMailDurumOku, buRaporGonderildi, buRaporKuyrukta,
+    KALITE_ISTEK, KALITE_DURUM, RAPOR_ALICI, YggMailDurum } from '../utils/yggMail';
 import { kaliteSorumlusu } from '../utils/kadro';
 import { AYLAR } from '../constants';
 import Modal from './Modal';
@@ -75,7 +75,10 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     const [kayitli, setKayitli] = useState<{ key: string; updated_at: string | null }[] | null>(null);
     const [listeAcik, setListeAcik] = useState(false);
     const [mailBilgi, setMailBilgi] = useState('');
-    const [sonMail, setSonMail] = useState<string>('');
+    // Tam durum tutulur: "gönderildi" işareti için sadece tarih değil KONU da
+    // gerekiyor (kayıt tüm lokasyon/aylar için ortak).
+    const [mailDurum, setMailDurum] = useState<YggMailDurum | null>(null);
+    const sonMail = mailDurum?.sonGonderim || '';
     // PAF (önleme / değerlendirme / iç / dış) kalem tutarları — ERP'de
     // olmayanlar elle girilir, kayıtla birlikte saklanır.
     const [pafKalemler, setPafKalemler] = useState<PafKalem[]>([]);
@@ -93,7 +96,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         let iptal = false;
         cloudListMeta('aylikkalite_').then(l => { if (!iptal) setKayitli(l); }).catch(() => { if (!iptal) setKayitli([]); });
         yggMailDurumOku(KALITE_DURUM)
-            .then(d => { if (!iptal && d?.sonGonderim) setSonMail(d.sonGonderim); })
+            .then(d => { if (!iptal) setMailDurum(d); })
             .catch(() => { });
         return () => { iptal = true; };
     }, [isOpen]);
@@ -516,16 +519,20 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
     const yazdirVeIlet = async () => {
         yazdir();
         setDurum('kaydediliyor'); setHata('');
+        const konu = `Kalite Raporu — ${lokasyon} / ${AYLAR[ay - 1]} ${yil}`;
         try {
             await yggMailGonder({
                 lokasyon, yil,
-                konu: `Kalite Raporu — ${lokasyon} / ${AYLAR[ay - 1]} ${yil}`,
+                konu,
                 alicilar: [RAPOR_ALICI],
                 cc: [],
                 html: raporHtml(),
             }, KALITE_ISTEK);
             setMailBilgi(`Rapor ${RAPOR_ALICI} adresine gönderilmek üzere kuyruğa alındı; `
                 + 'yerel gönderim görevi 15 dakika içinde yollayacak.');
+            // Düğme hemen "kuyrukta" göstersin: gerçek gönderim 15 dk sonra,
+            // o zamana kadar işaretsiz kalırsa kullanıcı ikinci kez gönderiyor.
+            setMailDurum(d => ({ ...(d || {}), konu, istekDurum: 'kuyrukta' }));
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
         } catch (e: any) {
             setHata('Mail isteği yazılamadı: ' + String(e?.message || e)); setDurum('hata');
@@ -536,6 +543,10 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
     const mini = 'text-xs p-1 border border-gray-300 dark:border-gray-600 rounded '
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
+    // "Gönderildi" yalnız BU lokasyon+ay+yıl gönderildiyse yanar; kayıt tüm
+    // raporlar için ortak, ayrım konudan yapılır (bkz. buRaporGonderildi).
+    const mailGonderildi = buRaporGonderildi(mailDurum, [lokasyon, AYLAR[ay - 1], yil]);
+    const mailKuyrukta = buRaporKuyrukta(mailDurum, [lokasyon, AYLAR[ay - 1], yil]);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} size="full"
@@ -557,11 +568,17 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         🖨️ Yazdır / PDF
                     </button>
                     <button onClick={yazdirVeIlet} disabled={durum === 'kaydediliyor'}
-                        title={`Yazdırma penceresini açar ve raporu ${RAPOR_ALICI} adresine gönderir`}
-                        className="px-3 py-2 text-sm rounded border border-indigo-300 dark:border-indigo-700
-                            text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30
-                            disabled:opacity-50">
-                        📧 Yazdır ve ilet
+                        title={mailGonderildi
+                            ? `Bu ay ${RAPOR_ALICI} adresine gönderildi — ${sonMail}`
+                            : `Yazdırma penceresini açar ve raporu ${RAPOR_ALICI} adresine gönderir`}
+                        className={'px-3 py-2 text-sm rounded border disabled:opacity-50 ' + (mailGonderildi
+                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
+                            : mailKuyrukta
+                                ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                                : 'border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 '
+                                    + 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}>
+                        {mailGonderildi ? '✅ Gönderildi' : mailKuyrukta ? '⏳ Kuyrukta' : '📧 Yazdır ve ilet'}
+                        {mailGonderildi && <span className="text-[11px] font-normal opacity-80"> · {sonMail}</span>}
                     </button>
                     <button onClick={kaydet} disabled={durum === 'yukleniyor' || durum === 'kaydediliyor'}
                         className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">

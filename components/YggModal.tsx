@@ -17,7 +17,8 @@ import { yggKatilimcilari } from '../utils/kadro';
 // adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
 import { adGecer } from '../utils/aylikKalite';
 import { vurguParcala, vurguVar } from '../utils/vurgu';
-import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../utils/yggMail';
+import { yggMailGonder, yggMailDurumOku, adresListesi, buRaporGonderildi, buRaporKuyrukta,
+    YggMailDurum } from '../utils/yggMail';
 import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
 import Modal from './Modal';
@@ -332,7 +333,12 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             });
             setMailAcik(false);
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
-            setMailDurum({ ...(mailDurum || {}), istekDurum: 'kuyrukta' });
+            // Konu da yazılır: "kuyrukta" işareti yalnız BU raporda yansın.
+            setMailDurum({
+                ...(mailDurum || {}),
+                konu: mailKonu || `${yil} YGG — ${lokasyon}`,
+                istekDurum: 'kuyrukta',
+            });
         } catch (e: any) { setHata('Mail isteği yazılamadı: ' + String(e?.message || e)); setDurum('hata'); }
     };
 
@@ -418,6 +424,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const sariAlan = (metin: string): string =>
         vurguVar(metin, ara) ? ' ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/40' : '';
 
+    // Mail düğmesinin durumu. "Gönderildi" yalnız BU raporun konusu eşleşirse
+    // yanar — kayıt tüm lokasyonlar için ortak (bkz. buRaporGonderildi).
+    const gonderildi = buRaporGonderildi(mailDurum, [lokasyon, yil]);
+    const kuyrukta = buRaporKuyrukta(mailDurum, [lokasyon, yil]);
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} size="7xl"
             title={`YGG — ${lokasyon} / ${yil}`}
@@ -439,9 +450,20 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         🖨️ Yazdır / PDF
                     </button>
                     <button onClick={() => setMailAcik(true)}
-                        className="px-3 py-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded
-                            text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
-                        📧 Katılımcılara maille gönder
+                        title={gonderildi
+                            ? `Bu rapor gönderildi — ${mailDurum?.sonGonderim}`
+                            : (kuyrukta ? 'Gönderim isteği kuyrukta; yerel görev 15 dakikada bir gönderir.'
+                                : 'Katılımcılara PDF olarak gönderilir')}
+                        className={'px-3 py-2 text-sm border rounded ' + (gonderildi
+                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
+                            : kuyrukta
+                                ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                                : 'border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 '
+                                    + 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}>
+                        {gonderildi ? '✅ Gönderildi' : kuyrukta ? '⏳ Kuyrukta' : '📧 Katılımcılara maille gönder'}
+                        {gonderildi && (
+                            <span className="text-[11px] font-normal opacity-80"> · {mailDurum?.sonGonderim}</span>
+                        )}
                     </button>
                     <button onClick={kaydet} disabled={durum === 'yukleniyor' || durum === 'kaydediliyor'}
                         className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
