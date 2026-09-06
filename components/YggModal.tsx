@@ -406,10 +406,22 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             table.aks th,table.aks td{border:1px solid #999;padding:4px 7px;text-align:left}
             table.aks th{background:#f0f0f0}
             .ust{margin-bottom:14px;font-size:10.5pt}
+            /* HER SAYFANIN ÜSTÜNDE başlık: <thead> sayfa başına tekrarlar.
+               position:fixed denendi — son sayfada düşüyordu (ölçüldü), bu
+               yöntem 4/4 sayfada bastı. */
+            table.kagit{width:100%;border-collapse:collapse}
+            table.kagit > thead{display:table-header-group}
+            table.kagit > thead th{text-align:left;font-weight:normal;padding:0 0 6px;
+                border-bottom:1.5px solid #333}
+            table.kagit > tbody > tr > td{padding:10px 0 0;vertical-align:top}
+            .sayfaBaslik{font-size:10pt;font-weight:700;color:#111}
+            .sayfaAlt{font-size:8.5pt;color:#666;font-weight:normal}
             @media print{body{margin:12mm} h3{page-break-after:avoid}}
             </style></head><body>
-            <h1>${yil} YILI YÖNETİMİN GÖZDEN GEÇİRMESİ TOPLANTISI (YGG)</h1>
-            <h2>Lokasyon: ${esc(lokasyon)}</h2>
+            <table class="kagit"><thead><tr><th>
+                <div class="sayfaBaslik">${yil} YILI YÖNETİMİN GÖZDEN GEÇİRMESİ TOPLANTISI (YGG)</div>
+                <div class="sayfaAlt">Lokasyon: ${esc(lokasyon)}</div>
+            </th></tr></thead><tbody><tr><td>
             <div class="ust"><b>Toplantı tarihi/saati:</b> ${esc(tarih) || '—'}</div>
             <h3><span class="md">Katılımcılar</span> Toplantıya katılanlar</h3>
             ${katilimcilar.length
@@ -422,7 +434,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             ${govde}
             <p style="margin-top:20px;font-size:9pt;color:#666">Madde işaretli satırlar KPI Takip
             uygulamasındaki ${esc(lokasyon)} / ${yil} verisinden ${new Date().toLocaleString('tr-TR')}
-            tarihinde üretilmiştir.</p></body></html>`;
+            tarihinde üretilmiştir.</p>
+            </td></tr></tbody></table></body></html>`;
     };
 
     const alan = 'w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded '
