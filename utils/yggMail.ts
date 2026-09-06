@@ -36,6 +36,9 @@ export interface YggMailIstek {
     // (gövdede kısa bilgi kalır). Üretilemezse HTML gövdeyle gider.
     pdf?: boolean;
     dosyaAdi?: string;
+    // Ek dosyalar (ör. KPI tablosu Excel'i). Yerel görev base64'ü çözüp
+    // Outlook'a ekler; eklenemezse mail YİNE gider — rapor ekten önemli.
+    ekler?: { ad: string; base64: string }[];
 }
 
 export interface YggMailDurum {

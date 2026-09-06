@@ -8,6 +8,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggAnahtarCoz, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { hedefCoz, hedefTablosu } from '../utils/yggHedef';
+import { exportFr100 } from '../utils/fr100Export';
+import { kutuphaneYukle } from '../utils/kutuphane';
 import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
@@ -49,10 +51,12 @@ interface Props {
     yil: number;
     // Yeni hedefleri KPI tablosuna işler (Yıl Karşılaştırma ile aynı fonksiyon)
     onAssignTargets?: (hedefler: { [kpiId: string]: number }) => void;
+    // Lokasyonun markası: KPI Excel'inin anteti ve dosya adı için
+    marka?: { docNo: string; fileTag: string; logo: string; name: string };
 }
 
 const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData,
-    lokasyon, lokasyonId, yil, onAssignTargets }) => {
+    lokasyon, lokasyonId, yil, onAssignTargets, marka }) => {
     const [bolumler, setBolumler] = useState<YggKayitBolum[]>([]);
     const [durum, setDurum] = useState<'yukleniyor' | 'hazir' | 'kaydediliyor' | 'kaydedildi' | 'hata'>('yukleniyor');
     const [hata, setHata] = useState('');
@@ -69,6 +73,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // Elle değiştirilen yeni hedefler: KPI id → değer. Kayıtla saklanır,
     // rapora da bu değerler girer.
     const [elleHedefler, setElleHedefler] = useState<{ [kpiId: string]: number }>({});
+    // Maile KPI tablosu Excel'i de eklensin mi? (o yılın KPI'ları, FR100 biçimi)
+    const [kpiExcelEkle, setKpiExcelEkle] = useState(false);
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
     // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
@@ -317,6 +323,33 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     }, [isOpen]);
 
 
+    // KPI tablosu Excel'i (FR100 biçimi) — maile ek olarak gider. Kullanılan
+    // KPI'lar YGG'nin yılına aittir (bileşene o yılın listesi geliyor).
+    const kpiExceliUret = async (): Promise<{ ad: string; base64: string } | null> => {
+        await kutuphaneYukle('ExcelJS');
+        const ExcelJS = (window as any).ExcelJS;
+        if (!ExcelJS) throw new Error('ExcelJS yüklenemedi');
+        let logo: ArrayBuffer | null = null;
+        try {
+            const r = await fetch(marka?.logo || '');
+            if (r.ok) logo = await r.arrayBuffer();
+        } catch { /* logo opsiyonel, metin antetle devam eder */ }
+        const blob = await exportFr100(ExcelJS, kpis, yil, logo, {
+            docNo: marka?.docNo, companyName: marka?.name, locationName: lokasyon,
+        });
+        const b64 = await new Promise<string>((cev, ret) => {
+            const fr = new FileReader();
+            fr.onload = () => cev(String(fr.result || '').split(',')[1] || '');
+            fr.onerror = () => ret(fr.error || new Error('Excel okunamadı'));
+            fr.readAsDataURL(blob);
+        });
+        if (!b64) return null;
+        return {
+            ad: `${marka?.fileTag || 'KPI'}_${lokasyon}_${yil}.xlsx`.replace(/[^\w.\-]+/g, '_'),
+            base64: b64,
+        };
+    };
+
     // Tek adım: düğme → onay kutusu → istek. Ayrı panel (konu/CC/not) kalktı;
     // kullanıcı paneli göremeyip asıl düğmeye basmadığı için istek hiç
     // oluşmuyordu (ölçüldü: egt_ayar'da hiç ygg_mail_istek yoktu).
@@ -327,10 +360,24 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             + 'PDF olarak gönderilecek.\n\n'
             + mailAlicilar.map((a, i) => `${i + 1}. ${a}`).join('\n')
             + `\n\nKonu: ${konu}\n\n`
+            + (kpiExcelEkle ? `Ek: ${yil} KPI tablosu (Excel)\n\n` : '')
             + 'Mail yerel gönderim görevi tarafından Outlook’tan yollanır (15 dakikada bir).'
             + '\n\nGönderilsin mi?')) return;
         setDurum('kaydediliyor'); setHata('');
         try {
+            // Excel eki: üretilemezse mail YİNE gider, kullanıcıya söylenir —
+            // rapor gönderimini bir ek yüzünden düşürmek yanlış olurdu.
+            let ekler: { ad: string; base64: string }[] | undefined;
+            let ekUyari = '';
+            if (kpiExcelEkle) {
+                try {
+                    const ek = await kpiExceliUret();
+                    if (ek) ekler = [ek];
+                    else ekUyari = ' (KPI Excel’i üretilemedi, mail eksiz gidiyor)';
+                } catch (e: any) {
+                    ekUyari = ` (KPI Excel’i eklenemedi: ${e?.message || e})`;
+                }
+            }
             await yggMailGonder({
                 lokasyon, yil,
                 konu,
@@ -339,10 +386,12 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 html: raporHtml(),
                 pdf: true,
                 dosyaAdi: `YGG_${lokasyon}_${yil}`.replace(/[^\w\-]+/g, '_'),
+                ekler,
             });
             // "Kaydedildi" demiyoruz: mail HENÜZ gitmedi, istek kuyruğa yazıldı.
             setDurum('hazir');
-            setMailBilgi(`Gönderim isteği oluşturuldu — ${mailAlicilar.length} alıcı. `
+            setMailBilgi(`Gönderim isteği oluşturuldu — ${mailAlicilar.length} alıcı`
+                + (ekler ? `, ek: ${ekler[0].ad}` : '') + ekUyari + '. '
                 + 'Yerel gönderim görevi (15 dakikada bir) Outlook’tan yollayacak; '
                 + 'gidince düğme “✅ Gönderildi” olur.');
             // Konu da yazılır: "kuyrukta" işareti yalnız BU raporda yansın.
@@ -541,6 +590,16 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         🖨️ Yazdır / PDF
                     </button>
+                    {/* Maile KPI tablosu Excel'i de eklensin mi? */}
+                    <label className="flex items-center gap-1.5 text-xs px-2 py-2 rounded border
+                        border-gray-300 dark:border-gray-600 cursor-pointer whitespace-nowrap
+                        hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title={`İşaretliyse maile ${yil} KPI tablosu Excel (FR100) olarak eklenir`}>
+                        <input type="checkbox" checked={kpiExcelEkle}
+                            onChange={e => setKpiExcelEkle(e.target.checked)}
+                            className="w-4 h-4 cursor-pointer" />
+                        📊 {yil} KPI tablosunu Excel ekle
+                    </label>
                     <button onClick={mailYolla} disabled={!mailAlicilar.length}
                         title={!mailAlicilar.length
                             ? 'Katılımcı tablosunda “Gönder” kutucuğu işaretli, e-postası girili kimse yok.'

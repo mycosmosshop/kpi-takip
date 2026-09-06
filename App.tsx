@@ -1488,6 +1488,7 @@ const App: React.FC = () => {
                     // Karşılaştırma ekranıyla AYNI fonksiyon; iki ayrı yazma
                     // yolu olsaydı hedefler birbirinden ayrışırdı.
                     onAssignTargets={handleAssignTargets}
+                    marka={currentBrand}
                 />
             )}
             {modal.type === 'year-comparison' && (
