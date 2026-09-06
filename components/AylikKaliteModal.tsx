@@ -571,14 +571,17 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
                         title={mailGonderildi
                             ? `Bu ay ${RAPOR_ALICI} adresine gönderildi — ${sonMail}`
                             : `Yazdırma penceresini açar ve raporu ${RAPOR_ALICI} adresine gönderir`}
-                        className={'px-3 py-2 text-sm rounded border disabled:opacity-50 ' + (mailGonderildi
-                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
-                            : mailKuyrukta
-                                ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                        className={'px-3 py-2 text-sm rounded border disabled:opacity-50 ' + (mailKuyrukta
+                            ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                            : mailGonderildi
+                                ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
                                 : 'border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 '
                                     + 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}>
-                        {mailGonderildi ? '✅ Gönderildi' : mailKuyrukta ? '⏳ Kuyrukta' : '📧 Yazdır ve ilet'}
-                        {mailGonderildi && <span className="text-[11px] font-normal opacity-80"> · {sonMail}</span>}
+                        {/* Kuyruk ÖNCE: yeniden gönderimde düğme hemen değişsin. */}
+                        {mailKuyrukta ? '⏳ Kuyrukta' : mailGonderildi ? '✅ Gönderildi' : '📧 Yazdır ve ilet'}
+                        {!mailKuyrukta && mailGonderildi && (
+                            <span className="text-[11px] font-normal opacity-80"> · {sonMail}</span>
+                        )}
                     </button>
                     <button onClick={kaydet} disabled={durum === 'yukleniyor' || durum === 'kaydediliyor'}
                         className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">

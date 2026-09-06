@@ -111,12 +111,16 @@ export const buRaporGonderildi = (
 ): boolean => !!durum?.sonGonderim && konuEslesir(durum.konu, parcalar);
 
 // Bu raporun gönderim isteği kuyrukta mı? (yerel görev 15 dk'da bir yollar)
+//
+// sonGonderim dolu olsa BİLE kuyruk önceliklidir: rapor daha önce gönderilmiş
+// olabilir ve kullanıcı az önce YENİ bir istek oluşturmuş olabilir. Eskiden
+// "gönderildi" bu durumu bastırıyordu; kullanıcı yeniden gönderince düğmede
+// hiçbir değişiklik göremiyordu (ölçüldü: istek kuyruğa yazılmıştı ama düğme
+// eski gönderim tarihinde kalmıştı).
 export const buRaporKuyrukta = (
     durum: YggMailDurum | null | undefined,
     parcalar: (string | number)[],
-): boolean => durum?.istekDurum === 'kuyrukta'
-    && !buRaporGonderildi(durum, parcalar)
-    && konuEslesir(durum?.konu, parcalar);
+): boolean => durum?.istekDurum === 'kuyrukta' && konuEslesir(durum?.konu, parcalar);
 
 export const yggMailBekleyen = async (anahtar: string = YGG_ISTEK): Promise<YggMailIstek | null> => {
     const v = await oku(anahtar);

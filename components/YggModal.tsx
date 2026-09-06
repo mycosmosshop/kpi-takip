@@ -475,18 +475,21 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                     <button onClick={mailYolla} disabled={!mailAlicilar.length}
                         title={!mailAlicilar.length
                             ? 'Katılımcı tablosunda “Gönder” kutucuğu işaretli, e-postası girili kimse yok.'
-                            : gonderildi
-                                ? `Bu rapor gönderildi — ${mailDurum?.sonGonderim}`
-                                : (kuyrukta ? 'Gönderim isteği kuyrukta; yerel görev 15 dakikada bir gönderir.'
-                                    : `${mailAlicilar.length} katılımcıya PDF olarak gönderilir (önce onay sorulur)`)}
-                        className={'px-3 py-2 text-sm border rounded disabled:opacity-50 ' + (gonderildi
-                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
                             : kuyrukta
-                                ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                                ? 'Gönderim isteği kuyrukta; yerel görev 15 dakikada bir gönderir.'
+                                + (mailDurum?.sonGonderim ? ` (önceki gönderim: ${mailDurum.sonGonderim})` : '')
+                                : gonderildi
+                                    ? `Bu rapor gönderildi — ${mailDurum?.sonGonderim}`
+                                    : `${mailAlicilar.length} katılımcıya PDF olarak gönderilir (önce onay sorulur)`}
+                        className={'px-3 py-2 text-sm border rounded disabled:opacity-50 ' + (kuyrukta
+                            ? 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'
+                            : gonderildi
+                                ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100'
                                 : 'border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 '
                                     + 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}>
-                        {gonderildi ? '✅ Gönderildi' : kuyrukta ? '⏳ Kuyrukta' : '📧 Katılımcılara maille gönder'}
-                        {gonderildi && (
+                        {/* Kuyruk ÖNCE: yeniden gönderimde düğme hemen değişsin. */}
+                        {kuyrukta ? '⏳ Kuyrukta' : gonderildi ? '✅ Gönderildi' : '📧 Katılımcılara maille gönder'}
+                        {!kuyrukta && gonderildi && (
                             <span className="text-[11px] font-normal opacity-80"> · {mailDurum?.sonGonderim}</span>
                         )}
                     </button>
