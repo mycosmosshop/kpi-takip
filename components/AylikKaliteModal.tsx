@@ -26,7 +26,7 @@ import { AYLAR } from '../constants';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
 import {
-    PAF_KATALOG, PAF_ADI, PafKalem, PafKategori, pafOzet, pafAksiyonlari, pafTabloHtml,
+    PAF_KATALOG, PAF_ADI, PafKalem, PafKategori, pafOzet, pafAksiyonlari,
     pafGrafikHtml,
 } from '../utils/paf';
 
@@ -498,7 +498,7 @@ const AylikKaliteModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, lo
             <table><thead><tr><th>Kriter</th><th>Özet Açıklama</th><th>Aksiyon</th>
             <th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead>
             <tbody>${tr}</tbody></table>
-            ${paf.toplam > 0 || paf.girilen > 0 ? pafGrafikHtml(paf) + pafTabloHtml(pafListe, paf) : ''}
+            ${paf.toplam > 0 || paf.girilen > 0 ? pafGrafikHtml(paf) : ''}
             <p style="margin-top:16px;font-size:9pt;color:#666">Gri kutulardaki özetler
             ${esc(lokasyon)} lokasyonunun ERP uygunsuzluk kayıtlarından, onaylı müşteri
             listesinden ve KPI tablosundan ${new Date().toLocaleString('tr-TR')} tarihinde
