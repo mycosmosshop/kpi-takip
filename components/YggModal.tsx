@@ -6,7 +6,7 @@
 // kaydedilmez — her açılışta yeniden üretilir.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
-import { yggBolumleri, yggAnahtar, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
+import { yggBolumleri, yggAnahtar, yggAnahtarCoz, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
 import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
@@ -16,11 +16,24 @@ import { katilimciCoz, YggKatilimci } from '../utils/ygg';
 import { yggKatilimcilari } from '../utils/kadro';
 // adGecer: Türkçe İ/ı katlayan arama (regex'in /i bayrağı yetmiyor).
 import { adGecer } from '../utils/aylikKalite';
+import { vurguParcala, vurguVar } from '../utils/vurgu';
 import { yggMailGonder, yggMailDurumOku, adresListesi, YggMailDurum } from '../utils/yggMail';
-import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
+import { cloudFetchMeta, cloudSaveMeta, cloudListMeta, cloudDeleteMeta } from '../utils/cloudSync';
 import { kpiGrafikHtml } from '../utils/yggGrafik';
 import Modal from './Modal';
 import OtoTextarea from './OtoTextarea';
+
+// Aranan kelimeyi SARI işaretler — düz metinde. input/textarea içine HTML
+// konamaz, orada alanın kendisi sarıya boyanır (aşağıdaki sariAlan).
+const Vurgu: React.FC<{ metin: string; ara: string }> = ({ metin, ara }) => (
+    <>
+        {vurguParcala(metin, ara).map((p, i) => p.vurgulu
+            ? <mark key={i} className="bg-yellow-300 dark:bg-yellow-400/70 text-black rounded px-0.5">
+                {p.metin}
+            </mark>
+            : <React.Fragment key={i}>{p.metin}</React.Fragment>)}
+    </>
+);
 
 interface Props {
     isOpen: boolean;
@@ -46,6 +59,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [mailDurum, setMailDurum] = useState<YggMailDurum | null>(null);
     const [ara, setAra] = useState('');
     const [tarih, setTarih] = useState('');
+    // Kaydedilmiş YGG raporları (Kalite Raporu'ndaki liste ile aynı davranış):
+    // aç/düzenle ve kalıcı sil. null = henüz yüklenmedi.
+    const [kayitli, setKayitli] = useState<{ key: string; updated_at: string | null }[] | null>(null);
+    const [listeAcik, setListeAcik] = useState(false);
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
     // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
@@ -54,6 +71,16 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // Yıl boyu PAF kalemleri: 12 aylık Kalite Raporu kaydından toplanır.
     // Önleme/değerleme kalemleri orada elle giriliyor; YGG onları toplar.
     const [pafKalemler, setPafKalemler] = useState<PafKalem[]>([]);
+
+    // Kaydedilmiş YGG listesi: lokasyon/yıl değişince değil, modal açılınca.
+    useEffect(() => {
+        if (!isOpen) return;
+        let iptal = false;
+        cloudListMeta('ygg_')
+            .then(l => { if (!iptal) setKayitli(l); })
+            .catch(() => { if (!iptal) setKayitli([]); });
+        return () => { iptal = true; };
+    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -201,13 +228,41 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         return () => { iptal = true; };
     }, [isOpen, anahtar]);   // standart bilerek yok: her veri değişiminde metni sıfırlamasın
 
+    const listeyiTazele = () => cloudListMeta('ygg_')
+        .then(l => setKayitli(l))
+        .catch(() => setKayitli([]));
+
     const kaydet = async () => {
         setDurum('kaydediliyor'); setHata('');
         try {
             await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, katilimcilar,
                 pafYillik, tarih, guncelleme: new Date().toISOString() });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
+            listeyiTazele();   // yeni kayıt listede hemen görünsün
         } catch (e: any) { setHata(String(e?.message || e)); setDurum('hata'); }
+    };
+
+    const raporSil = async (key: string) => {
+        const c = yggAnahtarCoz(key);
+        const ad = c ? `${c.lokasyon} · ${c.yil}` : key;
+        if (!window.confirm(`${ad} YGG raporu KALICI olarak silinecek.\n\n`
+            + 'Yazdığınız değerlendirme, katılımcılar, aksiyon ve terminler gider; '
+            + 'lokasyon yeniden açıldığında standart YGG taslağı gelir.\n\nSilinsin mi?')) return;
+        try {
+            await cloudDeleteMeta(key);
+            await listeyiTazele();
+            if (key === anahtar) {
+                // Açık olan rapor silindiyse ekran da taslağa dönmeli; yoksa
+                // kullanıcı silinmiş raporu düzenlemeye devam eder.
+                setSilinenler([]);
+                setBolumler(yggBirlestir(standart, null, []));
+                setKatilimcilar(yggKatilimcilari(lokasyonId || lokasyon).map((k, i) => ({
+                    id: 'kd_' + i, ad: k.ad, gorev: k.gorev, eposta: k.eposta,
+                })));
+                setTarih(''); setKatilanlar('');
+            }
+            setHata('');
+        } catch (e: any) { setHata('Silinemedi: ' + String(e?.message || e)); setDurum('hata'); }
     };
 
     const guncelle = (id: string, alan: 'baslik' | 'metin' | 'madde', v: string) =>
@@ -358,6 +413,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
     const mini = 'text-xs p-1.5 border border-gray-300 dark:border-gray-600 rounded '
         + 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
+    // Yazılabilir alanda <mark> kullanılamaz; aranan metin içindeyse alanın
+    // kendisi sarıya boyanır, böylece "nerede geçiyor" gözle bulunur.
+    const sariAlan = (metin: string): string =>
+        vurguVar(metin, ara) ? ' ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/40' : '';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} size="7xl"
@@ -404,6 +463,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         {pafToplam.toplam > 0
                             ? ` — ${pafToplam.toplam.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : ''}
                     </button>
+                    <button onClick={() => setListeAcik(v => !v)}
+                        className="px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600
+                            hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">
+                        📁 Kayıtlar{kayitli ? ` (${kayitli.length})` : ''}
+                    </button>
                     {ara.trim() && (
                         <>
                             <span className={'text-xs whitespace-nowrap '
@@ -419,6 +483,52 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         </>
                     )}
                 </div>
+
+                {listeAcik && (
+                    <div className="mb-3 p-3 rounded border border-gray-300 dark:border-gray-600
+                        bg-gray-50 dark:bg-gray-800">
+                        <div className="font-semibold text-sm mb-2">📁 Kaydedilmiş YGG raporları</div>
+                        {kayitli === null && <div className="text-xs text-gray-500">Yükleniyor…</div>}
+                        {kayitli && kayitli.length === 0 && (
+                            <div className="text-xs text-gray-500">Henüz kaydedilmiş YGG raporu yok.</div>
+                        )}
+                        <div className="max-h-56 overflow-auto">
+                            {(kayitli || []).map(r => {
+                                const c = yggAnahtarCoz(r.key);
+                                if (!c) return null;
+                                const secili = r.key === anahtar;
+                                return (
+                                    <div key={r.key}
+                                        className={'flex items-center gap-2 py-1 border-b border-gray-200 '
+                                            + 'dark:border-gray-700 text-xs '
+                                            + (secili ? 'bg-blue-50 dark:bg-blue-900/30' : '')}>
+                                        <span className="flex-1">
+                                            <b className="capitalize">{c.lokasyon}</b> · {c.yil}
+                                            {r.updated_at && (
+                                                <span className="text-gray-500">
+                                                    {' '}· kaydedildi {new Date(r.updated_at).toLocaleString('tr-TR')}
+                                                </span>
+                                            )}
+                                        </span>
+                                        {secili
+                                            ? <span className="text-blue-700 dark:text-blue-300">açık</span>
+                                            : <span className="text-gray-400"
+                                                title="Bu rapor başka lokasyon/yıla ait">
+                                                KPI Takip’te lokasyon/yılı değiştirin
+                                            </span>}
+                                        <button onClick={() => raporSil(r.key)} title="Kaydı kalıcı sil"
+                                            className="px-1 text-red-600 hover:text-red-800">🗑️</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-2">
+                            Liste tüm lokasyonların kayıtlarını gösterir; açık olan
+                            <b> {lokasyon} / {yil}</b>. Başkasını düzenlemek için üst çubuktan
+                            lokasyon veya yılı değiştirin — kayıt orada açılır.
+                        </div>
+                    </div>
+                )}
                 {pafAcik && (
                     <div className="mb-3 p-3 rounded border border-emerald-300 dark:border-emerald-700
                         bg-emerald-50/50 dark:bg-emerald-900/20">
@@ -653,20 +763,22 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                     return (
                         <div key={b.id} className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                             <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 flex items-center gap-2">
-                                <input className={mini + ' w-24 shrink-0'} value={b.madde}
+                                <input className={mini + ' w-24 shrink-0' + sariAlan(b.madde)} value={b.madde}
                                     onChange={e => guncelle(b.id, 'madde', e.target.value)} placeholder="Madde" />
-                                <input className={mini + ' flex-1 font-semibold'} value={b.baslik}
+                                <input className={mini + ' flex-1 font-semibold' + sariAlan(b.baslik)} value={b.baslik}
                                     onChange={e => guncelle(b.id, 'baslik', e.target.value)} placeholder="Bölüm başlığı" />
                                 <button title="Bölümü sil" onClick={() => bolumSil(b.id)}
                                     className="text-red-600 hover:text-red-800 px-1">✕</button>
                             </div>
                             <div className="px-3 py-2">
-                                <OtoTextarea className={alan} value={b.metin}
+                                <OtoTextarea className={alan + sariAlan(b.metin)} value={b.metin}
                                     onChange={e => guncelle(b.id, 'metin', e.target.value)}
                                     placeholder="Bu maddeye ilişkin değerlendirme…" />
                                 {oto.length > 0 && (
                                     <ul className="list-disc ml-5 mt-2 text-xs text-gray-700 dark:text-gray-300">
-                                        {oto.map((x, i) => <li key={i} className="my-0.5">{x}</li>)}
+                                        {oto.map((x, i) => (
+                                            <li key={i} className="my-0.5"><Vurgu metin={x} ara={ara} /></li>
+                                        ))}
                                     </ul>
                                 )}
                                 {/* Maddeye ait grafik: yazdırmadakiyle AYNI üreticiden. */}
@@ -739,9 +851,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                         <tbody>
                                             {b.aksiyonlar.map(a => (
                                                 <tr key={a.id}>
-                                                    <td className="p-1"><input className={mini + ' w-full'} value={a.konu}
+                                                    <td className="p-1"><input className={mini + ' w-full' + sariAlan(a.konu)} value={a.konu}
                                                         onChange={e => aksGuncelle(b.id, a.id, 'konu', e.target.value)} /></td>
-                                                    <td className="p-1"><input className={mini + ' w-full'} value={a.sorumlu}
+                                                    <td className="p-1"><input className={mini + ' w-full' + sariAlan(a.sorumlu)} value={a.sorumlu}
                                                         onChange={e => aksGuncelle(b.id, a.id, 'sorumlu', e.target.value)} /></td>
                                                     <td className="p-1"><input className={mini + ' w-full'} type="date" value={a.termin}
                                                         onChange={e => aksGuncelle(b.id, a.id, 'termin', e.target.value)} /></td>

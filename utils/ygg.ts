@@ -554,6 +554,15 @@ export const yggBolumleri = (
 export const yggAnahtar = (lokasyon: string, yil: number): string =>
     'ygg_' + String(lokasyon || '').trim().toLocaleLowerCase('tr').replace(/\s+/g, '_') + '_' + yil;
 
+// Anahtar → {lokasyon, yıl}. Lokasyon adında alt çizgi olabileceği için
+// SONDAN ayrıştırılır ("ygg_adana_sanifoam_2026" → adana sanifoam / 2026).
+export const yggAnahtarCoz = (
+    anahtar: string,
+): { lokasyon: string; yil: number } | null => {
+    const m = /^ygg_(.+)_(\d{4})$/.exec(String(anahtar || ''));
+    return m ? { lokasyon: m[1].replace(/_/g, ' '), yil: Number(m[2]) } : null;
+};
+
 // Kayıtlı hâl ile standart listeyi birleştir.
 // Kullanıcının SİLDİĞİ bölüm geri gelmez; EKLEDİĞİ bölüm korunur;
 // standarda sonradan eklenen madde listeye girer (taslak metniyle).
