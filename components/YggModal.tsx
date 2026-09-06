@@ -64,6 +64,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // aç/düzenle ve kalıcı sil. null = henüz yüklenmedi.
     const [kayitli, setKayitli] = useState<{ key: string; updated_at: string | null }[] | null>(null);
     const [listeAcik, setListeAcik] = useState(false);
+    const [mailBilgi, setMailBilgi] = useState('');
+    const mailPaneliRef = React.useRef<HTMLDivElement>(null);
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
     // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
@@ -314,6 +316,16 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         }
     }, [mailAcik, mailKonu, yil, lokasyon]);
 
+    // Panel açılınca görünür yere kaydır: aksi hâlde katılımcı tablosunun
+    // altında kalıyor, kullanıcı gönderdiğini sanıp asıl düğmeyi görmüyor.
+    useEffect(() => {
+        if (!mailAcik) return;
+        const t = setTimeout(() => {
+            mailPaneliRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+        return () => clearTimeout(t);
+    }, [mailAcik]);
+
     const mailYolla = async () => {
         if (!mailAlicilar.length) { setHata('Katılımcılarda geçerli e-posta yok.'); return; }
         setDurum('kaydediliyor'); setHata('');
@@ -332,7 +344,11 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 dosyaAdi: `YGG_${lokasyon}_${yil}`.replace(/[^\w\-]+/g, '_'),
             });
             setMailAcik(false);
-            setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 3000);
+            // "Kaydedildi" demiyoruz: mail HENÜZ gitmedi, istek kuyruğa yazıldı.
+            setDurum('hazir');
+            setMailBilgi(`Gönderim isteği oluşturuldu — ${mailAlicilar.length} alıcı. `
+                + 'Yerel gönderim görevi (15 dakikada bir) Outlook’tan yollayacak; '
+                + 'gidince düğme “✅ Gönderildi” olur.');
             // Konu da yazılır: "kuyrukta" işareti yalnız BU raporda yansın.
             setMailDurum({
                 ...(mailDurum || {}),
@@ -472,6 +488,12 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                 </div>
             }>
             <div className="text-sm">
+                {mailBilgi && (
+                    <div className="mb-3 p-2 rounded text-xs border border-indigo-300 dark:border-indigo-700
+                        bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200">
+                        📧 {mailBilgi}
+                    </div>
+                )}
                 {/* Arama: "içinde şu var mı?" sorusunun cevabı */}
                 <div className="mb-3 flex items-center gap-2">
                     <input value={ara} onChange={e => setAra(e.target.value)}
@@ -710,11 +732,20 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         </div>
                     </div>
 
-                    {/* Mail onay kutusu — onaylı tedarikçi sistemindeki akışın aynısı */}
+                    {/* Mail onay kutusu — onaylı tedarikçi sistemindeki akışın aynısı.
+                        ref: panel katılımcı tablosunun ALTINDA açılıyor; ekranda
+                        görünmezse kullanıcı "gönderdim" sanıp asıl düğmeye basmıyor
+                        (ölçüldü: egt_ayar'da hiç ygg_mail_istek oluşmamıştı). */}
                     {mailAcik && (
-                        <div className="mt-3 p-3 rounded border border-indigo-300 dark:border-indigo-700
-                            bg-white dark:bg-gray-800">
-                            <div className="font-semibold text-sm mb-2">📧 YGG raporunu maille gönder</div>
+                        <div ref={mailPaneliRef} className="mt-3 p-3 rounded border-2 border-indigo-500
+                            bg-white dark:bg-gray-800 scroll-mt-4">
+                            <div className="font-semibold text-sm mb-2">
+                                📧 YGG raporunu maille gönder
+                                <span className="ml-2 text-[11px] font-normal px-2 py-0.5 rounded-full
+                                    bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200">
+                                    son adım: aşağıdaki “Gönderim isteği oluştur” düğmesine basın
+                                </span>
+                            </div>
                             <label className="text-xs block mb-2">Konu
                                 <input className={alan} value={mailKonu} onChange={e => setMailKonu(e.target.value)} />
                             </label>
@@ -743,6 +774,12 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                 Outlook’tan gönderilir — onaylı tedarikçi sistemindeki akışın aynısı.
                                 Rapor, ekrandaki hâliyle (grafikler dâhil) gönderilir.
                             </div>
+                            {hata && (
+                                <div className="mb-2 p-2 rounded text-xs bg-red-50 dark:bg-red-900/30
+                                    text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700">
+                                    ❌ {hata} — <b>gönderim isteği OLUŞMADI</b>, mail gitmeyecek.
+                                </div>
+                            )}
                             <div className="flex gap-2 justify-end">
                                 <button onClick={() => setMailAcik(false)}
                                     className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded">
