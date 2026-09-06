@@ -98,6 +98,9 @@ export const yggBolumleri = (
     // Yıl boyu PAF kalemleri (12 aylık kalite raporundan toplanır)
     pafKalemler?: PafKalem[],
     pafToplam?: PafOzet,
+    // Elle değiştirilen yeni hedefler (KPI id → değer). Ekranda düzenlenir,
+    // rapora da bu değerler girer.
+    elleHedefler?: { [kpiId: string]: number },
 ): YggBolum[] => {
     const d = durumSay(kpis);
     const basarisizlar = kpis.filter(k => k.durum === 'basarisiz');
@@ -536,7 +539,10 @@ export const yggBolumleri = (
             + `KPI'larda hedef GEVŞETİLMEMİŞ, mevcut hedef korunmuş ve hedefe ulaşmak için `
             + `aşağıdaki aksiyonlar sorumlu ve terminle planlanmıştır. Kaynak ihtiyaçları için `
             + `terminler ayrıca planlanmıştır.`,
-            hedefTabloHtml(hedefler, yil), hedefAks),
+            // Ekranda düzenlenebilir; yazdırma/mail sürümünde düz metin ama
+            // AYNI (elle değiştirilmiş) değerlerle.
+            hedefTabloHtml(hedefler, yil, elleHedefler || {}, true), hedefAks,
+            hedefTabloHtml(hedefler, yil, elleHedefler || {}, false)),
 
         B('cikti_b', '9.3.3 b)', 'KYS’de değişiklik ihtiyacı (çıktı)',
             [],

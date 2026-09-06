@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Kpi, ActionItem, MultiYearKpiData } from '../types';
 import { yggBolumleri, yggAnahtar, yggAnahtarCoz, yggBirlestir, YggKayitBolum, YggAksiyon } from '../utils/ygg';
+import { hedefCoz } from '../utils/yggHedef';
 import { maliyetCek, MaliyetSatir, erpPafKalemleri } from '../utils/kaliteMaliyet';
 import { aylikKaliteAnahtar } from '../utils/aylikKalite';
 import {
@@ -62,6 +63,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     const [kayitli, setKayitli] = useState<{ key: string; updated_at: string | null }[] | null>(null);
     const [listeAcik, setListeAcik] = useState(false);
     const [mailBilgi, setMailBilgi] = useState('');
+    // Elle değiştirilen yeni hedefler: KPI id → değer. Kayıtla saklanır,
+    // rapora da bu değerler girer.
+    const [elleHedefler, setElleHedefler] = useState<{ [kpiId: string]: number }>({});
     // Silinen standart maddeler: kayıtta tutulmazsa her açılışta geri gelir.
     const [silinenler, setSilinenler] = useState<string[]>([]);
     // Kalite maliyeti (egt_ayar). Okunamazsa madde "veri çekilmemiş" der,
@@ -154,8 +158,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
     // olur ve eski kayıtlar kaybolurdu.
     const anahtar = yggAnahtar(lokasyonId || lokasyon, yil);
     const standart = useMemo(
-        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe, pafToplam),
-        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe, pafToplam]);
+        () => yggBolumleri(lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe,
+            pafToplam, elleHedefler),
+        [lokasyon, yil, kpis, aksiyonlar, multiYearData, maliyet, pafListe, pafToplam, elleHedefler]);
     const otoHarita = useMemo(() => new Map(standart.map(b => [b.id, b.otomatik])), [standart]);
     // Madde grafikleri (bakım, tedarikçi, maliyet…) — canlı, kaydedilmez.
     const grafikHarita = useMemo(
@@ -218,6 +223,9 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                         id: 'kd_' + i, ad: k.ad, gorev: k.gorev, eposta: k.eposta,
                     })));
                 setTarih(o.tarih || '');
+                // Elle değiştirilen yeni hedefler; yoksa boş (öneriler geçerli).
+                setElleHedefler(o.elleHedefler && typeof o.elleHedefler === 'object'
+                    ? o.elleHedefler as { [k: string]: number } : {});
                 setDurum('hazir');
             })
             .catch(e => {
@@ -235,7 +243,7 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         setDurum('kaydediliyor'); setHata('');
         try {
             await cloudSaveMeta(anahtar, { bolumler, silinenler, katilanlar, katilimcilar,
-                pafYillik, tarih, guncelleme: new Date().toISOString() });
+                pafYillik, tarih, elleHedefler, guncelleme: new Date().toISOString() });
             setDurum('kaydedildi'); setTimeout(() => setDurum('hazir'), 2000);
             listeyiTazele();   // yeni kayıt listede hemen görünsün
         } catch (e: any) { setHata(String(e?.message || e)); setDurum('hata'); }
@@ -364,6 +372,32 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
 
     const esc = (t: string) => String(t || '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Yeni hedef hücresi düzenlendi. Tablo HTML olarak basıldığı için olay
+    // yakalamayla dinlenir; hücre data-hedef-id taşır (KPI adı DEĞİL — aynı
+    // adlı iki KPI birbirini ezerdi).
+    const hedefHucreDegisti = (e: React.FocusEvent<HTMLDivElement>) => {
+        const h = (e.target as HTMLElement)?.closest?.('[data-hedef-id]') as HTMLElement | null;
+        if (!h) return;
+        const id = h.getAttribute('data-hedef-id') || '';
+        if (!id) return;
+        const yeni = hedefCoz(h.textContent || '');
+        setElleHedefler(x => {
+            const s = { ...x };
+            // Boşaltılırsa otomatik öneriye geri dön (silme = "elle değeri kaldır").
+            if (yeni === null) delete s[id]; else s[id] = yeni;
+            return s;
+        });
+    };
+
+    // Enter satır sonu eklemesin: hedef tek satırlık bir sayı.
+    const hedefHucreTus = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== 'Enter') return;
+        const h = (e.target as HTMLElement)?.closest?.('[data-hedef-id]');
+        if (!h) return;
+        e.preventDefault();
+        (h as HTMLElement).blur();
+    };
 
     // PAF kalem tablosu rapora (PDF/mail) YALNIZ ekranda açık bırakılmışsa
     // girer. Ekranda kapalıyken göndermek, kullanıcının görmek istemediği
@@ -794,6 +828,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
                                 {/* Maddeye ait grafik: yazdırmadakiyle AYNI üreticiden. */}
                                 {grafikHarita.get(b.id) && (
                                     <div className="mt-2 p-2 rounded bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700"
+                                        onBlur={hedefHucreDegisti}
+                                        onKeyDown={hedefHucreTus}
                                         dangerouslySetInnerHTML={{ __html: grafikHarita.get(b.id) as string }} />
                                 )}
 

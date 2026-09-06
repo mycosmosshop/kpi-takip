@@ -30,6 +30,26 @@ const sayi = (n: number | null | undefined): string =>
     (n === null || n === undefined || isNaN(Number(n))) ? '—'
         : Number(n).toLocaleString('tr-TR', { maximumFractionDigits: Math.abs(Number(n)) >= 1000 ? 0 : 2 });
 
+// Elle yazılan hedefi sayıya çevirir. Kullanıcı tablodaki biçimi ("7.128.642",
+// "0,97") kopyalayabilir ama düz ("7128642") ya da İngilizce ("0.97") de
+// yazabilir — üçü de doğru okunmalı, yoksa hedef 100 kat sapar.
+export const hedefCoz = (metin: string): number | null => {
+    const t = String(metin ?? '').replace(/\s| /g, '').replace(/[^\d.,\-]/g, '');
+    if (!t || t === '-') return null;
+    let s: string;
+    if (t.includes(',')) {
+        // Virgül varsa ondalık ayırıcıdır; noktalar binliktir. "1.234,56"
+        s = t.replace(/\./g, '').replace(',', '.');
+    } else {
+        const p = t.split('.');
+        // Tek nokta ve sonrasında 3 hane DEĞİLSE ondalıktır ("0.97").
+        // "7.128.642" ve "1.234" binlik sayılır.
+        s = (p.length === 2 && p[1].length !== 3) ? t : t.replace(/\./g, '');
+    }
+    const n = Number(s);
+    return isFinite(n) ? n : null;
+};
+
 const esc = (t: any): string => String(t === null || t === undefined ? '' : t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -70,10 +90,32 @@ export const hedefTablosu = (
         });
 };
 
-export const hedefTabloHtml = (satirlar: HedefSatiri[], yil: number): string => {
+// Elle değiştirilen yeni hedefler: KPI id → değer. Ad ANAHTAR DEĞİL; aynı adlı
+// iki KPI olabiliyor (ör. iki ayrı OEE satırı) ve biri diğerini ezerdi.
+export const HEDEF_HUCRE_SINIFI = 'ygg-yeni-hedef';
+
+export const hedefTabloHtml = (
+    satirlar: HedefSatiri[], yil: number,
+    elleHedefler: { [kpiId: string]: number } = {},
+    duzenlenebilir = false,
+): string => {
     if (!satirlar.length) return '';
     const tr = satirlar.map(s => {
         const renk = s.tuttu === null ? '#9ca3af' : s.tuttu ? '#166534' : '#991b1b';
+        const elle = Object.prototype.hasOwnProperty.call(elleHedefler, s.kpi.id);
+        const deger = elle ? elleHedefler[s.kpi.id] : s.yeniHedef;
+        // Elle girilen değerde " *" (hesap korundu) işareti YOK: o işaret
+        // otomatik hesabı anlatır, kullanıcının yazdığı sayıyı değil.
+        const ek = elle ? '' : (s.korundu ? ' *' : '');
+        const ipucu = elle
+            ? `Elle değiştirildi (öneri: ${sayi(s.yeniHedef)}). ${s.gerekce}`
+            : s.gerekce;
+        const duzenle = duzenlenebilir
+            ? ` contenteditable="true" data-hedef-id="${esc(s.kpi.id)}"`
+                + ' style="padding:3px 6px;text-align:right;font-size:9.5pt;font-weight:700;'
+                + `outline:none;border-bottom:1px dashed ${elle ? '#2563eb' : '#bbb'};`
+                + `cursor:text;${elle ? 'color:#1d4ed8' : ''}"`
+            : ' style="padding:3px 6px;text-align:right;font-size:9.5pt;font-weight:700"';
         return `<tr>
             <td style="padding:3px 6px;font-size:9.5pt">${esc(s.kpi.kpi_adi)}
               <span style="color:#888">(${esc(s.kpi.birim)})</span></td>
@@ -81,14 +123,24 @@ export const hedefTabloHtml = (satirlar: HedefSatiri[], yil: number): string => 
             <td style="padding:3px 6px;text-align:right;font-size:9.5pt">${esc(sayi(s.buHedef))}</td>
             <td style="padding:3px 6px;text-align:right;font-size:9.5pt;color:${renk};font-weight:600">
               ${esc(sayi(s.buGercek))} ${s.tuttu === null ? '' : s.tuttu ? '✓' : '✗'}</td>
-            <td style="padding:3px 6px;text-align:right;font-size:9.5pt;font-weight:700"
-              title="${esc(s.gerekce)}">${esc(sayi(s.yeniHedef))}${s.korundu ? ' *' : ''}</td>
+            <td class="${duzenlenebilir ? HEDEF_HUCRE_SINIFI : ''}"${duzenle}
+              title="${esc(ipucu)}">${esc(sayi(deger))}${ek}</td>
           </tr>`;
     }).join('');
     const korunan = satirlar.filter(s => s.korundu).length;
+    const elleSayisi = satirlar.filter(
+        s => Object.prototype.hasOwnProperty.call(elleHedefler, s.kpi.id)).length;
     return `<div style="margin:6px 0 10px">
         <div style="font-size:9.5pt;font-weight:600;margin-bottom:2px">
-          ${yil + 1} yılı kalite hedefleri (öneri)</div>
+          ${yil + 1} yılı kalite hedefleri (öneri)
+          ${duzenlenebilir
+            ? '<span style="font-weight:normal;color:#2563eb;font-size:8.5pt">'
+              + ' — son sütuna tıklayıp yeni hedefi değiştirebilirsiniz</span>'
+            : ''}
+          ${elleSayisi
+            ? `<span style="font-weight:normal;color:#1d4ed8;font-size:8.5pt">`
+              + ` · ${elleSayisi} hedef elle değiştirildi</span>`
+            : ''}</div>
         <table style="border-collapse:collapse;width:100%">
           <thead><tr style="background:#f4f6f8;font-size:9pt">
             <th style="padding:3px 6px;text-align:left">KPI</th>
