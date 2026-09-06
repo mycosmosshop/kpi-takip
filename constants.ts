@@ -16,7 +16,11 @@ export const BRANDS: Record<Company, {
         name: 'SANİFOAM',
         unvan: 'Sanifoam Endüstri ve Tüketim Ürünleri San.Tic. A.Ş.',
     },
-    ultech: { docNo: 'FR 001', fileTag: 'FR001', logo: 'ultech-logo.png', name: 'ULTECH' },
+    ultech: {
+        docNo: 'FR 001', fileTag: 'FR001', logo: 'ultech-logo.png',
+        name: 'ULTECH',
+        unvan: 'Ultech Ulaşım Araçları Sanayi ve Ticaret Ltd.Şti',
+    },
 };
 
 // Varsayılan lokasyonlar (kullanıcı ekleyebilir/silebilir)
