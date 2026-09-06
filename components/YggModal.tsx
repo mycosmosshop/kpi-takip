@@ -51,8 +51,8 @@ interface Props {
     yil: number;
     // Yeni hedefleri KPI tablosuna işler (Yıl Karşılaştırma ile aynı fonksiyon)
     onAssignTargets?: (hedefler: { [kpiId: string]: number }) => void;
-    // Lokasyonun markası: KPI Excel'inin anteti ve dosya adı için
-    marka?: { docNo: string; fileTag: string; logo: string; name: string };
+    // Lokasyonun markası: rapor üst bilgisi, KPI Excel'inin anteti ve dosya adı
+    marka?: { docNo: string; fileTag: string; logo: string; name: string; unvan?: string };
 }
 
 const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYearData,
@@ -494,6 +494,10 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
         } catch { return false; }
     };
 
+    // Rapor üst bilgisindeki firma adı: resmî unvan varsa o, yoksa marka adı.
+    // Unvan UYDURULMAZ — tanımlı değilse kısa ad yazılır.
+    const firmaAdi = marka?.unvan || marka?.name || '';
+
     // Rapor HTML'i TEK yerde üretilir: yazdırma ve mail AYNI belgeyi
     // kullanır. İki ayrı üretici olsaydı biri güncellenip diğeri
     // unutulurdu (grafiklerde bunun bedeli ödendi).
@@ -538,7 +542,8 @@ const YggModal: React.FC<Props> = ({ isOpen, onClose, kpis, aksiyonlar, multiYea
             </style></head><body>
             <table class="kagit"><thead><tr><th>
                 <div class="sayfaBaslik">${yil} YILI YÖNETİMİN GÖZDEN GEÇİRMESİ TOPLANTISI (YGG)</div>
-                <div class="sayfaAlt">Lokasyon: ${esc(lokasyon)}</div>
+                <div class="sayfaAlt">Lokasyon: ${esc(lokasyon)}
+                  ${firmaAdi ? ` &nbsp;·&nbsp; Firma: ${esc(firmaAdi)}` : ''}</div>
             </th></tr></thead><tbody><tr><td>
             <div class="ust"><b>Toplantı tarihi/saati:</b> ${esc(tarih) || '—'}</div>
             <h3><span class="md">Katılımcılar</span> Toplantıya katılanlar</h3>

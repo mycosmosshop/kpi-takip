@@ -5,10 +5,18 @@ export const AYLAR = [
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
 
-// Marka/şirket → doküman no, logo dosyası ve antet metni
-export const BRANDS: Record<Company, { docNo: string; fileTag: string; logo: string; name: string }> = {
-    sanifoam: { docNo: 'FR 100', fileTag: 'FR100', logo: 'SanifoamLogo-Transparent.png', name: 'SANİFOAM' },
-    ultech:   { docNo: 'FR 001', fileTag: 'FR001', logo: 'ultech-logo.png',              name: 'ULTECH' },
+// Marka/şirket → doküman no, logo dosyası ve antet metni.
+// unvan: resmî ticaret unvanı — YGG raporunun üst bilgisinde "Firma:" olarak
+// yazılır. Yoksa name kullanılır; unvan UYDURULMAZ.
+export const BRANDS: Record<Company, {
+    docNo: string; fileTag: string; logo: string; name: string; unvan?: string;
+}> = {
+    sanifoam: {
+        docNo: 'FR 100', fileTag: 'FR100', logo: 'SanifoamLogo-Transparent.png',
+        name: 'SANİFOAM',
+        unvan: 'Sanifoam Endüstri ve Tüketim Ürünleri San.Tic. A.Ş.',
+    },
+    ultech: { docNo: 'FR 001', fileTag: 'FR001', logo: 'ultech-logo.png', name: 'ULTECH' },
 };
 
 // Varsayılan lokasyonlar (kullanıcı ekleyebilir/silebilir)
