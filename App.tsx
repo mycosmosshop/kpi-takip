@@ -27,6 +27,7 @@ import { kpiAnahtari } from './utils/yilKarsilastirma';
 import { fetchSupplierEval, fetchSupplierFilters, TdScope, TdMetric } from './utils/supplierEval';
 import { kutuphaneYukle } from './utils/kutuphane';
 import { isAuthed, cloudFetchKpi, cloudSaveKpi, cloudFetchActions, cloudSaveActions, cloudFetchMeta, cloudSaveMeta, subscribeLocation } from './utils/cloudSync';
+import { surumIzle } from './utils/surumIzle';
 import Header from './components/Header';
 import SummaryPanel from './components/SummaryPanel';
 import KpiTable from './components/KpiTable';
@@ -184,6 +185,9 @@ const App: React.FC = () => {
     const [recentlyUpdatedKpi, setRecentlyUpdatedKpi] = useState<string | null>(null);
     const updateTimeoutRef = useRef<number | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    // Yayında yeni sürüm var mı? (açık sekme eski paketle çalışmaya devam eder)
+    const [yeniSurum, setYeniSurum] = useState(false);
+    useEffect(() => surumIzle(() => setYeniSurum(true)), []);
     const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'connected'>('offline');
     const kpiHashRef = useRef<string>('');
     const actHashRef = useRef<string>('');
@@ -1232,6 +1236,24 @@ const App: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 font-sans">
+            {/* Yeni sürüm yayınlandı: açık sekme eski paketi çalıştırmaya devam
+                eder ve yapılan değişiklik görünmez. Ctrl+Shift+R gerekiyordu. */}
+            {yeniSurum && (
+                <div className="sticky top-0 z-50 mb-3 flex items-center gap-3 flex-wrap
+                    rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-900/40
+                    text-amber-900 dark:text-amber-100 px-3 py-2 text-sm shadow">
+                    <span>🔄 <b>Yeni sürüm yayınlandı.</b> Şu an eski sürümü görüyorsunuz;
+                        son değişiklikler için sayfayı yenileyin.</span>
+                    <button onClick={() => window.location.reload()}
+                        className="ml-auto px-3 py-1 rounded bg-amber-600 text-white hover:bg-amber-700">
+                        Yenile
+                    </button>
+                    <button onClick={() => setYeniSurum(false)}
+                        className="px-2 py-1 text-xs rounded border border-amber-500">
+                        şimdi değil
+                    </button>
+                </div>
+            )}
             <TooltipSettingsPanel
                 settings={tooltipSettings}
                 onChange={setTooltipSettings}
