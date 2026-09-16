@@ -187,7 +187,17 @@ const App: React.FC = () => {
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     // Yayında yeni sürüm var mı? (açık sekme eski paketle çalışmaya devam eder)
     const [yeniSurum, setYeniSurum] = useState(false);
-    useEffect(() => surumIzle(() => setYeniSurum(true)), []);
+    // Yeni sürüm görülünce KENDİLİĞİNDEN yenilenir: uyarı gösterip elle
+    // "Yenile" beklemek her yayında kullanıcıya iş çıkarıyordu. Veri
+    // buluta sürekli yazıldığı için yenileme kayıpsız. Kullanıcı bir
+    // alana yazıyorsa ertelenir; o zaman uyarı şeridi görünür.
+    useEffect(() => surumIzle(() => {
+        const el = document.activeElement as HTMLElement | null;
+        const yaziyor = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+            || el.tagName === 'SELECT' || el.isContentEditable);
+        if (yaziyor) { setYeniSurum(true); return; }
+        window.location.reload();
+    }), []);
     const [cloudStatus, setCloudStatus] = useState<'offline' | 'syncing' | 'connected'>('offline');
     const kpiHashRef = useRef<string>('');
     const actHashRef = useRef<string>('');
