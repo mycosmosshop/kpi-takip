@@ -26,6 +26,7 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'pmc', l: 'PMC — Planlı Bakım Uyumu (%)' },
         { v: 'unplanned', l: 'Plansız Bakım (%)' },
         { v: 'mttf', l: 'MTTF — İlk arızaya kadar süre (saat)' },
+        { v: 'cost', l: 'Bakım Maliyeti (TL — arıza + planlı bakım + yedek parça)' },
     ],
     egitim: [
         { v: 'egitim_sure', l: 'Eğitim Süresi (adam·saat, gerçekleşen)' },

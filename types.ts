@@ -144,7 +144,8 @@ export interface Risk {
 
 export type SourceType = 'cmms' | 'egitim' | 'tedarikci' | 'siparis';
 export type SourceMetric =
-    | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'  // CMMS (Bakım)
+    | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'
+    | 'cost'                                                                   // CMMS (Bakım)
     | 'egitim_sure' | 'egitim_gerceklesme'                                     // Eğitim
     | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin'    // Tedarikçi Değerlendirme
     | 'siparis_tamamlanma';                                                    // Sipariş tamamlanma (sevk raporu 0157)

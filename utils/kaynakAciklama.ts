@@ -20,6 +20,7 @@ const HESAP: Record<SourceMetric, string> = {
     mtbf: 'MTBF = toplam çalışma süresi / arıza adedi (saat). Arızalar arasındaki ortalama süre.',
     mttr: 'MTTR = toplam tamir süresi / arıza adedi (saat). Ortalama tamir süresi.',
     mttf: 'MTTF = ilk arızaya kadar geçen ortalama süre (saat).',
+    cost: 'Bakım maliyeti = arıza maliyeti + planlı bakım maliyeti + yedek parça maliyeti (TL, lokasyon toplamı).',
     availability: 'Kullanılabilirlik = (planlı süre − duruş) / planlı süre × 100.',
     pmr: 'PMR = planlı bakım iş emri / toplam iş emri × 100.',
     pmc: 'PMC = zamanında kapatılan planlı bakım / vadesi gelen planlı bakım × 100. Vadesi gelmemiş iş sayılmaz.',
