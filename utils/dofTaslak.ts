@@ -33,7 +33,13 @@ function hedefTutuyor(deger: number, hedef: number, karsilastirma: string): bool
 // Aksiyon metinleri veriden turetilemez; KPI'in konusuna gore standart
 // bir baslangic listesi yazilir, ekip uzerinde oynar. Konu, kaynak
 // metriginden ya da KPI adindan anlasilir.
-interface OneriSeti { gecici: string[]; kalici: string[]; onleme: string[]; }
+interface OneriSeti {
+    gecici: string[];
+    kalici: string[];
+    onleme: string[];
+    /** 5 Neden zincirinin 2. halkasindan sonrasi; ilk halka veriden gelir. */
+    neden: string[];
+}
 
 const ONERILER: Record<string, OneriSeti> = {
     ariza: {
@@ -53,6 +59,13 @@ const ONERILER: Record<string, OneriSeti> = {
             'Bakım talimatlarının ve bakım periyotlarının güncellenmesi, ilgili personele duyurulması.',
             'CMMS kayıtlarında arıza tipinin zorunlu alan yapılması — Pareto analizi bu veri olmadan yapılamıyor.',
         ],
+        neden: [
+            'Arızalar önlenemeden oluştu: bakım işleri ağırlıkla arıza sonrası (plansız) yürüdü, '
+                + 'önleyici bakım payı düştü. [CMMS iş emri dağılımından doğrulanacak]',
+            '[Planlı bakım işleri neden geri kaldı? Ertelenen iş emirleri, üretim yoğunluğu, '
+                + 'personel ya da yedek parça yokluğu incelenecek]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
+        ],
     },
     kalite: {
         gecici: [
@@ -71,6 +84,13 @@ const ONERILER: Record<string, OneriSeti> = {
             'Katmanlı proses denetimi kapsamına ilgili proses adımının eklenmesi.',
             'Eğitim kayıtlarının ve yetkinlik matrisinin güncellenmesi.',
         ],
+        neden: [
+            'Uygunsuzluk üretim sırasında oluştu ve proses içinde yakalanamadı. '
+                + '[Hata tipi ve oluştuğu proses adımı uygunsuzluk kayıtlarından belirlenecek]',
+            '[Proses adımında ne değişti? Malzeme, ayar, ekipman, operatör ya da yöntem '
+                + 'değişikliği incelenecek]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
+        ],
     },
     tedarikci: {
         gecici: [
@@ -86,6 +106,12 @@ const ONERILER: Record<string, OneriSeti> = {
             'Tedarikçi değerlendirme kriterlerinin ve giriş kontrol planının güncellenmesi.',
             'Onaylı tedarikçi listesinin gözden geçirilmesi.',
         ],
+        neden: [
+            'Uygunsuz malzeme tedarikçi tarafında oluştu ve giriş kontrolünde yakalanamadı. '
+                + '[Hangi tedarikçi ve hangi parti olduğu kayıtlardan belirlenecek]',
+            '[Tedarikçinin prosesinde ne değişti? 8D talebiyle doğrulanacak]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
+        ],
     },
     varsayilan: {
         gecici: [
@@ -100,6 +126,11 @@ const ONERILER: Record<string, OneriSeti> = {
         onleme: [
             'Güncellenen talimatın ilgili personele duyurulması ve eğitim kaydının alınması.',
             'Benzer süreçlerde aynı riskin taranması.',
+        ],
+        neden: [
+            '[Dönem içinde süreçte ne değişti? Kayıtlar incelenerek yazılacak]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
         ],
     },
 };
@@ -195,23 +226,52 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
         satir.push(...baglam);
     }
 
+    // 5 Neden: ilk kaydin `why` alani PROBLEM CUMLESI, her kaydin
+    // `because` alani o halkanin cevabi. Sonraki `why` degerlerini bilesen
+    // onceki cevaptan turetir; oraya yer tutucu yazilirsa ekranda "[bir
+    // onceki cevabin nedeni]" diye gorunur.
     const yi = (s: string) => `${s}-${Math.random().toString(36).slice(2, 8)}`;
-    const occurrence = [
-        { id: yi('why-occ'), why: `${kpi.kpi_adi} ${ay} ayında neden ${biz(deger)}${b} oldu?`,
-          because: digerOrt !== null
-            ? `Ölçülen değer, öteki ${oteki.length} ayın ortalamasına (${biz(digerOrt)}${b}) göre `
-              + `%${biz(digerOrt !== 0 ? deger / digerOrt * 100 : 0)} düzeyinde. `
-              + '[ay içinde ne değiştiği yazılacak]'
-            : '[doldurulacak]' },
-        { id: yi('why-occ'), why: '[bir önceki cevabın nedeni]', because: '[doldurulacak]' },
-        { id: yi('why-occ'), why: '[bir önceki cevabın nedeni]', because: '[doldurulacak]' },
-    ];
-    const nonDetection = [
-        { id: yi('why-nd'), why: 'Sapma neden ay kapanmadan fark edilmedi?',
-          because: `${kpi.kpi_adi} ${kpi.gozdenGecirmePeriyodu || 'aylık'} periyotta raporlanıyor; `
-            + 'ay içinde erken uyarı ölçütü tanımlı değil.' },
-        { id: yi('why-nd'), why: '[bir önceki cevabın nedeni]', because: '[doldurulacak]' },
-    ];
+    const o0 = oneriSeti(kpi);
+    const zincir = (onek: string, problem: string, cevaplar: string[]) =>
+        cevaplar.map((c, n) => ({
+            id: yi(onek),
+            why: n === 0 ? problem : cevaplar[n - 1],
+            because: c,
+        }));
+
+    // Ilk halka VERIDEN: ay icinde olcunun ne kadar degistigi ve —
+    // biliniyorsa — sapmanin hangi bilesende olmadigi.
+    // "Arizalar arasi sure" tipi bir metrikte sure yariya inmek, ayni
+    // calisma suresinde ariza sayisinin iki katina cikmasi demektir; bu
+    // cikarim ilk halkayi olgu tekrarindan gercek bir nedensellik
+    // adimina cevirir.
+    const arizaArasi = o0 === ONERILER.ariza && !yon.includes('<')
+        && /mtbf|mttf|arizalar arasi|arızalar aras/i.test(kpi.kpi_adi || '');
+    const kat = digerOrt !== null && deger !== 0 ? digerOrt / deger : null;
+    const ilkCevap = digerOrt === null
+        ? `${ay} ayında ölçüm hedefin dışına çıktı.`
+        : (arizaArasi && kat !== null
+            ? `Aynı çalışma süresinde arıza sayısı arttı: ${ay} ayında arızalar arası süre `
+              + `${biz(deger)}${b}, öteki ${oteki.length} ayın ortalaması ${biz(digerOrt)}${b} — `
+              + `yani arıza adedi ortalama aya göre yaklaşık ${biz(kat)} katı. `
+              + 'Sapma tek aya özgü olduğuna göre o ay içinde bir şey değişti.'
+            : `${ay} ayında ölçüm, öteki ${oteki.length} ayın ortalamasından (${biz(digerOrt)}${b}) `
+              + `belirgin biçimde ayrıldı (%${biz(deger / digerOrt * 100)} düzeyi). `
+              + 'Sapma tek aya özgü olduğuna göre o ay içinde bir şey değişti.');
+
+    const occurrence = zincir('why-occ',
+        `${kpi.kpi_adi} ${ay} ${yil} döneminde ${biz(deger)}${b} ölçüldü; hedef ${yonIsareti(yon)} ${biz(hedef)}${b}.`,
+        [ilkCevap, ...o0.neden]);
+
+    const nonDetection = zincir('why-nd',
+        `${ay} ayındaki sapma ay kapanana kadar fark edilmedi.`,
+        [
+            `${kpi.kpi_adi} ${String(kpi.gozdenGecirmePeriyodu || 'aylık').toLocaleLowerCase('tr')} `
+                + 'periyotta raporlanıyor; dönem içinde eşik ya da erken uyarı ölçütü tanımlı değil.',
+            '[Dönem içi izleme neden yok? KPI tanımında yalnız bu periyot var; '
+                + 'ara takip görevlendirilmemiş olabilir]',
+            '[Bir önceki nedenin kaynağı yazılacak]',
+        ]);
 
     // D6: sapmadan SONRAKI aylar hedefi tutuyor mu?
     const i = AYLAR.indexOf(ay);

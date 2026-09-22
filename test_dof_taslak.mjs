@@ -54,11 +54,23 @@ assert.ok(mttrSatir.includes('hedef içinde'), '<= yönü doğru değerlendirilm
 assert.strictEqual(t.problemTanimi.split('Arızalar Arasındaki').length - 1, 2,
   'KPI kendi bağlam satırını yazmamalı (biri başlık, biri 5 neden sorusu)');
 
-// ── D4: ilk halka veriyle dolu, gerisi ekibe bırakılmış ──
-assert.ok(t.occurrence[0].because.includes(String(beklenenOrt)), 'oluşum ilk halkası veriye dayanmalı');
-assert.ok(t.occurrence[1].because.includes('['), 'sonraki halkalar boş bırakılmalı');
-assert.ok(t.nonDetection[0].because.includes('Aylık') || t.nonDetection[0].because.includes('aylık'),
-  'kaçış halkası gözden geçirme periyodunu yazmalı');
+// ── D4: bileşenin beklediği yapı ──
+// occurrence[0].why = PROBLEM CÜMLESİ, her kaydın because'ı o halkanın
+// cevabı, sonraki why = önceki cevap. Yer tutucu why ekranda görünüyordu.
+assert.ok(t.occurrence[0].why.includes('284') && t.occurrence[0].why.includes('500'),
+  'problem cümlesi ölçüm ve hedefi taşımalı');
+assert.ok(!/\[bir önceki/i.test(t.occurrence.map(x => x.why).join(' ')),
+  'why alanlarında yer tutucu kalmamalı');
+for (let i = 1; i < t.occurrence.length; i++)
+  assert.strictEqual(t.occurrence[i].why, t.occurrence[i - 1].because,
+    `halka ${i + 1} sorusu bir önceki cevap olmalı`);
+// İlk halka gerçek bir nedensellik adımı: arıza sayısı katsayısı
+assert.ok(/arıza sayısı arttı/.test(t.occurrence[0].because), 'ilk halka olgu tekrarı olmamalı');
+assert.ok(t.occurrence[0].because.includes(String(beklenenOrt)), 'ilk halka veriye dayanmalı');
+assert.ok(t.occurrence[1].because.includes('plansız'), 'ikinci halka konuya özgü');
+assert.ok(t.occurrence.some(x => x.because.includes('[')), 'doğrulanmamış halkalar işaretli');
+assert.ok(t.nonDetection[0].why.includes('fark edilmedi'), 'kaçış problem cümlesi');
+assert.ok(t.nonDetection[0].because.includes('aylık'), 'kaçış halkası periyodu yazmalı');
 
 // ── D6: sapmadan sonraki aylar ──
 assert.ok(t.uygulamaDogrulama.includes('Temmuz 884'), 'sonraki ay ölçümü');
