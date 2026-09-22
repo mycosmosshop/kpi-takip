@@ -91,8 +91,12 @@ assert.ok(tk.nonDetectionRootCause.length > 30, 'tik işaretliyse kaçış kök 
 // Aksiyonlar kapattıkları kök nedene bağlı olmalı
 assert.ok(t.kaliciAksiyonlar.every(a => (a.linkedRootCauses || []).length === 1),
   'her aksiyon kök nedene bağlı');
-assert.strictEqual(t.kaliciAksiyonlar[0].linkedRootCauses[0], t.occurrenceRootCause,
-  'bağlanan metin kök nedenin kendisi olmalı');
+// Baglanan metinde "[… doğrulandıktan sonra kesinleşir]" notu OLMAZ:
+// D5 tablosunda kok neden her satirda tekrarlaniyor.
+const bagli = t.kaliciAksiyonlar[0].linkedRootCauses[0];
+assert.ok(!bagli.includes('['), 'bağlanan metinde köşeli parantezli not olmamalı: ' + bagli);
+assert.ok(t.occurrenceRootCause.startsWith(bagli), 'bağlanan metin kök nedenin gövdesi olmalı');
+assert.ok(t.occurrenceRootCause.includes('['), 'not D4 kök neden alanında kalmalı');
 
 // ── D6: sapmadan sonraki aylar ──
 assert.ok(t.uygulamaDogrulama.includes('Temmuz 884'), 'sonraki ay ölçümü');

@@ -327,7 +327,11 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
     // Her aksiyon, kapattigi KOK NEDENE baglanir. Bos birakilinca
     // raporun "İlgili Kök Neden(ler)" sutunu hep "Girilmemiş" cikiyor ve
     // aksiyonun neyi kapattigi gorunmuyordu.
-    const kokNedenMetni = o.kokNeden || '';
+    // Aksiyona baglanan metinde "[… doğrulandıktan sonra kesinleşir]" gibi
+    // notlar olmaz: D5 tablosunda kok neden HER SATIRDA tekrarlaniyor,
+    // notu da yanina alinca sutun okunmaz oluyordu. Not, D4'teki kok neden
+    // alaninda duruyor.
+    const kokNedenMetni = String(o.kokNeden || '').replace(/\s*\[[^\]]*\]\s*$/, '').trim();
     const kaliciAksiyonlar = o.kalici.map(x => ({
         id: yi('action'),
         action: x,
