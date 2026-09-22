@@ -195,7 +195,16 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                             {filteredDofs.length > 0 ? filteredDofs.map(dof => {
                                 const kpi = allKpis.find(k => k.id === dof.kpiId);
                                 if (!kpi) return null;
-                                const cardTitle = dof.problemTanimi || dof.aksiyon; // Backward compatibility
+                                // Listede TAM tanim degil ilk cumle. 5N1K'li bir tanim
+                                // yazilinca kart sayfa boyu uzuyor ve liste okunmaz
+                                // oluyordu; tamami raporda ve duzenleme ekraninda duruyor.
+                                const tamTanim = String(dof.problemTanimi || dof.aksiyon || '').trim();
+                                const ilkCumle = tamTanim.split(/\n/)[0];
+                                const nokta = ilkCumle.search(/[.;](\s|$)/);
+                                let cardTitle = nokta > 20 ? ilkCumle.slice(0, nokta + 1) : ilkCumle;
+                                cardTitle = cardTitle.replace(/;$/, '');
+                                if (cardTitle.length > 160) cardTitle = cardTitle.slice(0, 157).trimEnd() + '…';
+                                const kisaltildi = cardTitle.length < tamTanim.length;
 
                                 return (
                                     <div key={dof.id}
@@ -217,7 +226,11 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                                             <div className="flex-1">
                                                 <span className={`inline-block px-2.5 py-1 text-xs font-bold rounded-full mb-2 ring-1 ring-inset ${getStatusColor(dof.durum)}`}>{dof.durum}</span>
-                                                <p className="font-semibold text-gray-800 dark:text-gray-200 text-base leading-tight pr-16">{cardTitle}</p>
+                                                <p className="font-semibold text-gray-800 dark:text-gray-200 text-base leading-tight pr-16"
+                                                   title={kisaltildi ? tamTanim : undefined}>
+                                                    {cardTitle}
+                                                    {kisaltildi && <span className="ml-1 font-normal text-gray-400">…</span>}
+                                                </p>
                                                 <p className="text-sm text-blue-600 dark:text-blue-400 mt-1.5">
                                                     <span className="font-medium text-gray-500 dark:text-gray-400">İlgili KPI:</span> {dof.proses} - {dof.kpiAdi}
                                                 </p>
