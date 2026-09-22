@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Kpi, Dof, ModalType, DofStatus, ScatterPlotAnalysisData } from '../types';
 import Modal from './Modal';
 import { kutuphaneYukle } from '../utils/kutuphane';
-import { EditIcon, TrashIcon, MagnifyingGlassIcon, UserIcon, CalendarIcon, PdfIcon, DocumentDuplicateIcon, ChartBarIcon } from './icons';
+import { EditIcon, TrashIcon, MagnifyingGlassIcon, UserIcon, CalendarIcon, PdfIcon, DocumentDuplicateIcon, ChartBarIcon, CheckCircleIcon } from './icons';
 import ScatterPlotMatrix from './ScatterPlotMatrix';
 
 interface AllDofsModalProps {
@@ -112,6 +112,7 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                         <th>Problem Tanımı / Aksiyon</th>
                         <th>Sorumlu</th>
                         <th>Termin</th>
+                        <th>Gerçek Kapanış</th>
                         <th>İlerleme</th>
                     </tr>
                 </thead>
@@ -124,6 +125,7 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                             <td>${dof.problemTanimi || dof.aksiyon}</td>
                             <td>${dof.sorumlu}</td>
                             <td>${new Date(dof.due_date).toLocaleDateString('tr-TR')}</td>
+                            <td>${dof.gercekKapanis ? new Date(dof.gercekKapanis).toLocaleDateString('tr-TR') : '-'}</td>
                             <td>${dof.ilerleme}%</td>
                         </tr>
                     `).join('')}
@@ -248,6 +250,19 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                                                         02.07.2026'si goruluyordu. */}
                                                     <span>Termin: {new Date(dof.due_date).toLocaleDateString('tr-TR')}</span>
                                                 </div>
+                                                {dof.gercekKapanis && (() => {
+                                                    // Kapanis TERMINDEN sonraysa gecikmeli kapanmistir;
+                                                    // panelde ayirt edilmezse termin performansi gorunmuyor.
+                                                    const g = Date.parse(dof.gercekKapanis + 'T00:00:00Z');
+                                                    const v = Date.parse(dof.due_date + 'T00:00:00Z');
+                                                    const gecikti = Number.isFinite(g) && Number.isFinite(v) && g > v;
+                                                    return (
+                                                        <div className={`flex items-center gap-2 text-xs ${gecikti ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+                                                            <CheckCircleIcon className="w-4 h-4" />
+                                                            <span>Kapandı: {new Date(dof.gercekKapanis).toLocaleDateString('tr-TR')}</span>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <div className="flex items-center gap-2 font-mono" title="İlgili KPI'ın Yıllık Ortalaması">
                                                     <ChartBarIcon className="w-4 h-4 text-gray-400" />
                                                     <span>{dof.kpiOrtalama ?? 'N/A'}</span>

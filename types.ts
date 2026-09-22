@@ -99,7 +99,11 @@ export interface Dof {
     kpiId: string;
     start_date: string; // D0
     sorumlu: string;
+    /** Termin = TAHMINI kapanis. Gercek kapanis ayri tutulur, yoksa
+     *  termine uyulup uyulmadigi olculemiyor. */
     due_date: string;
+    /** DOF'un FIILEN kapandigi tarih; 'Tamamlandi' isaretlenince dolar. */
+    gercekKapanis?: string;
     durum: DofStatus;
     ilerleme: number;
 

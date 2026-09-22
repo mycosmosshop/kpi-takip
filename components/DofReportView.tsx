@@ -493,7 +493,21 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                         <p><strong>DÖF ID:</strong> {dof.id}</p>
                         <p><strong>Başlangıç Tarihi (D0):</strong> {dof.start_date ? new Date(dof.start_date).toLocaleDateString('tr-TR') : 'N/A'}</p>
                         <p><strong>Sorumlu:</strong> {dof.sorumlu}</p>
-                        <p><strong>Kapanış Tarihi:</strong> {dof.due_date ? new Date(dof.due_date).toLocaleDateString('tr-TR') : 'N/A'}</p>
+                        <p><strong>Termin (tahmini kapanış):</strong> {dof.due_date ? new Date(dof.due_date).toLocaleDateString('tr-TR') : 'N/A'}</p>
+                        <p><strong>Gerçek Kapanış:</strong> {dof.gercekKapanis
+                            ? new Date(dof.gercekKapanis).toLocaleDateString('tr-TR')
+                            : (dof.durum === 'Tamamlandı' ? 'girilmedi' : 'açık')}
+                            {dof.gercekKapanis && dof.due_date && (() => {
+                                // Termine uyuldu mu? Gun farki UTC ile hesaplanir.
+                                const g = Date.parse(dof.gercekKapanis + 'T00:00:00Z');
+                                const v = Date.parse(dof.due_date + 'T00:00:00Z');
+                                if (!Number.isFinite(g) || !Number.isFinite(v)) return null;
+                                const gun = Math.round((g - v) / 86400000);
+                                return gun > 0
+                                    ? <span style={{ color: '#dc2626', fontWeight: 600 }}> · {gun} gün gecikmeli</span>
+                                    : <span style={{ color: '#16a34a', fontWeight: 600 }}> · termine uyuldu</span>;
+                            })()}
+                        </p>
                     </div>
 
                     <Section title="D1: Takım" icon={<UserIcon className="w-6 h-6 text-gray-500" />}>

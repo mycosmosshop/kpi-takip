@@ -99,6 +99,7 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
         due_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
         durum: 'Açık',
         ilerleme: 0,
+        gercekKapanis: '',
         takim: '',
         problemTanimi: '',
         geciciOnlemler: '',
@@ -210,7 +211,14 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
             } else if (progress === 100) {
                 newStatus = 'Tamamlandı';
             }
-            setDof(prev => ({ ...prev, ilerleme: progress, durum: newStatus }));
+            setDof(prev => ({
+                ...prev, ilerleme: progress, durum: newStatus,
+                // %100'e gelince gercek kapanis bos ise bugun onerilir;
+                // yazili bir tarih varsa dokunulmaz.
+                gercekKapanis: newStatus === 'Tamamlandı' && !String(prev.gercekKapanis || '').trim()
+                    ? new Date().toISOString().split('T')[0]
+                    : prev.gercekKapanis,
+            }));
         } else if (name === 'start_date') {
             setDof(prev => {
                 const next: Partial<Dof> = { ...prev, start_date: value };
@@ -428,10 +436,17 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                             <input type="date" name="start_date" value={dof.start_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium">Termin (Nihai Kapanış)</label>
+                            <label className="block text-sm font-medium">Termin (tahmini kapanış)</label>
                             <input type="date" name="due_date" value={dof.due_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 Elle değiştirilmediyse başlangıçla birlikte kayar (+30 gün).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Gerçek Kapanış</label>
+                            <input type="date" name="gercekKapanis" value={dof.gercekKapanis || ''} onChange={handleChange} className="mt-1 w-full form-input" />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                DÖF fiilen kapandığında dolar; %100 işaretlenince bugün önerilir.
                             </p>
                         </div>
                     </div>
@@ -609,7 +624,7 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                         </div>
                          
                          <div>
-                            <label className="block text-sm font-medium">Termin (Nihai Kapanış)</label>
+                            <label className="block text-sm font-medium">Termin (tahmini kapanış)</label>
                             <input type="date" name="due_date" value={dof.due_date || ''} onChange={handleChange} required className="mt-1 w-full form-input" />
                         </div>
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
