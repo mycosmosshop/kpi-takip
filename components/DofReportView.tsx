@@ -242,6 +242,36 @@ const processParetoData = (data?: ParetoAnalysisData) => {
     return { rows: keep, total, threshold: thrPct };
 };
 
+// 5 Neden ZINCIRI raporda gorunmeli: yalniz kok neden basiliyordu, oysa
+// denetimde sorulan sey hangi cevaptan hangi nedene inildigi.
+const BesNedenBolumu: React.FC<{
+    baslik: string;
+    zincir?: { id: string; why: string; because: string }[];
+    kokNeden?: string;
+}> = ({ baslik, zincir, kokNeden }) => {
+    const dolu = (zincir || []).filter(x => String(x?.because || '').trim());
+    if (!dolu.length && !String(kokNeden || '').trim()) return null;
+    const problem = String((zincir || [])[0]?.why || '').trim();
+    return (
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
+            <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">{baslik}</h4>
+            {problem && <p className="p-2 pb-1 text-sm"><strong>Problem: </strong>{problem}</p>}
+            {dolu.length > 0 && (
+                <ol className="list-decimal ml-8 space-y-1 text-sm p-2 pt-0">
+                    {dolu.map(x => (
+                        <li key={x.id} className="whitespace-pre-wrap">{x.because}</li>
+                    ))}
+                </ol>
+            )}
+            {String(kokNeden || '').trim() && (
+                <p className="whitespace-pre-wrap p-2 border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                    <strong>Kök Neden: </strong>{kokNeden}
+                </p>
+            )}
+        </div>
+    );
+};
+
 const ParetoReport: React.FC<{ data?: ParetoAnalysisData }> = ({ data }) => {
     const result = useMemo(() => processParetoData(data), [data]);
 
@@ -337,6 +367,23 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         }
         return ftaCopy;
     }, [dof.kokNedenAnalizi?.fta, dof.problemTanimi]);
+
+    // Bir arac KULLANILDI sayilmasi icin icinde veri olmali: sablon
+    // basligi ("Tepe Olay (Problem)") ya da bos kategori listesi yeterli
+    // degil. Bos araclar raporda "… olusturulmamis" diye yer kapliyordu.
+    const k = dof.kokNedenAnalizi;
+    const ftaKullanildi = useMemo(() => {
+        const te = k?.fta?.topEvent;
+        if (!te) return false;
+        return (te.children || []).length > 0 || (k?.fta?.floatingNodes || []).length > 0;
+    }, [k?.fta]);
+    const paretoKullanildi = !!String(k?.pareto?.inputData || '').trim();
+    const balikKullanildi = useMemo(() => {
+        const f = k?.fishbone;
+        if (!f) return false;
+        return !!String(f.problem || '').trim()
+            || (f.categories || []).some(c => (c.causes || []).length > 0);
+    }, [k?.fishbone]);
 
     const relevantMonthData = useMemo(() => {
         if (!dof.start_date) return null;
@@ -520,15 +567,20 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                         <p className="whitespace-pre-wrap p-2">{getDofText(dof.geciciOnlemler)}</p>
                     </Section>
                     <Section title="D4: Kök Neden Analizi" icon={<LightBulbIcon className="w-6 h-6 text-yellow-500" />}>
+                        {/* KULLANILMAYAN arac basilmaz. Onceden hepsi
+                            "… olusturulmamis." yazisiyla yer kapliyordu. */}
+                        {ftaKullanildi && (
                         <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
                             <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">Hata Ağacı Analizi (FTA)</h4>
                             <FtaReport data={ftaDataForReport} />
                             <FtaCalculationResultPanel result={dof.kokNedenAnalizi?.fta?.calculationResult} />
-                        </div>
+                        </div>)}
+                        {paretoKullanildi && (
                          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
                             <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">Pareto Analizi</h4>
                             <ParetoReport data={dof.kokNedenAnalizi?.pareto} />
-                        </div>
+                        </div>)}
+                        {scatterVerisiVar(dof.kokNedenAnalizi?.scatter) && (
                          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
                             <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">Dağılım Grafiği Analizi (Scatter)</h4>
                             {scatterVerisiVar(dof.kokNedenAnalizi?.scatter) ? (
@@ -557,22 +609,23 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                                         />
                                     </div>
                                 </div>
-                            ) : (
-                                 <p className="text-sm text-gray-500 dark:text-gray-400 italic p-4 text-center">Dağılım grafiği analizi oluşturulmamış.</p>
-                            )}
-                        </div>
+                            ) : null}
+                        </div>)}
+                        {balikKullanildi && (
                         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
                             <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">Balık Kılçığı Diyagramı</h4>
                             <FishboneReport data={dof.kokNedenAnalizi?.fishbone} />
-                        </div>
-                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                            <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">5 Neden Analizi - Oluşum</h4>
-                            <p className="whitespace-pre-wrap p-2"><strong>Kök Neden: </strong> {getDofText(dof.kokNedenAnalizi?.occurrenceRootCause)}</p>
-                        </div>
-                         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                            <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">5 Neden Analizi - Saptanamama</h4>
-                            <p className="whitespace-pre-wrap p-2"><strong>Kök Neden: </strong> {getDofText(dof.kokNedenAnalizi?.nonDetectionRootCause)}</p>
-                        </div>
+                        </div>)}
+                        <BesNedenBolumu
+                            baslik="5 Neden Analizi - Oluşum"
+                            zincir={dof.kokNedenAnalizi?.occurrence}
+                            kokNeden={dof.kokNedenAnalizi?.occurrenceRootCause}
+                        />
+                        <BesNedenBolumu
+                            baslik="5 Neden Analizi - Saptanamama"
+                            zincir={dof.kokNedenAnalizi?.nonDetection}
+                            kokNeden={dof.kokNedenAnalizi?.nonDetectionRootCause}
+                        />
                     </Section>
                     <Section title="D5: Kalıcı Düzeltici Aksiyonlar" icon={<ClipboardCheckIcon className="w-6 h-6 text-blue-500" />}>
                         {renderCorrectiveActions(dof.kaliciAksiyonlar)}
