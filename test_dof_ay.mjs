@@ -8,7 +8,7 @@ import { buildSync } from 'esbuild';
 
 const c = buildSync({ entryPoints: ['constants.ts'], bundle: true, write: false,
   format: 'esm', platform: 'neutral', target: 'es2020' }).outputFiles[0].text;
-const { dofAyi } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
+const { dofAyi, acikDofAyda } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
 
 // Hücreden açılan DÖF (eski biçim) çalışmaya devam etmeli
 assert.strictEqual(dofAyi('2026-07-02', 2026), 'Temmuz');
@@ -27,4 +27,16 @@ assert.strictEqual(dofAyi('2026-13-01', 2026), null);
 // Yıl string gelse de çalışmalı (kayıtlarda öyle olabiliyor)
 assert.strictEqual(dofAyi('2026-06-05', '2026'), 'Haziran');
 
-console.log('OK 8D simgesi başlangıç tarihinin ayına düşüyor; tarihsiz/başka yıl genel kalıyor');
+// ── Panelden "8D başlat": o ayda açık DÖF varsa yenisi açılmamalı ──
+const dofler = [
+  { id: 'a', durum: 'Açık', start_date: '2026-06-30', problemTanimi: 'MTBF düşük' },
+  { id: 'b', durum: 'Tamamlandı', start_date: '2026-07-02' },
+];
+assert.strictEqual(acikDofAyda(dofler, 'Haziran', 2026).id, 'a', 'açık DÖF bulunmalı');
+// Kapanmis DOF yeni acilmayi engellemez
+assert.strictEqual(acikDofAyda(dofler, 'Temmuz', 2026), undefined, 'tamamlanan DÖF sayılmaz');
+assert.strictEqual(acikDofAyda(dofler, 'Mayıs', 2026), undefined, 'boş ay');
+assert.strictEqual(acikDofAyda(dofler, '', 2026), undefined, 'ay verilmedi');
+assert.strictEqual(acikDofAyda([], 'Haziran', 2026), undefined, 'hiç DÖF yok');
+
+console.log('OK 8D simgesi başlangıç tarihinin ayına düşüyor; aynı ayda açık DÖF varsa ikincisi açılmıyor');

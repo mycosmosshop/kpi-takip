@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Kpi, KpiData, Dof, Risk, ModalState, ModalType, MultiYearKpiData, TooltipSettings, AppearanceSettings, ActionItem, ActionYearData, KpiLocation, KpiSource } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS, YENI_VARSAYILAN_LOKASYONLAR } from './constants';
+import { initialData, AYLAR, BRANDS, DEFAULT_LOCATIONS, YENI_VARSAYILAN_LOKASYONLAR, acikDofAyda } from './constants';
 import { lokasyonGocUygula } from './utils/lokasyonGoc';
 import { calculateAverage, determineStatus, derivePasifAylarFromPeriod } from './utils/calculations';
 import { parseKpiWorkbook } from './utils/excelImport';
@@ -1482,7 +1482,17 @@ const App: React.FC = () => {
                     nextMeeting={currentActionData.nextMeeting}
                     onChangeNextMeeting={handleChangeNextMeeting}
                     onExport={handleExportFr216}
-                    onStartDof={(kpiId, _aiId, month) => handleOpenModal('dof', { kpiId, year: kpiData.yil, month, returnTo: 'action-items' })}
+                    onStartDof={(kpiId, _aiId, month) => {
+                        // O ay icin zaten ACIK bir 8D varsa yenisi acilmaz,
+                        // mevcudu duzenlenir. Panelden her tiklamada yeni
+                        // kayit olusuyordu: ayni KPI'da iki DOF ve ikincisi
+                        // varsayilan tarihle (ayin 2'si + 30 gun) geliyordu.
+                        const k = processedKpis.find(x => x.id === kpiId);
+                        const acik = acikDofAyda(k?.dof || [], month || '', kpiData.yil);
+                        handleOpenModal('dof', acik
+                            ? { ...acik, kpiId, year: kpiData.yil, returnTo: 'action-items' }
+                            : { kpiId, year: kpiData.yil, month, returnTo: 'action-items' });
+                    }}
                     focusKpiId={modal.data?.focusKpiId}
                     focusMonth={modal.data?.focusMonth}
                 />

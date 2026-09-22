@@ -19,6 +19,15 @@ export function dofAyi(startDate: any, year: number): string | null {
     return Number.isInteger(i) && i >= 0 && i < AYLAR.length ? AYLAR[i] : null;
 }
 
+// O ayda hâlâ açık bir 8D/DÖF var mı? Aksiyon panelindeki "8D başlat"
+// her tıklamada yeni kayıt açıyordu; aynı KPI'da iki DÖF oluşuyor,
+// ikincisi varsayılan tarihle (ayın 2'si + 30 gün) geliyordu.
+export function acikDofAyda(dofler: any[], ay: string, year: number): any | undefined {
+    if (!ay) return undefined;
+    return (dofler || []).find(d => d && d.durum !== 'Tamamlandı'
+        && dofAyi(d.start_date, year) === ay);
+}
+
 // Marka/şirket → doküman no, logo dosyası ve antet metni.
 // unvan: resmî ticaret unvanı — YGG raporunun üst bilgisinde "Firma:" olarak
 // yazılır. Yoksa name kullanılır; unvan UYDURULMAZ.
