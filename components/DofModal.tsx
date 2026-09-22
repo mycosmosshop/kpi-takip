@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dof, Kpi, DofStatus, FiveWhyAnalysis, CorrectiveAction, CorrectiveActionStatus, FtaNode, ModalType } from '../types';
 import Modal from './Modal';
 import { LightBulbIcon, ClipboardDocumentListIcon, UserIcon, CalendarIcon, WrenchScrewdriverIcon, CheckCircleIcon, PlusIcon, TrashIcon, CloseIcon } from './icons';
-import { AYLAR, gunEkle } from '../constants';
+import { AYLAR, gunEkle, dofAyi } from '../constants';
+import { dofTaslagi } from '../utils/dofTaslak';
 import FiveWhyModal from './FiveWhyModal';
 
 interface DofModalProps {
@@ -12,6 +13,8 @@ interface DofModalProps {
     onClose: () => void;
     onSave: (dof: Dof) => void;
     onUpdateDof: (dof: Dof) => void;
+    /** Aynı prosesteki öteki KPI'lar — taslakta bağlam olarak kullanılır. */
+    kardesKpiler?: Kpi[];
     onDelete: (kpiId: string, dofId: string) => void;
     dofData?: any;
     kpi?: Kpi;
@@ -85,7 +88,7 @@ const RootCausePickerModal: React.FC<{
     );
 };
 
-const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDof, onDelete, dofData, kpi, year, onOpenModal }) => {
+const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDof, onDelete, dofData, kpi, year, onOpenModal, kardesKpiler = [] }) => {
     const [isFiveWhyModalOpen, setFiveWhyModalOpen] = useState(false);
     const [isPickerOpen, setPickerOpen] = useState(false);
     const [currentActionIndex, setCurrentActionIndex] = useState<number | null>(null);
@@ -329,6 +332,44 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
         onSave(fullDof);
     };
 
+    // KPI'ın kendi aylık verisinden D2 / D4 / D6 taslağı. YALNIZ BOŞ
+    // alanları doldurur: ekibin yazdığı metin hiçbir durumda ezilmez.
+    const [taslakNot, setTaslakNot] = useState('');
+    const handleTaslak = () => {
+        const ay = dofAyi(dof.start_date, year);
+        if (!kpi || !ay) {
+            setTaslakNot('Taslak için KPI ve başlangıç tarihi gerekli.');
+            return;
+        }
+        const t = dofTaslagi(kpi, ay, year, kardesKpiler);
+        if (!t) {
+            setTaslakNot(`${ay} ayında bu KPI için ölçüm ya da hedef yok.`);
+            return;
+        }
+        const dolu = (x: any) => !!String(x || '').trim();
+        setDof(prev => {
+            const n: Partial<Dof> = { ...prev };
+            const atlanan: string[] = [];
+            if (dolu(prev.problemTanimi)) atlanan.push('D2');
+            else n.problemTanimi = t.problemTanimi;
+            if (dolu(prev.uygulamaDogrulama)) atlanan.push('D6');
+            else n.uygulamaDogrulama = t.uygulamaDogrulama;
+            const k = prev.kokNedenAnalizi;
+            const bosZincir = (z: any[]) => !z || !z.length
+                || z.every(x => !dolu(x.why) && !dolu(x.because));
+            if (k) {
+                if (bosZincir(k.occurrence)) n.kokNedenAnalizi = { ...k, occurrence: t.occurrence };
+                else atlanan.push('D4 oluşum');
+                const k2 = n.kokNedenAnalizi || k;
+                if (bosZincir(k2.nonDetection)) n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection };
+                else atlanan.push('D4 kaçış');
+            }
+            setTaslakNot(`${ay}: ${t.ozet.deger} (hedef ${kpi.karsilastirma} ${t.ozet.hedef}) — taslak yazıldı.`
+                + (atlanan.length ? ` Dolu olduğu için atlanan: ${atlanan.join(', ')}.` : ''));
+            return n;
+        });
+    };
+
     const handleDelete = () => {
         if (dof.id && kpi?.id) {
             if (window.confirm("Bu 8D kaydını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
@@ -357,6 +398,19 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                                 Elle değiştirilmediyse başlangıçla birlikte kayar (+30 gün).
                             </p>
                         </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="text-xs text-blue-900 dark:text-blue-200">
+                                D2, D4 ve D6'yı bu KPI'ın kendi aylık verisinden doldurur.
+                                Yazdığınız metinlerin üstüne yazmaz.
+                            </div>
+                            <button type="button" onClick={handleTaslak}
+                                className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">
+                                Verilerden taslak doldur
+                            </button>
+                        </div>
+                        {taslakNot && <p className="mt-2 text-xs text-blue-800 dark:text-blue-300">{taslakNot}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Sorumlu</label>

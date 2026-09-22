@@ -1358,6 +1358,8 @@ const App: React.FC = () => {
                     }}
                     dofData={modal.data}
                     kpi={processedKpis.find(k => k.id === modal.data.kpiId)}
+                    kardesKpiler={processedKpis.filter(k =>
+                        k.proses === processedKpis.find(x => x.id === modal.data.kpiId)?.proses)}
                     year={kpiData.yil}
                     onOpenModal={handleOpenModal}
                 />
