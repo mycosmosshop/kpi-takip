@@ -28,4 +28,12 @@ for (const l of logolar)
 const blok = r.slice(r.indexOf('const dofNo'), r.indexOf('const relevantMonthData'));
 assert.ok(/DÖF-\$\{y\}-\$\{rakam\.slice\(-5\)\}/.test(blok), 'okunur DÖF numarası');
 
+// PDF alinmadan once gorseller beklenmeli; yoksa logo bos gecer
+const pdfBlok = r.slice(r.indexOf('const handleGeneratePdf'), r.indexOf('const getDofText'));
+assert.ok(/querySelectorAll\('img'\)/.test(pdfBlok), 'PDF öncesi görseller toplanmalı');
+assert.ok(/g\.complete \? Promise\.resolve\(\)/.test(pdfBlok), 'yüklenmiş görsel beklenmemeli');
+assert.ok(/setTimeout\(bitir, 3000\)/.test(pdfBlok), 'yüklenemeyen görsel basımı bekletmemeli');
+assert.ok(/addEventListener\('error'/.test(pdfBlok), 'hata da beklemeyi bitirmeli');
+assert.ok(/if \(!element \|\| pdfMesgul\) return/.test(pdfBlok), 'çift basım engellenmeli');
+
 console.log('OK antet: logo (hatada gizlenir), unvan, DÖF no ve tarihler; logo dosyaları yerinde');

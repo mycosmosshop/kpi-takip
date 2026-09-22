@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import { Dof, Kpi, FiveWhyAnalysis, CorrectiveAction, Status, DofStatus, FtaNode, FaultTreeAnalysis, ParetoAnalysisData, Company } from '../types';
 import Modal from './Modal';
 import { kutuphaneYukle } from '../utils/kutuphane';
@@ -421,11 +421,29 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
     }, [dof.start_date, kpi]);
 
 
+    const [pdfMesgul, setPdfMesgul] = useState(false);
+
     const handleGeneratePdf = async () => {
         const element = reportContentRef.current;
-        if (!element) return;
+        if (!element || pdfMesgul) return;
         try { await kutuphaneYukle('html2pdf'); }
         catch { alert('PDF oluşturma kütüphanesi yüklenemedi.'); return; }
+        setPdfMesgul(true);
+        // html2canvas sayfayi O ANKI haliyle ciziyor: logo henuz
+        // yuklenmemisse antet logosuz basiliyor. Gorseller tamamlanana
+        // kadar beklenir (en fazla 3 sn; yuklenemeyen gorsel PDF'i
+        // bekletmesin).
+        try {
+            const gorseller = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+            await Promise.race([
+                Promise.all(gorseller.map(g => g.complete ? Promise.resolve()
+                    : new Promise<void>(bitir => {
+                        g.addEventListener('load', () => bitir(), { once: true });
+                        g.addEventListener('error', () => bitir(), { once: true });
+                    }))),
+                new Promise<void>(bitir => setTimeout(bitir, 3000)),
+            ]);
+        } catch { /* gorsel bekleme basarisiz olsa da PDF alinir */ }
         const reportNo = `${kpi.kpi_adi.replace(/ /g, "_")}`;
         const timestamp = new Date().toISOString().split('T')[0];
         const filename = `8D_Raporu_${reportNo}_${timestamp}.pdf`;
@@ -434,7 +452,11 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
             html2canvas: { scale: 2, useCORS: true, logging: false },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-        window.html2pdf().set(opt).from(element).save();
+        try {
+            await window.html2pdf().set(opt).from(element).save();
+        } finally {
+            setPdfMesgul(false);
+        }
     };
 
     const getDofText = (text: string | undefined) => text || <span className="italic text-gray-400">Girilmemiş</span>;
