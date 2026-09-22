@@ -8,7 +8,7 @@ import { buildSync } from 'esbuild';
 
 const c = buildSync({ entryPoints: ['constants.ts'], bundle: true, write: false,
   format: 'esm', platform: 'neutral', target: 'es2020' }).outputFiles[0].text;
-const { dofAyi, acikDofAyda } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
+const { dofAyi, acikDofAyda, scatterVerisiVar, ORNEK_SCATTER } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
 
 // Hücreden açılan DÖF (eski biçim) çalışmaya devam etmeli
 assert.strictEqual(dofAyi('2026-07-02', 2026), 'Temmuz');
@@ -38,5 +38,14 @@ assert.strictEqual(acikDofAyda(dofler, 'Temmuz', 2026), undefined, 'tamamlanan D
 assert.strictEqual(acikDofAyda(dofler, 'Mayıs', 2026), undefined, 'boş ay');
 assert.strictEqual(acikDofAyda(dofler, '', 2026), undefined, 'ay verilmedi');
 assert.strictEqual(acikDofAyda([], 'Haziran', 2026), undefined, 'hiç DÖF yok');
+
+// ── Dagilim grafigi: ornek veri "girilmis veri" sayilmaz ──
+assert.strictEqual(scatterVerisiVar({ inputData: '' }), false, 'boş scatter');
+assert.strictEqual(scatterVerisiVar(undefined), false, 'scatter yok');
+assert.strictEqual(scatterVerisiVar({ inputData: ORNEK_SCATTER }), false,
+  'örnek veri rapora grafik bastırmamalı');
+const kendiVeri = ['Sicaklik,MTBF', '60,520', '72,410'].join(String.fromCharCode(10));
+assert.strictEqual(scatterVerisiVar({ inputData: kendiVeri }), true,
+  'kullanıcının kendi verisi');
 
 console.log('OK 8D simgesi başlangıç tarihinin ayına düşüyor; aynı ayda açık DÖF varsa ikincisi açılmıyor');

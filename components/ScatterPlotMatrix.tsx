@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ScatterPlotAnalysisData } from '../types';
+import { ORNEK_SCATTER } from '../constants';
 
 // --- Statistical Helper Functions ---
 const mean = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
@@ -342,7 +343,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, onChange, r
     }, [currentView, drawMatrix, drawSimple]);
     
     const handleSampleClick = () => {
-        onChange({ ...data, inputData: `PIQ,Brain,Height,Weight\n96,90,70,150\n114,96,74,160\n101,90,68,135\n110,88,73,155\n120,98,72,165\n88,85,66,120\n130,105,76,175\n94,92,69,140\n118,99,71,168\n102,91,70,145\n108,94,72,152\n95,86,68,132\n121,100,74,170\n112,97,73,158\n100,89,69,142` });
+        onChange({ ...data, inputData: ORNEK_SCATTER });
     }
     
     const handlePngDownload = () => {

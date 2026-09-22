@@ -19,6 +19,32 @@ export function dofAyi(startDate: any, year: number): string | null {
     return Number.isInteger(i) && i >= 0 && i < AYLAR.length ? AYLAR[i] : null;
 }
 
+// Scatter aracındaki "Örnek yükle" verisi (PIQ/Brain/Height/Weight).
+// Yeni DÖF'ün VARSAYILANI değildir: varsayılan gelince her 8D raporuna
+// ürünle ilgisi olmayan bir örnek grafik basılıyordu. Eski kayıtlarda
+// duruyor olabilir; rapor onu "veri girilmiş" saymaz.
+export const ORNEK_SCATTER = `PIQ,Brain,Height,Weight
+96,90,70,150
+114,96,74,160
+101,90,68,135
+110,88,73,155
+120,98,72,165
+88,85,66,120
+130,105,76,175
+94,92,69,140
+118,99,71,168
+102,91,70,145
+108,94,72,152
+95,86,68,132
+121,100,74,170
+112,97,73,158
+100,89,69,142`;
+
+export function scatterVerisiVar(scatter: any): boolean {
+    const v = String(scatter?.inputData || '').trim();
+    return !!v && v !== ORNEK_SCATTER.trim();
+}
+
 // O ayda hâlâ açık bir 8D/DÖF var mı? Aksiyon panelindeki "8D başlat"
 // her tıklamada yeni kayıt açıyordu; aynı KPI'da iki DÖF oluşuyor,
 // ikincisi varsayılan tarihle (ayın 2'si + 30 gün) geliyordu.

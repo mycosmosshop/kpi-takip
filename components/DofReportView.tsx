@@ -6,6 +6,7 @@ import { UserIcon, CalendarIcon, LightBulbIcon, ClipboardCheckIcon, WrenchScrewd
 import { getStatusColorClasses, getSingleMonthStatus } from '../utils/calculations';
 import { AYLAR } from '../constants';
 import ScatterPlotMatrix from './ScatterPlotMatrix';
+import { scatterVerisiVar } from '../constants';
 
 interface DofReportViewProps {
     isOpen: boolean;
@@ -516,7 +517,7 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                         </div>
                          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg no-break">
                             <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200 mb-2">Dağılım Grafiği Analizi (Scatter)</h4>
-                            {dof.kokNedenAnalizi?.scatter?.inputData ? (
+                            {scatterVerisiVar(dof.kokNedenAnalizi?.scatter) ? (
                                 <div className="space-y-6">
                                     <div>
                                         <h5 className="font-semibold text-md text-gray-700 dark:text-gray-300 mb-2">Basit Dağılım Grafiği (X-Y)</h5>

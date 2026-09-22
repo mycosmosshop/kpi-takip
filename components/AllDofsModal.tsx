@@ -227,9 +227,13 @@ const AllDofsModal: React.FC<AllDofsModalProps> = ({ isOpen, onClose, allKpis, o
                                                     <UserIcon className="w-4 h-4 text-gray-400" />
                                                     <span>{dof.sorumlu}</span>
                                                 </div>
-                                                <div className={`flex items-center gap-2 ${isOverdue(dof) ? 'text-red-500 font-bold' : ''}`}>
+                                                <div className={`flex items-center gap-2 ${isOverdue(dof) ? 'text-red-500 font-bold' : ''}`}
+                                                     title={`Başlangıç (D0): ${dof.start_date ? new Date(dof.start_date).toLocaleDateString('tr-TR') : '—'}`}>
                                                     <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                                    <span>{new Date(dof.due_date).toLocaleDateString('tr-TR')}</span>
+                                                    {/* Etiketsizken bu tarih baslangic saniliyordu: modalda
+                                                        "Baslangic (D0) 30.06.2026" yazarken panelde terminin
+                                                        02.07.2026'si goruluyordu. */}
+                                                    <span>Termin: {new Date(dof.due_date).toLocaleDateString('tr-TR')}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 font-mono" title="İlgili KPI'ın Yıllık Ortalaması">
                                                     <ChartBarIcon className="w-4 h-4 text-gray-400" />

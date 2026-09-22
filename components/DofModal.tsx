@@ -134,9 +134,13 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
             pareto: {
                 inputData: '', thresholdMode: '80', customThreshold: 75
             },
+            // Dagilim grafigi BOS baslar. Varsayilan olarak ornek veri
+            // (PIQ/Brain/Height/Weight) doluydu; her 8D raporunda urunle
+            // ilgisi olmayan iki grafik basiliyordu. Kullanici kendi CSV'sini
+            // yapistirir; denemek isterse aractaki "Örnek yükle" durur.
             scatter: {
-                inputData: `PIQ,Brain,Height,Weight\n96,90,70,150\n114,96,74,160\n101,90,68,135\n110,88,73,155\n120,98,72,165\n88,85,66,120\n130,105,76,175\n94,92,69,140\n118,99,71,168\n102,91,70,145\n108,94,72,152\n95,86,68,132\n121,100,74,170\n112,97,73,158\n100,89,69,142`,
-                matrixCols: ['PIQ', 'Brain', 'Height', 'Weight'], simpleX: 'Brain', simpleY: 'PIQ',
+                inputData: '',
+                matrixCols: [], simpleX: '', simpleY: '',
                 showMatrixTrend: true, showMatrixR: true, showMatrixHeat: false, alpha: 0.05, showSimpleTrend: true,
             }
         }
