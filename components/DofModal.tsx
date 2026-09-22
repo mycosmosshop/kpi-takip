@@ -399,19 +399,6 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                             </p>
                         </div>
                     </div>
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div className="text-xs text-blue-900 dark:text-blue-200">
-                                D2, D4 ve D6'yı bu KPI'ın kendi aylık verisinden doldurur.
-                                Yazdığınız metinlerin üstüne yazmaz.
-                            </div>
-                            <button type="button" onClick={handleTaslak}
-                                className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">
-                                Verilerden taslak doldur
-                            </button>
-                        </div>
-                        {taslakNot && <p className="mt-2 text-xs text-blue-800 dark:text-blue-300">{taslakNot}</p>}
-                    </div>
                     <div>
                         <label className="block text-sm font-medium">Sorumlu</label>
                         <input type="text" name="sorumlu" value={dof.sorumlu || ''} onChange={handleChange} required className="mt-1 w-full form-input" />
@@ -423,9 +410,27 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                 </div>
             );
             case 'D2': return (
-                <div>
-                    <label className="block text-sm font-medium">Problemin Detaylı Tanımı (5N1K vb. ile)</label>
-                    <textarea name="problemTanimi" value={dof.problemTanimi || ''} onChange={handleChange} required rows={8} className="mt-1 w-full form-input" placeholder="Ne, Nerede, Ne zaman, Ne kadar, Nasıl, Kim..."/>
+                <div className="space-y-3">
+                    {/* Dugme, DOLDURDUGU adimda durur. Onceden D0'daydi;
+                        kullanici D2'yi acip bos gorunce ne ise yaradigini
+                        anlamiyordu. */}
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="text-xs text-blue-900 dark:text-blue-200">
+                                Bu KPI'ın kendi aylık verisinden aşağıdaki tanımı, D4'teki 5 Neden
+                                iskeletini ve D6 doğrulamasını yazar. Dolu alanların üstüne yazmaz.
+                            </div>
+                            <button type="button" onClick={handleTaslak}
+                                className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">
+                                KPI verisinden doldur
+                            </button>
+                        </div>
+                        {taslakNot && <p className="mt-2 text-xs text-blue-800 dark:text-blue-300">{taslakNot}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Problemin Detaylı Tanımı (5N1K vb. ile)</label>
+                        <textarea name="problemTanimi" value={dof.problemTanimi || ''} onChange={handleChange} required rows={8} className="mt-1 w-full form-input" placeholder="Ne, Nerede, Ne zaman, Ne kadar, Nasıl, Kim..."/>
+                    </div>
                 </div>
             );
             case 'D3': return (
