@@ -169,7 +169,8 @@ export interface TaslakSonuc {
     nonDetectionRootCause: string;
     uygulamaDogrulama: string;
     geciciOnlemler: string;
-    kaliciAksiyonlar: { id: string; action: string; responsible: string; dueDate: string; status: string }[];
+    kaliciAksiyonlar: { id: string; action: string; responsible: string; dueDate: string;
+                        status: string; linkedRootCauses: string[] }[];
     tekrarinOnlenmesi: string;
     takdir: string;
     /** Taslağın dayandığı sayılar — ekranda özet göstermek için. */
@@ -182,7 +183,8 @@ export interface TaslakSonuc {
  * @param yil      KPI yılı
  * @param kardes   aynı prosesteki öteki KPI'lar (bağlam için; boş geçilebilir)
  */
-export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []): TaslakSonuc | null {
+export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = [],
+                           kacisDahil = false): TaslakSonuc | null {
     const deger = sayi(kpi?.aylik?.[ay]);
     const hedef = sayi(kpi?.yeni_yil_hedef);
     if (deger === null || hedef === null) return null;
@@ -282,7 +284,10 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
         `${kpi.kpi_adi} ${ay} ${yil} döneminde ${biz(deger)}${b} ölçüldü; hedef ${yonIsareti(yon)} ${biz(hedef)}${b}.`,
         [ilkCevap, ...o0.neden]);
 
-    const nonDetection = zincir('why-nd',
+    // Kacis (saptanamama) zinciri ISTEGE BAGLI: her 8D'de gerekmiyor ve
+    // istenmedigi halde uretilince raporda yarisi yer tutucu bir bolum
+    // duruyordu.
+    const nonDetection = !kacisDahil ? [] : zincir('why-nd',
         `${ay} ayındaki sapma ay kapanana kadar fark edilmedi.`,
         [
             `${kpi.kpi_adi} ${String(kpi.gozdenGecirmePeriyodu || 'aylık').toLocaleLowerCase('tr')} `
@@ -319,14 +324,18 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
 
     // Aksiyon terminleri DÖF terminine dogru kademelenir; termin yoksa bos
     // birakilir (uydurma tarih yazilmaz).
-    const kaliciAksiyonlar = o.kalici.map((x, n) => ({
+    // Her aksiyon, kapattigi KOK NEDENE baglanir. Bos birakilinca
+    // raporun "İlgili Kök Neden(ler)" sutunu hep "Girilmemiş" cikiyor ve
+    // aksiyonun neyi kapattigi gorunmuyordu.
+    const kokNedenMetni = o.kokNeden || '';
+    const kaliciAksiyonlar = o.kalici.map(x => ({
         id: yi('action'),
         action: x,
         responsible: String(kpi.sorumlu || ''),
         dueDate: '',
         status: 'Açık',
-        _sira: n,
-    })).map(({ _sira, ...r }) => r);
+        linkedRootCauses: kokNedenMetni ? [kokNedenMetni] : [],
+    }));
 
     const takdir = `Kapanış, D5 aksiyonlarının tamamlanması ve ${kpi.kpi_adi} değerinin `
         + `üst üste üç ay ${yonIsareti(yon)} ${biz(hedef)}${b} kalmasıyla yapılacaktır. `
@@ -337,8 +346,8 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
         occurrence, nonDetection,
         occurrenceRootCause: o0.kokNeden
             || '[Zincirin son halkası doğrulandıktan sonra yazılacak]',
-        nonDetectionRootCause: o0.kacisKokNeden
-            || '[Dönem içi izlemenin neden tanımlı olmadığı yazılacak]',
+        nonDetectionRootCause: !kacisDahil ? ''
+            : (o0.kacisKokNeden || '[Dönem içi izlemenin neden tanımlı olmadığı yazılacak]'),
         uygulamaDogrulama: dogrulama,
         geciciOnlemler: gecici,
         kaliciAksiyonlar,

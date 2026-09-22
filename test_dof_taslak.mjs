@@ -73,15 +73,26 @@ assert.ok(t.occurrence.length >= 4, 'zincir en az 4 halka');
 assert.ok(/yedek parça/i.test(t.occurrence.map(x => x.because).join(' ')), 'zincir yedek parçaya iniyor');
 assert.ok(/periyot ve sorumlu/i.test(t.occurrenceRootCause), 'kök neden sistemsel');
 assert.ok(t.occurrenceRootCause.includes('['), 'kök neden doğrulanmadan kesin yazılmamalı');
-assert.ok(t.nonDetectionRootCause.length > 30, 'kaçış kök nedeni dolu');
 // Kalite KPI'sinda yedek parca zinciri GELMEMELI
 const kaliteT = dofTaslagi({ id: 'k8', proses: 'Muayene', kpi_adi: 'İç PPM Oranı',
   yeni_yil_hedef: 1000, karsilastirma: '<=', birim: 'ppm', aylik: { Haziran: 9375 } }, 'Haziran', 2026);
 assert.ok(!/yedek parça/i.test(kaliteT.occurrence.map(x => x.because).join(' ')),
   'kalite KPI bakım zincirini almamalı');
 assert.ok(t.occurrence.some(x => x.because.includes('[')), 'doğrulanmamış halkalar işaretli');
-assert.ok(t.nonDetection[0].why.includes('fark edilmedi'), 'kaçış problem cümlesi');
-assert.ok(t.nonDetection[0].because.includes('aylık'), 'kaçış halkası periyodu yazmalı');
+// Kaçış (saptanamama) zinciri İSTEĞE BAĞLI: varsayılan üretilmez
+assert.strictEqual(t.nonDetection.length, 0, 'kaçış varsayılan olarak boş');
+assert.strictEqual(t.nonDetectionRootCause, '', 'kaçış kök nedeni varsayılan boş');
+const tk = dofTaslagi(mtbf, 'Haziran', 2026, [mtbf, mttr], true);
+assert.ok(tk.nonDetection.length >= 2, 'tik işaretliyse kaçış zinciri gelir');
+assert.ok(tk.nonDetection[0].why.includes('fark edilmedi'), 'kaçış problem cümlesi');
+assert.ok(tk.nonDetection[0].because.includes('aylık'), 'kaçış halkası periyodu yazmalı');
+assert.ok(tk.nonDetectionRootCause.length > 30, 'tik işaretliyse kaçış kök nedeni dolu');
+
+// Aksiyonlar kapattıkları kök nedene bağlı olmalı
+assert.ok(t.kaliciAksiyonlar.every(a => (a.linkedRootCauses || []).length === 1),
+  'her aksiyon kök nedene bağlı');
+assert.strictEqual(t.kaliciAksiyonlar[0].linkedRootCauses[0], t.occurrenceRootCause,
+  'bağlanan metin kök nedenin kendisi olmalı');
 
 // ── D6: sapmadan sonraki aylar ──
 assert.ok(t.uygulamaDogrulama.includes('Temmuz 884'), 'sonraki ay ölçümü');

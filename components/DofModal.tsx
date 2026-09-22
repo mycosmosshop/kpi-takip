@@ -343,13 +343,16 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
     // KPI'ın kendi aylık verisinden D2 / D4 / D6 taslağı. YALNIZ BOŞ
     // alanları doldurur: ekibin yazdığı metin hiçbir durumda ezilmez.
     const [taslakNot, setTaslakNot] = useState('');
+    // Kacis (saptanamama) zinciri her 8D'de gerekmiyor; istenmeden
+    // uretilince raporda yarisi yer tutucu bir bolum duruyordu.
+    const [kacisDahil, setKacisDahil] = useState(false);
     const handleTaslak = () => {
         const ay = dofAyi(dof.start_date, year);
         if (!kpi || !ay) {
             setTaslakNot('Taslak için KPI ve başlangıç tarihi gerekli.');
             return;
         }
-        const t = dofTaslagi(kpi, ay, year, kardesKpiler);
+        const t = dofTaslagi(kpi, ay, year, kardesKpiler, kacisDahil);
         if (!t) {
             setTaslakNot(`${ay} ayında bu KPI için ölçüm ya da hedef yok.`);
             return;
@@ -401,11 +404,13 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                     n.kokNedenAnalizi = { ...k, occurrence: t.occurrence,
                         occurrenceRootCause: t.occurrenceRootCause };
                 });
-                const k2 = n.kokNedenAnalizi || k;
-                yaz(bosZincir(k2.nonDetection), 'D4 kaçış', () => {
-                    n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection,
-                        nonDetectionRootCause: t.nonDetectionRootCause };
-                });
+                if (kacisDahil) {
+                    const k2 = n.kokNedenAnalizi || k;
+                    yaz(bosZincir(k2.nonDetection), 'D4 kaçış', () => {
+                        n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection,
+                            nonDetectionRootCause: t.nonDetectionRootCause };
+                    });
+                }
             }
             setTaslakNot(`${ay}: ${t.ozet.deger} (hedef ${kpi.karsilastirma} ${t.ozet.hedef}) — taslak yazıldı.`
                 + (atlanan.length ? ` Dolu olduğu için atlanan: ${atlanan.join(', ')}.` : '')
@@ -478,6 +483,13 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                                 KPI verisinden doldur
                             </button>
                         </div>
+                        <label className="mt-2 flex items-center gap-2 text-xs text-blue-900 dark:text-blue-200 cursor-pointer">
+                            <input type="checkbox" checked={kacisDahil}
+                                onChange={e => setKacisDahil(e.target.checked)}
+                                className="form-checkbox h-3.5 w-3.5 text-blue-600 rounded" />
+                            Saptanamama (kaçış) analizini de doldur — sapmanın neden zamanında
+                            fark edilmediği ayrı bir 5 Neden zinciri olarak yazılır
+                        </label>
                         {taslakNot && <p className="mt-2 text-xs text-blue-800 dark:text-blue-300">{taslakNot}</p>}
                     </div>
                     <div>
