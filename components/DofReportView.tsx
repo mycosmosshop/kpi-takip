@@ -424,6 +424,9 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         if (!element || pdfMesgul) return;
         try { await kutuphaneYukle('html2pdf'); }
         catch { alert('PDF oluşturma kütüphanesi yüklenemedi.'); return; }
+        // Antet resmi icin html2canvas sart; yuklenemezse PDF yine alinir,
+        // antet yalniz ilk sayfada kalir.
+        try { await kutuphaneYukle('html2canvas'); } catch { /* antetsiz devam */ }
         setPdfMesgul(true);
         // html2canvas sayfayi O ANKI haliyle ciziyor: logo henuz
         // yuklenmemisse antet logosuz basiliyor. Gorseller tamamlanana
@@ -464,29 +467,44 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         // Antet sayfa akisindan cikarilir, yerine ust marj acilir.
         if (antetImg && antetEl) antetEl.style.display = 'none';
 
+        // Rapor kutusu KENDI ICINDE kaydiriliyor. Kullanici asagi kaydirip
+        // PDF alinca html2canvas o kaydirmayi olcuye katiyor ve sayfanin
+        // ustunde kaydirma kadar bos alan kaliyordu.
+        const kutu = element.closest('[data-dof="report"]') as HTMLElement | null;
+        const eskiKaydirma = kutu ? kutu.scrollTop : 0;
+        if (kutu) kutu.scrollTop = 0;
+        const sayfaKaydirma = window.scrollY;
+
         const opt = {
             margin: antetImg ? [KENAR + antetYukseklik + 4, KENAR, 10, KENAR] : KENAR,
             filename: filename, image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
+            html2canvas: {
+                scale: 2, useCORS: true, logging: false,
+                scrollX: 0, scrollY: -sayfaKaydirma,
+                windowWidth: element.scrollWidth, windowHeight: element.scrollHeight,
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             // ".no-break" kurali @media print icindeydi; html2pdf ekran
             // render'i kullandigi icin baslik bloklari ortadan bolunuyordu.
             pagebreak: { mode: ['css', 'legacy'], avoid: ['.no-break', 'tr', 'img'] },
         };
         try {
-            const worker = window.html2pdf().set(opt).from(element).toPdf();
-            if (antetImg) {
-                await worker.get('pdf').then((pdf: any) => {
+            // html2pdf'in belgelenmis zinciri: ayri ayri await edilince
+            // sayfalara eklenen antet kaybolabiliyor.
+            await window.html2pdf().set(opt).from(element).toPdf()
+                .get('pdf')
+                .then((pdf: any) => {
+                    if (!antetImg) return;
                     const adet = pdf.internal.getNumberOfPages();
                     for (let i = 1; i <= adet; i++) {
                         pdf.setPage(i);
                         pdf.addImage(antetImg, 'PNG', KENAR, 6, icerikGenislik, antetYukseklik);
                     }
-                });
-            }
-            await worker.save();
+                })
+                .save();
         } finally {
             if (antetEl) antetEl.style.display = '';
+            if (kutu) kutu.scrollTop = eskiKaydirma;
             setPdfMesgul(false);
         }
     };

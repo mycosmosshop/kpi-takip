@@ -47,4 +47,15 @@ const d5 = r.slice(r.indexOf('action.linkedRootCauses.map'),
 assert.ok(d5.includes('.replace(') && d5.includes('trim()'),
   'D5 kök nedeninde köşeli parantezli not kırpılmalı');
 
+// html2pdf paketi html2canvas'i GLOBAL yapmiyor: window.html2canvas
+// undefined kaliyor ve antet resmi HIC uretilemiyordu. Ayrica yuklenmeli.
+const kut = fs.readFileSync('utils/kutuphane.ts', 'utf8');
+assert.ok(/html2canvas: 'https:\/\/cdnjs/.test(kut), 'html2canvas kütüphanesi tanımlı');
+assert.ok(/kutuphaneYukle\('html2canvas'\)/.test(pdf), 'PDF öncesi html2canvas yüklenmeli');
+assert.ok(/catch \{ \/\* antetsiz devam \*\/ \}/.test(pdf), 'yüklenemezse PDF yine alınmalı');
+// Kaydirma sifirlanmali: kutu icinde asagi kaydirip PDF alinca ustte
+// kaydirma kadar bos alan kaliyordu
+assert.ok(/kutu\.scrollTop = 0/.test(pdf), 'kutu kaydırması sıfırlanmalı');
+assert.ok(/kutu\.scrollTop = eskiKaydirma/.test(pdf), 'kaydırma geri konmalı');
+
 console.log('OK antet her sayfada, sayfa kırılımı korumalı, DÖF No elle girilebilir');

@@ -1,11 +1,14 @@
 // Excel/PDF kütüphaneleri açılışta 594 KB (gzip) indiriliyordu; hat ~38 KB/s
 // olduğunda bu tek başına ~16 saniye. Artık ilk kullanımda yüklenirler.
-type Ad = 'XLSX' | 'ExcelJS' | 'html2pdf';
+type Ad = 'XLSX' | 'ExcelJS' | 'html2pdf' | 'html2canvas';
 
 const YOL: Record<Ad, string> = {
     XLSX: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     ExcelJS: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
     html2pdf: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+    // html2pdf paketi html2canvas'i ICINDE tasiyor ama GLOBAL yapmiyor;
+    // anteti resme cevirmek icin ayrica yuklenir.
+    html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
 };
 
 const bekleyen: Partial<Record<Ad, Promise<any>>> = {};
