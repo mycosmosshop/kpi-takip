@@ -19,6 +19,16 @@ export function dofAyi(startDate: any, year: number): string | null {
     return Number.isInteger(i) && i >= 0 && i < AYLAR.length ? AYLAR[i] : null;
 }
 
+// Tarihe gün ekler. Yerel saatle hesaplayınca gece yarısı sınırında
+// bir gün kayıyor; UTC ile yapılır.
+export function gunEkle(tarih: string, gun: number): string {
+    const p = String(tarih || '').split('-').map(Number);
+    if (p.length < 3 || p.some(x => !Number.isFinite(x))) return '';
+    const d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    d.setUTCDate(d.getUTCDate() + gun);
+    return d.toISOString().split('T')[0];
+}
+
 // Scatter aracındaki "Örnek yükle" verisi (PIQ/Brain/Height/Weight).
 // Yeni DÖF'ün VARSAYILANI değildir: varsayılan gelince her 8D raporuna
 // ürünle ilgisi olmayan bir örnek grafik basılıyordu. Eski kayıtlarda

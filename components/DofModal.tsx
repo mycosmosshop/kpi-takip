@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dof, Kpi, DofStatus, FiveWhyAnalysis, CorrectiveAction, CorrectiveActionStatus, FtaNode, ModalType } from '../types';
 import Modal from './Modal';
 import { LightBulbIcon, ClipboardDocumentListIcon, UserIcon, CalendarIcon, WrenchScrewdriverIcon, CheckCircleIcon, PlusIcon, TrashIcon, CloseIcon } from './icons';
-import { AYLAR } from '../constants';
+import { AYLAR, gunEkle } from '../constants';
 import FiveWhyModal from './FiveWhyModal';
 
 interface DofModalProps {
@@ -185,10 +185,7 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                         const monthStr = String(monthIndex + 1).padStart(2, '0');
                         initialState.start_date = `${year}-${monthStr}-02`;
                         
-                        const startDate = new Date(Date.UTC(year, monthIndex, 2));
-                        const dueDate = new Date(startDate.getTime());
-                        dueDate.setUTCDate(startDate.getUTCDate() + 30);
-                        initialState.due_date = dueDate.toISOString().split('T')[0];
+                        initialState.due_date = gunEkle(initialState.start_date, 30);
                     }
                 }
                 setDof(initialState);
@@ -208,6 +205,20 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                 newStatus = 'Tamamlandı';
             }
             setDof(prev => ({ ...prev, ilerleme: progress, durum: newStatus }));
+        } else if (name === 'start_date') {
+            setDof(prev => {
+                const next: Partial<Dof> = { ...prev, start_date: value };
+                // Termin ELLE degistirilmediyse (hâlâ eski baslangic + 30)
+                // baslangicla birlikte kayar. Ilk acilista termin
+                // baslangic + 30 kuruluyor; kullanici baslangici geri
+                // cekince termin oldugu yerde kaliyor ve 30 gunluk DOF
+                // 2 gunluk gorunuyordu (30.06 baslangica 02.07 termin).
+                if (prev.start_date && prev.due_date
+                        && gunEkle(prev.start_date, 30) === prev.due_date) {
+                    next.due_date = gunEkle(value, 30) || prev.due_date;
+                }
+                return next;
+            });
         } else {
             setDof(prev => ({ ...prev, [name]: value }));
         }
@@ -330,9 +341,22 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
         switch (activeStep) {
             case 'D0D1': return (
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium">Başlangıç Tarihi (D0)</label>
-                        <input type="date" name="start_date" value={dof.start_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
+                    {/* Termin, baslangicin YANINDA. Onceden yalniz son adimda ve
+                        "Nihai Kapanis Tarihi" adiyla duruyordu; kullanici D0'da
+                        baslangici duzeltince panelde degismeyen terminin
+                        tarihini goruyor ve ayni alan saniyordu. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium">Başlangıç Tarihi (D0)</label>
+                            <input type="date" name="start_date" value={dof.start_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Termin (Nihai Kapanış)</label>
+                            <input type="date" name="due_date" value={dof.due_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Elle değiştirilmediyse başlangıçla birlikte kayar (+30 gün).
+                            </p>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Sorumlu</label>
@@ -488,7 +512,7 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                         </div>
                          
                          <div>
-                            <label className="block text-sm font-medium">Nihai Kapanış Tarihi</label>
+                            <label className="block text-sm font-medium">Termin (Nihai Kapanış)</label>
                             <input type="date" name="due_date" value={dof.due_date || ''} onChange={handleChange} required className="mt-1 w-full form-input" />
                         </div>
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">

@@ -8,7 +8,7 @@ import { buildSync } from 'esbuild';
 
 const c = buildSync({ entryPoints: ['constants.ts'], bundle: true, write: false,
   format: 'esm', platform: 'neutral', target: 'es2020' }).outputFiles[0].text;
-const { dofAyi, acikDofAyda, scatterVerisiVar, ORNEK_SCATTER } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
+const { dofAyi, acikDofAyda, scatterVerisiVar, ORNEK_SCATTER, gunEkle } = await import('data:text/javascript;base64,' + Buffer.from(c).toString('base64'));
 
 // Hücreden açılan DÖF (eski biçim) çalışmaya devam etmeli
 assert.strictEqual(dofAyi('2026-07-02', 2026), 'Temmuz');
@@ -47,5 +47,12 @@ assert.strictEqual(scatterVerisiVar({ inputData: ORNEK_SCATTER }), false,
 const kendiVeri = ['Sicaklik,MTBF', '60,520', '72,410'].join(String.fromCharCode(10));
 assert.strictEqual(scatterVerisiVar({ inputData: kendiVeri }), true,
   'kullanıcının kendi verisi');
+
+// ── Termin: baslangic + 30, ay/yil sinirinda kaymadan ──
+assert.strictEqual(gunEkle('2026-06-30', 30), '2026-07-30', 'termin başlangıçla kayar');
+assert.strictEqual(gunEkle('2026-06-02', 30), '2026-07-02', 'eski davranış korunuyor');
+assert.strictEqual(gunEkle('2026-12-15', 30), '2027-01-14', 'yıl sınırı');
+assert.strictEqual(gunEkle('2026-02-28', 1), '2026-03-01', '2026 artık yıl değil');
+assert.strictEqual(gunEkle('', 30), '', 'boş tarih');
 
 console.log('OK 8D simgesi başlangıç tarihinin ayına düşüyor; aynı ayda açık DÖF varsa ikincisi açılmıyor');
