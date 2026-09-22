@@ -75,6 +75,22 @@ const p = dofTaslagi(ppm, 'Haziran', 2026);
 assert.deepStrictEqual(p.ozet.altAylar, ['Haziran'], '<= yönünde hedef dışı ay');
 assert.ok(p.problemTanimi.includes('2500') && p.problemTanimi.includes('1000'), 'ppm sayıları');
 
+// ── D3 / D5 / D7 / D8: konuya göre öneri, "yapıldı" gibi görünmemeli ──
+assert.ok(t.geciciOnlemler.includes('Öneri'), 'D3 öneri olarak işaretli');
+assert.ok(/ariza|arıza|bakım|duruş/i.test(t.geciciOnlemler), 'D3 bakım konusuna uygun');
+assert.ok(t.kaliciAksiyonlar.length >= 3, 'D5 aksiyon listesi');
+assert.ok(t.kaliciAksiyonlar.every(a => a.action && a.status === 'Açık'), 'D5 satır biçimi');
+assert.ok(t.kaliciAksiyonlar.every(a => a.dueDate === ''), 'D5 termin uydurulmamalı');
+assert.ok(t.tekrarinOnlenmesi.includes('Planlı bakım'), 'D7 bakım konusu');
+assert.ok(t.takdir.includes('≥ 500'), 'D8 kapanış ölçütü');
+
+// Konu KPI'a göre değişmeli: PPM'de kalite önerileri gelmeli
+const ppmT = dofTaslagi({ id: 'k9', proses: 'Muayene', kpi_adi: 'İç PPM Oranı',
+  yeni_yil_hedef: 1000, karsilastirma: '<=', birim: 'ppm',
+  aylik: { Haziran: 9375 } }, 'Haziran', 2026);
+assert.ok(/ayıklama|karantina/i.test(ppmT.geciciOnlemler), 'PPM için kalite önlemleri: ' + ppmT.geciciOnlemler.slice(0, 120));
+assert.ok(/PFMEA|Kontrol planı/i.test(ppmT.kaliciAksiyonlar.map(a => a.action).join(' ')), 'PPM kalıcı aksiyonları');
+
 // ── Ölçüm ya da hedef yoksa taslak üretilmez (uydurma yapılmaz) ──
 assert.strictEqual(dofTaslagi(mtbf, 'Aralık', 2026), null, 'ölçümü olmayan ay');
 assert.strictEqual(dofTaslagi({ ...mtbf, yeni_yil_hedef: null }, 'Haziran', 2026), null, 'hedefsiz KPI');

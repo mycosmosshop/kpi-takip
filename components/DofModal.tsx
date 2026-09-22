@@ -354,6 +354,16 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
             else n.problemTanimi = t.problemTanimi;
             if (dolu(prev.uygulamaDogrulama)) atlanan.push('D6');
             else n.uygulamaDogrulama = t.uygulamaDogrulama;
+            if (dolu(prev.geciciOnlemler)) atlanan.push('D3');
+            else n.geciciOnlemler = t.geciciOnlemler;
+            if (dolu(prev.tekrarinOnlenmesi)) atlanan.push('D7');
+            else n.tekrarinOnlenmesi = t.tekrarinOnlenmesi;
+            if (dolu(prev.takdir)) atlanan.push('D8');
+            else n.takdir = t.takdir;
+            // D5 bir LISTE: icinde yazili aksiyon varsa dokunulmaz.
+            const mevcutAksiyon = (prev.kaliciAksiyonlar || []).filter(a => dolu(a.action));
+            if (mevcutAksiyon.length) atlanan.push('D5');
+            else n.kaliciAksiyonlar = t.kaliciAksiyonlar as any;
             const k = prev.kokNedenAnalizi;
             const bosZincir = (z: any[]) => !z || !z.length
                 || z.every(x => !dolu(x.why) && !dolu(x.because));
@@ -417,8 +427,9 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                     <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="text-xs text-blue-900 dark:text-blue-200">
-                                Bu KPI'ın kendi aylık verisinden aşağıdaki tanımı, D4'teki 5 Neden
-                                iskeletini ve D6 doğrulamasını yazar. Dolu alanların üstüne yazmaz.
+                                8D'nin tamamını doldurur: aşağıdaki tanım ve D6 doğrulaması bu
+                                KPI'ın kendi aylık verisinden; D3, D5, D7 ise konuya göre öneri
+                                olarak gelir (ekip onaylar). Dolu alanların üstüne yazmaz.
                             </div>
                             <button type="button" onClick={handleTaslak}
                                 className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">

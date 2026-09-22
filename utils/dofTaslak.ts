@@ -30,11 +30,98 @@ function hedefTutuyor(deger: number, hedef: number, karsilastirma: string): bool
     return String(karsilastirma).includes('<') ? deger <= hedef : deger >= hedef;
 }
 
+// Aksiyon metinleri veriden turetilemez; KPI'in konusuna gore standart
+// bir baslangic listesi yazilir, ekip uzerinde oynar. Konu, kaynak
+// metriginden ya da KPI adindan anlasilir.
+interface OneriSeti { gecici: string[]; kalici: string[]; onleme: string[]; }
+
+const ONERILER: Record<string, OneriSeti> = {
+    ariza: {
+        gecici: [
+            'Sapmanın görüldüğü dönemde arıza veren ekipmanlarda vardiya başı operatör kontrolü başlatıldı.',
+            'Plansız duruşlar günlük vardiya toplantısında izlenmeye alındı.',
+            'Tekrarlayan arızalarda kritik yedek parça bulunurluğu teyit edildi.',
+        ],
+        kalici: [
+            'Dönem arıza kayıtlarının makine ve arıza tipine göre Pareto analizi; en çok tekrarlayan üç arızanın belirlenmesi',
+            'Planlı bakım tamamlanma oranı için aylık alt sınır tanımlanması ve gecikmiş iş emirlerinin eskalasyonu',
+            'Tekrarlayan arızalarda periyodik bakım talimatının ve bakım periyodunun güncellenmesi',
+            'Plansız duruş ve arıza sayısının haftalık izlenmesi (aylık kapanış beklenmeden)',
+        ],
+        onleme: [
+            'Planlı bakım tamamlanma oranının KPI olarak izlenmesi (alt sınır tanımlı).',
+            'Bakım talimatlarının ve bakım periyotlarının güncellenmesi, ilgili personele duyurulması.',
+            'CMMS kayıtlarında arıza tipinin zorunlu alan yapılması — Pareto analizi bu veri olmadan yapılamıyor.',
+        ],
+    },
+    kalite: {
+        gecici: [
+            'Sapmanın görüldüğü dönemin stoğu ve sevk edilmiş ürünleri için %100 ayıklama/kontrol uygulandı.',
+            'Uygunsuz ürünler karantinaya alındı ve etiketlendi.',
+            'Müşteri tarafında risk varsa bilgilendirme yapıldı.',
+        ],
+        kalici: [
+            'Uygunsuzlukların hata tipi ve proses adımına göre Pareto analizi',
+            'Kontrol planı ve PFMEA gözden geçirilmesi; tespit yönteminin güçlendirilmesi',
+            'Operatör talimatlarının güncellenmesi ve ilgili personele eğitim',
+            'Etkilenen karakteristikte proses yeterliliğinin (Cp/Cpk) doğrulanması',
+        ],
+        onleme: [
+            'Kontrol planı ve PFMEA güncellemesinin benzer ürün ailelerine yayılması.',
+            'Katmanlı proses denetimi kapsamına ilgili proses adımının eklenmesi.',
+            'Eğitim kayıtlarının ve yetkinlik matrisinin güncellenmesi.',
+        ],
+    },
+    tedarikci: {
+        gecici: [
+            'Etkilenen tedarikçinin sevkiyatlarında giriş kontrolü sıklaştırıldı.',
+            'Mevcut stok için ayıklama yapıldı.',
+        ],
+        kalici: [
+            'Tedarikçiden 8D talep edilmesi ve kök neden doğrulaması',
+            'Tedarikçi performans kriterlerinin ve termin takibinin gözden geçirilmesi',
+            'Gerekirse tedarikçi sahasında süreç denetimi planlanması',
+        ],
+        onleme: [
+            'Tedarikçi değerlendirme kriterlerinin ve giriş kontrol planının güncellenmesi.',
+            'Onaylı tedarikçi listesinin gözden geçirilmesi.',
+        ],
+    },
+    varsayilan: {
+        gecici: [
+            'Sapmanın sürmesini engellemek için ilgili süreçte ek kontrol uygulandı.',
+            'Sapma ilgili proses sahibine bildirildi ve izlemeye alındı.',
+        ],
+        kalici: [
+            'Sapmanın oluştuğu dönemdeki kayıtların ayrıntılı incelenmesi ve kök nedenin doğrulanması',
+            'Süreç talimatının/akışının gözden geçirilerek güncellenmesi',
+            'Ölçüm ve raporlama sıklığının artırılması',
+        ],
+        onleme: [
+            'Güncellenen talimatın ilgili personele duyurulması ve eğitim kaydının alınması.',
+            'Benzer süreçlerde aynı riskin taranması.',
+        ],
+    },
+};
+
+function oneriSeti(kpi: Kpi): OneriSeti {
+    const metin = `${kpi.kaynak?.metric || ''} ${kpi.kpi_adi || ''} ${kpi.proses || ''}`
+        .toLocaleLowerCase('tr');
+    if (/mtbf|mttr|mttf|ariza|arıza|bakım|bakim|duruş|durus/.test(metin)) return ONERILER.ariza;
+    if (/tedarik|supplier|iade ppm|td_/.test(metin)) return ONERILER.tedarikci;
+    if (/ppm|uygunsuz|hurda|fire|şikayet|sikayet|kalite|muayene/.test(metin)) return ONERILER.kalite;
+    return ONERILER.varsayilan;
+}
+
 export interface TaslakSonuc {
     problemTanimi: string;
     occurrence: { id: string; why: string; because: string }[];
     nonDetection: { id: string; why: string; because: string }[];
     uygulamaDogrulama: string;
+    geciciOnlemler: string;
+    kaliciAksiyonlar: { id: string; action: string; responsible: string; dueDate: string; status: string }[];
+    tekrarinOnlenmesi: string;
+    takdir: string;
     /** Taslağın dayandığı sayılar — ekranda özet göstermek için. */
     ozet: { deger: number; hedef: number; digerOrt: number | null; altAylar: string[] };
 }
@@ -143,10 +230,37 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
             + `Doğrulama ölçütü: üst üste üç ay ${yonIsareti(yon)} ${biz(hedef)}${b}.`;
     }
 
+    // D3 / D5 / D7: konuya gore standart baslangic listesi. "Öneri"
+    // diye isaretlenir — yapilmis gibi gorunmesin, ekip onaylayip
+    // gerceklesen metinle degistirsin.
+    const o = oneriSeti(kpi);
+    const gecici = ['Öneri — ekip onayladıktan sonra fiilen uygulanan önlemle değiştirilecek:', '']
+        .concat(o.gecici.map(x => '- ' + x)).join('\n');
+    const onleme = ['Öneri:', ''].concat(o.onleme.map(x => '- ' + x)).join('\n');
+
+    // Aksiyon terminleri DÖF terminine dogru kademelenir; termin yoksa bos
+    // birakilir (uydurma tarih yazilmaz).
+    const kaliciAksiyonlar = o.kalici.map((x, n) => ({
+        id: yi('action'),
+        action: x,
+        responsible: String(kpi.sorumlu || ''),
+        dueDate: '',
+        status: 'Açık',
+        _sira: n,
+    })).map(({ _sira, ...r }) => r);
+
+    const takdir = `Kapanış, D5 aksiyonlarının tamamlanması ve ${kpi.kpi_adi} değerinin `
+        + `üst üste üç ay ${yonIsareti(yon)} ${biz(hedef)}${b} kalmasıyla yapılacaktır. `
+        + 'Katkısı olan ekip üyeleri burada belirtilir.';
+
     return {
         problemTanimi: satir.join('\n'),
         occurrence, nonDetection,
         uygulamaDogrulama: dogrulama,
+        geciciOnlemler: gecici,
+        kaliciAksiyonlar,
+        tekrarinOnlenmesi: onleme,
+        takdir,
         ozet: { deger, hedef, digerOrt, altAylar },
     };
 }
