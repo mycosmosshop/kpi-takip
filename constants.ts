@@ -5,6 +5,20 @@ export const AYLAR = [
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
 
+// Bir 8D/DÖF tabloda hangi ay hücresinde görünecek?
+// Eşleşme "ayın 2'si" sihirli gününe bağlıydı: hücreden açılan DÖF
+// YYYY-MM-02 yazıyordu, kullanıcı başlangıç tarihini elle değiştirince
+// (ör. 8D'yi Temmuz'da açıp Haziran'a çekince) gün 02 olmadığı için 8D
+// simgesi hiçbir aya düşmüyor, DÖF sessizce "genel" sayılıyordu.
+// Artık günü değil, tarihin AYI belirler. Tarihi olmayan veya başka yıla
+// ait DÖF genel kalır (ortalama sütunundaki rozet).
+export function dofAyi(startDate: any, year: number): string | null {
+    const p = String(startDate || '').split('-');
+    if (p.length < 2 || Number(p[0]) !== Number(year)) return null;
+    const i = Number(p[1]) - 1;
+    return Number.isInteger(i) && i >= 0 && i < AYLAR.length ? AYLAR[i] : null;
+}
+
 // Marka/şirket → doküman no, logo dosyası ve antet metni.
 // unvan: resmî ticaret unvanı — YGG raporunun üst bilgisinde "Firma:" olarak
 // yazılır. Yoksa name kullanılır; unvan UYDURULMAZ.

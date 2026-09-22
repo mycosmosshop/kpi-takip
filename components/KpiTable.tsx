@@ -1,7 +1,7 @@
 // FIX: Added import for React hooks (useState, useEffect, useMemo) to resolve multiple 'Cannot find name' errors.
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Kpi, ModalType, TooltipSettings, Status, Dof, AppearanceSettings } from '../types';
-import { AYLAR, THEMES } from '../constants';
+import { AYLAR, THEMES, dofAyi } from '../constants';
 import { getStatusColorClasses, getSingleMonthStatus, isMonthActive } from '../utils/calculations';
 import { PaperclipIcon, EditIcon, TrashIcon, FillRightIcon, CloseIcon, ChartBarIcon, StatusSuccessIcon, StatusFailureIcon, StatusMarginalIcon, GearIcon, PlusIcon, GripIcon, ExternalLinkIcon, ClipboardDocumentListIcon } from './icons';
 import Trendline from './Trendline';
@@ -175,17 +175,10 @@ const KpiTableRow: React.FC<KpiTableRowProps> = ({ kpi, onOpenModal, onUpdateVal
         const activeDofs = kpi.dof.filter(d => d.durum !== 'Tamamlandı' && d.start_date);
 
         for (const dof of activeDofs) {
-            let isMonthly = false;
-            for (let i = 0; i < AYLAR.length; i++) {
-                const monthStr = String(i + 1).padStart(2, '0');
-                const monthlyDateStr = `${year}-${monthStr}-02`;
-                if (dof.start_date === monthlyDateStr) {
-                    monthlyDofs.set(AYLAR[i], dof);
-                    isMonthly = true;
-                    break;
-                }
-            }
-            if (!isMonthly && !generalDof) { // Take the first general DOF found
+            const ay = dofAyi(dof.start_date, year);
+            if (ay) {
+                if (!monthlyDofs.has(ay)) monthlyDofs.set(ay, dof);
+            } else if (!generalDof) { // Take the first general DOF found
                 generalDof = dof;
             }
         }
