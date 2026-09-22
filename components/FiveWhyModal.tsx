@@ -1333,6 +1333,9 @@ const FiveWhyModal: React.FC<FiveWhyModalProps> = ({ isOpen, onClose, onSave, in
     const [occurrenceChain, setOccurrenceChain] = useState<AnalysisChain[]>([]);
     const [nonDetectionProblem, setNonDetectionProblem] = useState('');
     const [nonDetectionChain, setNonDetectionChain] = useState<AnalysisChain[]>([]);
+    // Saptanamama (kacis) sutunu her 8D'de gerekmiyor. Acilista, kayitta
+    // zincir varsa isaretli gelir; yoksa kapalidir.
+    const [kacisDahil, setKacisDahil] = useState(false);
     
     const [newCauses, setNewCauses] = useState<Record<string, string>>(
         Object.fromEntries(getInitialState().fishbone!.categories.map(c => [c.name, '']))
@@ -1354,6 +1357,8 @@ const FiveWhyModal: React.FC<FiveWhyModalProps> = ({ isOpen, onClose, onSave, in
             const validNonDetection = data.nonDetection.filter(s => s.why || s.because);
             setNonDetectionProblem(validNonDetection[0]?.why ?? '');
             setNonDetectionChain(validNonDetection.map(s => ({id: s.id, text: s.because})));
+            setKacisDahil(validNonDetection.some(s => String(s.because || '').trim())
+                || !!String(data.nonDetectionRootCause || '').trim());
 
             setFishboneData(data.fishbone || getInitialState().fishbone!);
             
@@ -1465,13 +1470,16 @@ const FiveWhyModal: React.FC<FiveWhyModalProps> = ({ isOpen, onClose, onSave, in
                 why: i === 0 ? occurrenceProblem : occurrenceChain[i - 1].text,
                 because: link.text
             })),
-            nonDetection: nonDetectionChain.map((link, i) => ({
+            // Tik kapaliysa kacis zinciri BOSALIR; yoksa kapatilan sutunun
+            // eski metni raporda durmaya devam ediyordu.
+            nonDetection: !kacisDahil ? [] : nonDetectionChain.map((link, i) => ({
                 id: link.id,
                 why: i === 0 ? nonDetectionProblem : nonDetectionChain[i - 1].text,
                 because: link.text
             })),
             occurrenceRootCause: occurrenceChain[occurrenceChain.length - 1]?.text || '',
-            nonDetectionRootCause: nonDetectionChain[nonDetectionChain.length - 1]?.text || '',
+            nonDetectionRootCause: !kacisDahil ? ''
+                : (nonDetectionChain[nonDetectionChain.length - 1]?.text || ''),
             fishbone: fishboneData,
             fta: ftaData,
             pareto: paretoData,
@@ -1481,7 +1489,7 @@ const FiveWhyModal: React.FC<FiveWhyModalProps> = ({ isOpen, onClose, onSave, in
         if (finalAnalysis.occurrence.length === 0 && occurrenceProblem) {
              finalAnalysis.occurrence.push({ id: `why-occ-${Date.now()}`, why: occurrenceProblem, because: '' });
         }
-        if (finalAnalysis.nonDetection.length === 0 && nonDetectionProblem) {
+        if (kacisDahil && finalAnalysis.nonDetection.length === 0 && nonDetectionProblem) {
              finalAnalysis.nonDetection.push({ id: `why-nd-${Date.now()}`, why: nonDetectionProblem, because: '' });
         }
         
@@ -1514,21 +1522,31 @@ const FiveWhyModal: React.FC<FiveWhyModalProps> = ({ isOpen, onClose, onSave, in
             <div className="p-1" style={{minHeight: '85vh'}}>
                 {activeTab === '5why' ? (
                     <div className="space-y-6 h-full overflow-y-auto">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                           <AnalysisPath 
+                        {/* Kacis sutunu her 8D'de gerekmiyor; tik kapaliyken
+                            sutun gizlenir ve kayitta zincir bosalir. */}
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                            <input type="checkbox" checked={kacisDahil}
+                                onChange={e => setKacisDahil(e.target.checked)}
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded" />
+                            <span><strong>Saptanamama analizi</strong> — problemin neden zamanında
+                            fark edilmediği ayrı bir zincir olarak incelensin</span>
+                        </label>
+                        <div className={`grid grid-cols-1 gap-6 h-full ${kacisDahil ? 'md:grid-cols-2' : ''}`}>
+                           <AnalysisPath
                                 title="Oluşum (Problem Neden Ortaya Çıktı?)"
                                 problem={occurrenceProblem}
                                 setProblem={setOccurrenceProblem}
                                 chain={occurrenceChain}
                                 setChain={setOccurrenceChain}
                            />
-                           <AnalysisPath 
+                           {kacisDahil && (
+                           <AnalysisPath
                                 title="Saptanamama (Problem Neden Fark Edilemedi?)"
                                 problem={nonDetectionProblem}
                                 setProblem={setNonDetectionProblem}
                                 chain={nonDetectionChain}
                                 setChain={setNonDetectionChain}
-                           />
+                           />)}
                         </div>
                     </div>
                 ) : activeTab === 'fishbone' ? (

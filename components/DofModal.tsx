@@ -343,9 +343,12 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
     // KPI'ın kendi aylık verisinden D2 / D4 / D6 taslağı. YALNIZ BOŞ
     // alanları doldurur: ekibin yazdığı metin hiçbir durumda ezilmez.
     const [taslakNot, setTaslakNot] = useState('');
-    // Kacis (saptanamama) zinciri her 8D'de gerekmiyor; istenmeden
-    // uretilince raporda yarisi yer tutucu bir bolum duruyordu.
-    const [kacisDahil, setKacisDahil] = useState(false);
+    // Kacis (saptanamama) zinciri her 8D'de gerekmiyor. Karar TEK yerde:
+    // 5N ekranindaki tik. Taslak da onu izler — kayitta kacis analizi
+    // varsa doldurur, yoksa hic yazmaz.
+    const kacisDahil = (dof.kokNedenAnalizi?.nonDetection || [])
+        .some(x => String(x?.because || '').trim())
+        || !!String(dof.kokNedenAnalizi?.nonDetectionRootCause || '').trim();
     const handleTaslak = () => {
         const ay = dofAyi(dof.start_date, year);
         if (!kpi || !ay) {
@@ -476,20 +479,14 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                                 8D'nin tamamını doldurur: aşağıdaki tanım, D4 5 Neden zinciri ve D6
                                 doğrulaması bu KPI'ın kendi aylık verisinden; D3, D5, D7 konuya göre
                                 öneri olarak gelir (ekip onaylar). Dolu adım varsa üzerine yazmadan
-                                önce sorar.
+                                önce sorar. Saptanamama zinciri, D4 ekranında o analiz açıksa
+                                doldurulur.
                             </div>
                             <button type="button" onClick={handleTaslak}
                                 className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">
                                 KPI verisinden doldur
                             </button>
                         </div>
-                        <label className="mt-2 flex items-center gap-2 text-xs text-blue-900 dark:text-blue-200 cursor-pointer">
-                            <input type="checkbox" checked={kacisDahil}
-                                onChange={e => setKacisDahil(e.target.checked)}
-                                className="form-checkbox h-3.5 w-3.5 text-blue-600 rounded" />
-                            Saptanamama (kaçış) analizini de doldur — sapmanın neden zamanında
-                            fark edilmediği ayrı bir 5 Neden zinciri olarak yazılır
-                        </label>
                         {taslakNot && <p className="mt-2 text-xs text-blue-800 dark:text-blue-300">{taslakNot}</p>}
                     </div>
                     <div>
