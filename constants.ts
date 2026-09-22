@@ -29,6 +29,17 @@ export function gunEkle(tarih: string, gun: number): string {
     return d.toISOString().split('T')[0];
 }
 
+// Antette görünen DÖF numarası. Kayıtta elle girilmiş bir numara yoksa
+// iç kimlikten türetilir: "dof-uuid-1790088836156" ham hâliyle antete
+// yazılamaz.
+export function dofNoOner(dof: any): string {
+    const ham = String(dof?.id || '');
+    const rakam = (ham.match(/(\d{6,})/) || [])[1];
+    const y = dof?.start_date ? String(dof.start_date).slice(0, 4) : '';
+    if (!rakam) return ham.slice(-8).toUpperCase() || '—';
+    return `DÖF-${y}-${rakam.slice(-5)}`;
+}
+
 // Scatter aracındaki "Örnek yükle" verisi (PIQ/Brain/Height/Weight).
 // Yeni DÖF'ün VARSAYILANI değildir: varsayılan gelince her 8D raporuna
 // ürünle ilgisi olmayan bir örnek grafik basılıyordu. Eski kayıtlarda

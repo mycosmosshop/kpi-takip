@@ -17,6 +17,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <style>
+    /* PDF (html2pdf) EKRAN render'i kullanir; @media print kurallari
+       uygulanmaz. Bolunmemesi gereken parcalar burada, medyasiz
+       tanimlanir. */
+    .no-break { break-inside: avoid; page-break-inside: avoid; }
+    .no-break-after { break-after: avoid; page-break-after: avoid; }
+
     /* Tema (dark/light) geçişinde tüm geçiş/animasyonları kapat → tablo "yanıp sönme" olmaz */
     .kpi-no-transition, .kpi-no-transition * { transition: none !important; animation: none !important; }
     /* For custom scrollbars */

@@ -6,7 +6,7 @@ import { UserIcon, CalendarIcon, LightBulbIcon, ClipboardCheckIcon, WrenchScrewd
 import { getStatusColorClasses, getSingleMonthStatus } from '../utils/calculations';
 import { AYLAR } from '../constants';
 import ScatterPlotMatrix from './ScatterPlotMatrix';
-import { scatterVerisiVar, BRANDS } from '../constants';
+import { scatterVerisiVar, BRANDS, dofNoOner } from '../constants';
 
 interface DofReportViewProps {
     isOpen: boolean;
@@ -16,9 +16,11 @@ interface DofReportViewProps {
     /** Antetteki logo ve unvan icin; verilmezse Sanifoam. */
     company?: Company;
 }
+// Bolunmemesi gereken sey BASLIK BLOGU: bolumun tamamina "bolunme"
+// demek, bir sayfadan uzun bolumlerde (D4) tasmaya yol aciyor.
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; className?: string }> = ({ title, icon, children, className = '' }) => (
-    <div className={`mt-6 no-break ${className}`}>
-        <div className="flex items-center gap-3 mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+    <div className={`mt-6 ${className}`}>
+        <div className="flex items-center gap-3 mb-3 border-b border-gray-200 dark:border-gray-700 pb-2 no-break no-break-after">
             {icon}
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">{title}</h3>
         </div>
@@ -391,13 +393,7 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
     const marka = BRANDS[company || 'sanifoam'] || BRANDS.sanifoam;
     // "dof-uuid-1790088836156" ham hâliyle antete yazilamaz; sondaki
     // zaman damgasindan kisa ve tekrarlanabilir bir numara turetilir.
-    const dofNo = useMemo(() => {
-        const ham = String(dof.id || '');
-        const rakam = (ham.match(/(\d{6,})/) || [])[1];
-        if (!rakam) return ham.slice(-8).toUpperCase() || '—';
-        const y = dof.start_date ? String(dof.start_date).slice(0, 4) : '';
-        return `DÖF-${y}-${rakam.slice(-5)}`;
-    }, [dof.id, dof.start_date]);
+    const dofNo = String(dof.dofNo || '').trim() || dofNoOner(dof);
 
     const relevantMonthData = useMemo(() => {
         if (!dof.start_date) return null;
@@ -447,14 +443,50 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         const reportNo = `${kpi.kpi_adi.replace(/ /g, "_")}`;
         const timestamp = new Date().toISOString().split('T')[0];
         const filename = `8D_Raporu_${reportNo}_${timestamp}.pdf`;
+        // Antet bir kez resme cevrilir ve HER sayfaya basilir. jsPDF'in
+        // kendi metin cizimi kullanilmaz: varsayilan font WinAnsi, "ş/ğ/ı"
+        // bozuk cikiyor.
+        const antetEl = element.querySelector('[data-antet]') as HTMLElement | null;
+        const h2c = (window as any).html2canvas;
+        let antetImg: string | null = null;
+        let antetOran = 0;
+        if (antetEl && h2c) {
+            try {
+                const c = await h2c(antetEl, { scale: 2, useCORS: true, logging: false,
+                                               backgroundColor: '#ffffff' });
+                antetImg = c.toDataURL('image/png');
+                antetOran = c.height / c.width;
+            } catch { antetImg = null; }
+        }
+        const KENAR = 8;
+        const icerikGenislik = 210 - 2 * KENAR;              // A4 genisligi
+        const antetYukseklik = antetImg ? icerikGenislik * antetOran : 0;
+        // Antet sayfa akisindan cikarilir, yerine ust marj acilir.
+        if (antetImg && antetEl) antetEl.style.display = 'none';
+
         const opt = {
-            margin: 8, filename: filename, image: { type: 'jpeg', quality: 0.98 },
+            margin: antetImg ? [KENAR + antetYukseklik + 4, KENAR, 10, KENAR] : KENAR,
+            filename: filename, image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            // ".no-break" kurali @media print icindeydi; html2pdf ekran
+            // render'i kullandigi icin baslik bloklari ortadan bolunuyordu.
+            pagebreak: { mode: ['css', 'legacy'], avoid: ['.no-break', 'tr', 'img'] },
         };
         try {
-            await window.html2pdf().set(opt).from(element).save();
+            const worker = window.html2pdf().set(opt).from(element).toPdf();
+            if (antetImg) {
+                await worker.get('pdf').then((pdf: any) => {
+                    const adet = pdf.internal.getNumberOfPages();
+                    for (let i = 1; i <= adet; i++) {
+                        pdf.setPage(i);
+                        pdf.addImage(antetImg, 'PNG', KENAR, 6, icerikGenislik, antetYukseklik);
+                    }
+                });
+            }
+            await worker.save();
         } finally {
+            if (antetEl) antetEl.style.display = '';
             setPdfMesgul(false);
         }
     };
@@ -493,7 +525,13 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                                 <td className="p-2 border dark:border-gray-600 align-top">
                                     {action.linkedRootCauses && action.linkedRootCauses.length > 0 ? (
                                         <ul className="list-disc list-inside space-y-1">
-                                            {action.linkedRootCauses.map((cause, i) => <li key={i}>{cause}</li>)}
+                                            {/* "[… doğrulandıktan sonra kesinleşir]" gibi calisma
+                                                notlari D5 tablosunda HER SATIRDA tekrarlaniyor.
+                                                Not D4'teki kok neden alaninda kalir, tabloya
+                                                basilmaz — eski kayitlar icin de. */}
+                                            {action.linkedRootCauses.map((cause, i) => (
+                                                <li key={i}>{String(cause || '').replace(/\s*\[[^\]]*\]\s*$/, '').trim()}</li>
+                                            ))}
                                         </ul>
                                     ) : getDofText(undefined)}
                                 </td>
@@ -515,7 +553,7 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                     {/* Kurumsal antet: PDF'e basilinca hangi firmanin hangi
                         tarihli 8D'si oldugu belli olsun. Logo yuklenemezse
                         (dosya adi degisirse) yalnizca gizlenir, antet kalir. */}
-                    <div className="mb-6 border-b-2 border-gray-800 dark:border-gray-300 pb-3 no-break">
+                    <div data-antet className="mb-6 border-b-2 border-gray-800 dark:border-gray-300 pb-3 no-break">
                         <div className="flex items-center justify-between gap-4">
                             {/* Sol ve sag blok ESIT genislikte; yoksa logo genis
                                 oldugu icin ortadaki baslik saga kayiyor. */}
@@ -526,18 +564,16 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
                                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                             </div>
                             <div className="text-center flex-1">
+                                {/* Unvan logonun altinda zaten yaziyor; ikinci kez
+                                    yazilinca antet kalabaliklasiyordu. */}
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-wide">
                                     8D PROBLEM ÇÖZME RAPORU
                                 </h1>
-                                {marka.unvan && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{marka.unvan}</p>
-                                )}
                             </div>
                             <div className="text-right text-[11px] leading-5 text-gray-600 dark:text-gray-300 shrink-0" style={{ width: 200 }}>
                                 <p><strong>DÖF No:</strong> {dofNo}</p>
                                 <p><strong>Başlangıç:</strong> {dof.start_date
                                     ? new Date(dof.start_date).toLocaleDateString('tr-TR') : '—'}</p>
-                                <p><strong>Basım:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
                             </div>
                         </div>
                     </div>
@@ -599,7 +635,6 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
 
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm p-4 border rounded-lg dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 no-break">
-                        <p><strong>DÖF ID:</strong> {dof.id}</p>
                         <p><strong>Başlangıç Tarihi (D0):</strong> {dof.start_date ? new Date(dof.start_date).toLocaleDateString('tr-TR') : 'N/A'}</p>
                         <p><strong>Sorumlu:</strong> {dof.sorumlu}</p>
                         <p><strong>Termin (tahmini kapanış):</strong> {dof.due_date ? new Date(dof.due_date).toLocaleDateString('tr-TR') : 'N/A'}</p>

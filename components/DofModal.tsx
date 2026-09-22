@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dof, Kpi, DofStatus, FiveWhyAnalysis, CorrectiveAction, CorrectiveActionStatus, FtaNode, ModalType } from '../types';
 import Modal from './Modal';
 import { LightBulbIcon, ClipboardDocumentListIcon, UserIcon, CalendarIcon, WrenchScrewdriverIcon, CheckCircleIcon, PlusIcon, TrashIcon, CloseIcon } from './icons';
-import { AYLAR, gunEkle, dofAyi } from '../constants';
+import { AYLAR, gunEkle, dofAyi, dofNoOner } from '../constants';
 import { dofTaslagi } from '../utils/dofTaslak';
 import FiveWhyModal from './FiveWhyModal';
 
@@ -100,6 +100,7 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
         durum: 'Açık',
         ilerleme: 0,
         gercekKapanis: '',
+        dofNo: '',
         takim: '',
         problemTanimi: '',
         geciciOnlemler: '',
@@ -448,6 +449,14 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                             <input type="date" name="due_date" value={dof.due_date || ''} onChange={handleChange} className="mt-1 w-full form-input" />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 Elle değiştirilmediyse başlangıçla birlikte kayar (+30 gün).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">DÖF No</label>
+                            <input type="text" name="dofNo" value={dof.dofNo || ''} onChange={handleChange}
+                                   placeholder={dofNoOner(dof)} className="mt-1 w-full form-input" />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Raporun antetinde görünür. Boş bırakılırsa örnekteki gibi üretilir.
                             </p>
                         </div>
                         <div>

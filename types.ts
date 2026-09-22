@@ -104,6 +104,10 @@ export interface Dof {
     due_date: string;
     /** DOF'un FIILEN kapandigi tarih; 'Tamamlandi' isaretlenince dolar. */
     gercekKapanis?: string;
+    /** Antette gorunen numara. Bos birakilirsa kayit kimliginden
+     *  turetilir; arsivdeki numaralandirma semasina uymasi icin elle
+     *  degistirilebilir. */
+    dofNo?: string;
     durum: DofStatus;
     ilerleme: number;
 
