@@ -194,7 +194,10 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                 setDof(initialState);
             }
         }
-    }, [dofData, isOpen, year, kpi]);
+        // Bagimlilikta `kpi` YOK: modal acikken disaridaki bir KPI
+        // guncellemesi formu acilis verisine dondurup yazilanlari
+        // silebiliyordu.
+    }, [dofData, isOpen, year]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -253,17 +256,14 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
     };
 
     const removeAction = (index: number) => {
-        const newActions = (dof.kaliciAksiyonlar || []).filter((_, i) => i !== index);
-        const updatedDof = { ...dof, kaliciAksiyonlar: newActions };
-
-        const fullDof: Dof = {
-            id: dof.id || `dof-uuid-${Date.now()}`,
-            kpiId: kpi?.id || dofData?.kpiId || '',
-            ...getInitialState(),
-            ...updatedDof,
-        } as Dof;
-
-        onUpdateDof(fullDof);
+        // Yalnizca formu gunceller. Onceden dogrudan kaydi yaziyordu
+        // (onUpdateDof); kayit degisince kpi prop'u yenileniyor, useEffect
+        // tetikleniyor ve form acilis verisiyle SIFIRLANIYORDU — bir
+        // aksiyon silinince kaydedilmemis butun aksiyonlar gidiyordu.
+        setDof(prev => ({
+            ...prev,
+            kaliciAksiyonlar: (prev.kaliciAksiyonlar || []).filter((_, i) => i !== index),
+        }));
     };
 
     const handleSaveFiveWhy = (fiveWhyData: FiveWhyAnalysis) => {
