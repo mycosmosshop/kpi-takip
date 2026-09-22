@@ -347,35 +347,55 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
             return;
         }
         const dolu = (x: any) => !!String(x || '').trim();
+        const bosZincir = (z: any[]) => !z || !z.length
+            || z.every(x => !dolu(x.why) && !dolu(x.because));
+        const k0 = dof.kokNedenAnalizi;
+
+        // Hangi adimlarda zaten yazi var? Dugmeye ikinci kez basan
+        // kullanici eski taslagi degistirmek istiyor olabilir; atlayip
+        // susmak "dugme calismiyor" gibi gorunuyordu.
+        const doluAdimlar: string[] = [];
+        if (dolu(dof.problemTanimi)) doluAdimlar.push('D2');
+        if (dolu(dof.geciciOnlemler)) doluAdimlar.push('D3');
+        if (k0 && (!bosZincir(k0.occurrence) || !bosZincir(k0.nonDetection))) doluAdimlar.push('D4');
+        if ((dof.kaliciAksiyonlar || []).some(a => dolu(a.action))) doluAdimlar.push('D5');
+        if (dolu(dof.uygulamaDogrulama)) doluAdimlar.push('D6');
+        if (dolu(dof.tekrarinOnlenmesi)) doluAdimlar.push('D7');
+        if (dolu(dof.takdir)) doluAdimlar.push('D8');
+
+        let uzerineYaz = false;
+        if (doluAdimlar.length) {
+            uzerineYaz = window.confirm(
+                `Şu adımlarda yazı var: ${doluAdimlar.join(', ')}.\n\n`
+                + 'TAMAM  → taslak bunların ÜZERİNE yazsın (eski metin gider)\n'
+                + 'İPTAL  → yalnız boş adımlar doldurulsun');
+        }
+
         setDof(prev => {
             const n: Partial<Dof> = { ...prev };
             const atlanan: string[] = [];
-            if (dolu(prev.problemTanimi)) atlanan.push('D2');
-            else n.problemTanimi = t.problemTanimi;
-            if (dolu(prev.uygulamaDogrulama)) atlanan.push('D6');
-            else n.uygulamaDogrulama = t.uygulamaDogrulama;
-            if (dolu(prev.geciciOnlemler)) atlanan.push('D3');
-            else n.geciciOnlemler = t.geciciOnlemler;
-            if (dolu(prev.tekrarinOnlenmesi)) atlanan.push('D7');
-            else n.tekrarinOnlenmesi = t.tekrarinOnlenmesi;
-            if (dolu(prev.takdir)) atlanan.push('D8');
-            else n.takdir = t.takdir;
+            const yaz = (bosMu: boolean, adim: string, uygula: () => void) => {
+                if (bosMu || uzerineYaz) uygula(); else atlanan.push(adim);
+            };
+            yaz(!dolu(prev.problemTanimi), 'D2', () => { n.problemTanimi = t.problemTanimi; });
+            yaz(!dolu(prev.geciciOnlemler), 'D3', () => { n.geciciOnlemler = t.geciciOnlemler; });
+            yaz(!dolu(prev.uygulamaDogrulama), 'D6', () => { n.uygulamaDogrulama = t.uygulamaDogrulama; });
+            yaz(!dolu(prev.tekrarinOnlenmesi), 'D7', () => { n.tekrarinOnlenmesi = t.tekrarinOnlenmesi; });
+            yaz(!dolu(prev.takdir), 'D8', () => { n.takdir = t.takdir; });
             // D5 bir LISTE: icinde yazili aksiyon varsa dokunulmaz.
-            const mevcutAksiyon = (prev.kaliciAksiyonlar || []).filter(a => dolu(a.action));
-            if (mevcutAksiyon.length) atlanan.push('D5');
-            else n.kaliciAksiyonlar = t.kaliciAksiyonlar as any;
+            yaz(!(prev.kaliciAksiyonlar || []).some(a => dolu(a.action)), 'D5',
+                () => { n.kaliciAksiyonlar = t.kaliciAksiyonlar as any; });
             const k = prev.kokNedenAnalizi;
-            const bosZincir = (z: any[]) => !z || !z.length
-                || z.every(x => !dolu(x.why) && !dolu(x.because));
             if (k) {
-                if (bosZincir(k.occurrence)) n.kokNedenAnalizi = { ...k, occurrence: t.occurrence };
-                else atlanan.push('D4 oluşum');
+                yaz(bosZincir(k.occurrence), 'D4 oluşum',
+                    () => { n.kokNedenAnalizi = { ...k, occurrence: t.occurrence }; });
                 const k2 = n.kokNedenAnalizi || k;
-                if (bosZincir(k2.nonDetection)) n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection };
-                else atlanan.push('D4 kaçış');
+                yaz(bosZincir(k2.nonDetection), 'D4 kaçış',
+                    () => { n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection }; });
             }
             setTaslakNot(`${ay}: ${t.ozet.deger} (hedef ${kpi.karsilastirma} ${t.ozet.hedef}) — taslak yazıldı.`
-                + (atlanan.length ? ` Dolu olduğu için atlanan: ${atlanan.join(', ')}.` : ''));
+                + (atlanan.length ? ` Dolu olduğu için atlanan: ${atlanan.join(', ')}.` : '')
+                + (uzerineYaz ? ' Dolu adımların üzerine yazıldı.' : ''));
             return n;
         });
     };
@@ -427,9 +447,10 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                     <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="text-xs text-blue-900 dark:text-blue-200">
-                                8D'nin tamamını doldurur: aşağıdaki tanım ve D6 doğrulaması bu
-                                KPI'ın kendi aylık verisinden; D3, D5, D7 ise konuya göre öneri
-                                olarak gelir (ekip onaylar). Dolu alanların üstüne yazmaz.
+                                8D'nin tamamını doldurur: aşağıdaki tanım, D4 5 Neden zinciri ve D6
+                                doğrulaması bu KPI'ın kendi aylık verisinden; D3, D5, D7 konuya göre
+                                öneri olarak gelir (ekip onaylar). Dolu adım varsa üzerine yazmadan
+                                önce sorar.
                             </div>
                             <button type="button" onClick={handleTaslak}
                                 className="px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap">
