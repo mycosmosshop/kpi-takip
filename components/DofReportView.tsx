@@ -473,16 +473,15 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         const kutu = element.closest('[data-dof="report"]') as HTMLElement | null;
         const eskiKaydirma = kutu ? kutu.scrollTop : 0;
         if (kutu) kutu.scrollTop = 0;
-        const sayfaKaydirma = window.scrollY;
 
         const opt = {
             margin: antetImg ? [KENAR + antetYukseklik + 4, KENAR, 10, KENAR] : KENAR,
             filename: filename, image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-                scale: 2, useCORS: true, logging: false,
-                scrollX: 0, scrollY: -sayfaKaydirma,
-                windowWidth: element.scrollWidth, windowHeight: element.scrollHeight,
-            },
+            // windowWidth/windowHeight VERILMEZ: html2canvas'a pencere
+            // boyutu dayatinca duzen yeniden akiyor ve icerik yatayda
+            // kayip sol kenardan kirpiliyordu. Ustteki bosluk zaten
+            // kutunun kaydirmasini sifirlayarak cozuluyor.
+            html2canvas: { scale: 2, useCORS: true, logging: false },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             // ".no-break" kurali @media print icindeydi; html2pdf ekran
             // render'i kullandigi icin baslik bloklari ortadan bolunuyordu.

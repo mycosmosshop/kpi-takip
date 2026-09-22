@@ -58,4 +58,11 @@ assert.ok(/catch \{ \/\* antetsiz devam \*\/ \}/.test(pdf), 'yüklenemezse PDF y
 assert.ok(/kutu\.scrollTop = 0/.test(pdf), 'kutu kaydırması sıfırlanmalı');
 assert.ok(/kutu\.scrollTop = eskiKaydirma/.test(pdf), 'kaydırma geri konmalı');
 
+// windowWidth/windowHeight VERILMEMELI: html2canvas'a pencere boyutu
+// dayatinca duzen yeniden akiyor, icerik yatayda kayip sol kenardan
+// kirpiliyordu (gercek raporda D5 tablosu tasti).
+// "windowWidth:" (ayar olarak) aranir; ayni ad yorum satirinda da geciyor.
+assert.ok(!/windowWidth:/.test(pdf), 'pencere genişliği dayatılmamalı');
+assert.ok(!/windowHeight:/.test(pdf), 'pencere yüksekliği dayatılmamalı');
+
 console.log('OK antet her sayfada, sayfa kırılımı korumalı, DÖF No elle girilebilir');
