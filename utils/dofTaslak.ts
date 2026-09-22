@@ -39,33 +39,50 @@ interface OneriSeti {
     onleme: string[];
     /** 5 Neden zincirinin 2. halkasindan sonrasi; ilk halka veriden gelir. */
     neden: string[];
+    /** Ekrandaki "Kök Neden" kutulari; bos kalirsa 5N yarim gorunuyor. */
+    kokNeden?: string;
+    kacisKokNeden?: string;
 }
 
 const ONERILER: Record<string, OneriSeti> = {
     ariza: {
         gecici: [
-            'Sapmanın görüldüğü dönemde arıza veren ekipmanlarda vardiya başı operatör kontrolü başlatıldı.',
+            'Sapmanın görüldüğü dönemde arıza veren ekipmanların kritik parçaları için acil stok kontrolü yapıldı; eksikler için sipariş açıldı.',
+            'Malzeme beklediği için duran planlı bakım iş emirleri önceliklendirildi.',
             'Plansız duruşlar günlük vardiya toplantısında izlenmeye alındı.',
-            'Tekrarlayan arızalarda kritik yedek parça bulunurluğu teyit edildi.',
+            'Arıza veren ekipmanlarda vardiya başı operatör kontrolü başlatıldı.',
         ],
         kalici: [
             'Dönem arıza kayıtlarının makine ve arıza tipine göre Pareto analizi; en çok tekrarlayan üç arızanın belirlenmesi',
-            'Planlı bakım tamamlanma oranı için aylık alt sınır tanımlanması ve gecikmiş iş emirlerinin eskalasyonu',
+            'Kritik yedek parça listesinin ekipman envanteriyle karşılaştırılarak güncellenmesi (revizyonlar, yeni makineler, muadil parçalar)',
+            'Kritik parçalarda min–max stok seviyelerinin arıza sıklığına ve tedarik süresine göre belirlenmesi',
+            'Yedek parça listesinin gözden geçirilmesi için periyot ve sorumlu tanımlanması; ekipman değişikliğinde güncelleme zorunlu hâle getirilmesi',
+            'Malzeme bekleyen bakım iş emirleri için haftalık eskalasyon; planlı bakım tamamlanma oranına aylık alt sınır',
             'Tekrarlayan arızalarda periyodik bakım talimatının ve bakım periyodunun güncellenmesi',
-            'Plansız duruş ve arıza sayısının haftalık izlenmesi (aylık kapanış beklenmeden)',
         ],
         onleme: [
-            'Planlı bakım tamamlanma oranının KPI olarak izlenmesi (alt sınır tanımlı).',
-            'Bakım talimatlarının ve bakım periyotlarının güncellenmesi, ilgili personele duyurulması.',
-            'CMMS kayıtlarında arıza tipinin zorunlu alan yapılması — Pareto analizi bu veri olmadan yapılamıyor.',
+            'Kritik yedek parça listesinin bakım prosedürüne bağlanması: periyodik gözden geçirme, sorumlu ve kayıt tanımlı.',
+            'Yeni ekipman devreye alma kontrol listesine "kritik yedek parça listesi güncellendi" maddesinin eklenmesi.',
+            'Kritik parça stok bulunurluğunun ve planlı bakım tamamlanma oranının KPI olarak izlenmesi.',
+            'CMMS kayıtlarında arıza tipinin ve "malzeme bekliyor" durumunun zorunlu alan yapılması — Pareto ve eskalasyon bu veri olmadan yapılamıyor.',
         ],
         neden: [
             'Arızalar önlenemeden oluştu: bakım işleri ağırlıkla arıza sonrası (plansız) yürüdü, '
                 + 'önleyici bakım payı düştü. [CMMS iş emri dağılımından doğrulanacak]',
-            '[Planlı bakım işleri neden geri kaldı? Ertelenen iş emirleri, üretim yoğunluğu, '
-                + 'personel ya da yedek parça yokluğu incelenecek]',
-            '[Bir önceki nedenin kaynağı yazılacak]',
+            'Planlı bakım iş emirleri zamanında kapatılamadı; gereken kritik yedek parça stokta '
+                + 'bulunamadığı için işler beklemeye alındı. '
+                + '[Bekleyen iş emirlerinin malzeme durumundan doğrulanacak]',
+            'Kritik yedek parça listesi güncel değil: ekipman revizyonları, yeni makineler ve '
+                + 'muadil parçalar listeye işlenmemiş, min–max stok seviyeleri arıza sıklığına ve '
+                + 'tedarik süresine göre gözden geçirilmemiş. [Liste ile ekipman envanteri '
+                + 'karşılaştırılarak doğrulanacak]',
         ],
+        kokNeden: 'Kritik yedek parça listesinin güncellenmesi için tanımlı bir periyot ve sorumlu '
+            + 'yok; liste ilk kurulumda oluşturulmuş, ekipman değişikliklerinde güncellenmiyor. '
+            + '[Yukarıdaki halkalar doğrulandıktan sonra kesinleşir]',
+        kacisKokNeden: 'Malzeme bekleyen bakım iş emirleri için eskalasyon ve erken uyarı '
+            + 'tanımlı değil; sapma ancak ay kapanışında görülüyor. '
+            + '[Doğrulandıktan sonra kesinleşir]',
     },
     kalite: {
         gecici: [
@@ -148,6 +165,8 @@ export interface TaslakSonuc {
     problemTanimi: string;
     occurrence: { id: string; why: string; because: string }[];
     nonDetection: { id: string; why: string; because: string }[];
+    occurrenceRootCause: string;
+    nonDetectionRootCause: string;
     uygulamaDogrulama: string;
     geciciOnlemler: string;
     kaliciAksiyonlar: { id: string; action: string; responsible: string; dueDate: string; status: string }[];
@@ -316,6 +335,10 @@ export function dofTaslagi(kpi: Kpi, ay: string, yil: number, kardes: Kpi[] = []
     return {
         problemTanimi: satir.join('\n'),
         occurrence, nonDetection,
+        occurrenceRootCause: o0.kokNeden
+            || '[Zincirin son halkası doğrulandıktan sonra yazılacak]',
+        nonDetectionRootCause: o0.kacisKokNeden
+            || '[Dönem içi izlemenin neden tanımlı olmadığı yazılacak]',
         uygulamaDogrulama: dogrulama,
         geciciOnlemler: gecici,
         kaliciAksiyonlar,

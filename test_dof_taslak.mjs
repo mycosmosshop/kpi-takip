@@ -68,6 +68,17 @@ for (let i = 1; i < t.occurrence.length; i++)
 assert.ok(/arıza sayısı arttı/.test(t.occurrence[0].because), 'ilk halka olgu tekrarı olmamalı');
 assert.ok(t.occurrence[0].because.includes(String(beklenenOrt)), 'ilk halka veriye dayanmalı');
 assert.ok(t.occurrence[1].because.includes('plansız'), 'ikinci halka konuya özgü');
+// Zincir sistemsel nedene inmeli, ucuncu halkada kesilmemeli
+assert.ok(t.occurrence.length >= 4, 'zincir en az 4 halka');
+assert.ok(/yedek parça/i.test(t.occurrence.map(x => x.because).join(' ')), 'zincir yedek parçaya iniyor');
+assert.ok(/periyot ve sorumlu/i.test(t.occurrenceRootCause), 'kök neden sistemsel');
+assert.ok(t.occurrenceRootCause.includes('['), 'kök neden doğrulanmadan kesin yazılmamalı');
+assert.ok(t.nonDetectionRootCause.length > 30, 'kaçış kök nedeni dolu');
+// Kalite KPI'sinda yedek parca zinciri GELMEMELI
+const kaliteT = dofTaslagi({ id: 'k8', proses: 'Muayene', kpi_adi: 'İç PPM Oranı',
+  yeni_yil_hedef: 1000, karsilastirma: '<=', birim: 'ppm', aylik: { Haziran: 9375 } }, 'Haziran', 2026);
+assert.ok(!/yedek parça/i.test(kaliteT.occurrence.map(x => x.because).join(' ')),
+  'kalite KPI bakım zincirini almamalı');
 assert.ok(t.occurrence.some(x => x.because.includes('[')), 'doğrulanmamış halkalar işaretli');
 assert.ok(t.nonDetection[0].why.includes('fark edilmedi'), 'kaçış problem cümlesi');
 assert.ok(t.nonDetection[0].because.includes('aylık'), 'kaçış halkası periyodu yazmalı');
@@ -93,7 +104,7 @@ assert.ok(/ariza|arıza|bakım|duruş/i.test(t.geciciOnlemler), 'D3 bakım konus
 assert.ok(t.kaliciAksiyonlar.length >= 3, 'D5 aksiyon listesi');
 assert.ok(t.kaliciAksiyonlar.every(a => a.action && a.status === 'Açık'), 'D5 satır biçimi');
 assert.ok(t.kaliciAksiyonlar.every(a => a.dueDate === ''), 'D5 termin uydurulmamalı');
-assert.ok(t.tekrarinOnlenmesi.includes('Planlı bakım'), 'D7 bakım konusu');
+assert.ok(/yedek parça|bakım/i.test(t.tekrarinOnlenmesi), 'D7 bakım konusu');
 assert.ok(t.takdir.includes('≥ 500'), 'D8 kapanış ölçütü');
 
 // Konu KPI'a göre değişmeli: PPM'de kalite önerileri gelmeli

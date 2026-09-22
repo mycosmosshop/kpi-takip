@@ -387,11 +387,17 @@ const DofModal: React.FC<DofModalProps> = ({ isOpen, onClose, onSave, onUpdateDo
                 () => { n.kaliciAksiyonlar = t.kaliciAksiyonlar as any; });
             const k = prev.kokNedenAnalizi;
             if (k) {
-                yaz(bosZincir(k.occurrence), 'D4 oluşum',
-                    () => { n.kokNedenAnalizi = { ...k, occurrence: t.occurrence }; });
+                // Zincirle birlikte ekrandaki "Kök Neden" kutusu da yazilir;
+                // bos kalinca 5N yarim gorunuyordu.
+                yaz(bosZincir(k.occurrence), 'D4 oluşum', () => {
+                    n.kokNedenAnalizi = { ...k, occurrence: t.occurrence,
+                        occurrenceRootCause: t.occurrenceRootCause };
+                });
                 const k2 = n.kokNedenAnalizi || k;
-                yaz(bosZincir(k2.nonDetection), 'D4 kaçış',
-                    () => { n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection }; });
+                yaz(bosZincir(k2.nonDetection), 'D4 kaçış', () => {
+                    n.kokNedenAnalizi = { ...k2, nonDetection: t.nonDetection,
+                        nonDetectionRootCause: t.nonDetectionRootCause };
+                });
             }
             setTaslakNot(`${ay}: ${t.ozet.deger} (hedef ${kpi.karsilastirma} ${t.ozet.hedef}) — taslak yazıldı.`
                 + (atlanan.length ? ` Dolu olduğu için atlanan: ${atlanan.join(', ')}.` : '')
