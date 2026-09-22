@@ -1,18 +1,20 @@
 import React, { useRef, useMemo } from 'react';
-import { Dof, Kpi, FiveWhyAnalysis, CorrectiveAction, Status, DofStatus, FtaNode, FaultTreeAnalysis, ParetoAnalysisData } from '../types';
+import { Dof, Kpi, FiveWhyAnalysis, CorrectiveAction, Status, DofStatus, FtaNode, FaultTreeAnalysis, ParetoAnalysisData, Company } from '../types';
 import Modal from './Modal';
 import { kutuphaneYukle } from '../utils/kutuphane';
 import { UserIcon, CalendarIcon, LightBulbIcon, ClipboardCheckIcon, WrenchScrewdriverIcon, ChartBarIcon, PdfIcon, CheckCircleIcon, ClipboardDocumentListIcon } from './icons';
 import { getStatusColorClasses, getSingleMonthStatus } from '../utils/calculations';
 import { AYLAR } from '../constants';
 import ScatterPlotMatrix from './ScatterPlotMatrix';
-import { scatterVerisiVar } from '../constants';
+import { scatterVerisiVar, BRANDS } from '../constants';
 
 interface DofReportViewProps {
     isOpen: boolean;
     onClose: () => void;
     dof: Dof;
     kpi: Kpi;
+    /** Antetteki logo ve unvan icin; verilmezse Sanifoam. */
+    company?: Company;
 }
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; className?: string }> = ({ title, icon, children, className = '' }) => (
     <div className={`mt-6 no-break ${className}`}>
@@ -354,7 +356,7 @@ const ParetoReport: React.FC<{ data?: ParetoAnalysisData }> = ({ data }) => {
 };
 
 
-const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi }) => {
+const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi, company }) => {
     const reportContentRef = useRef<HTMLDivElement>(null);
 
     const ftaDataForReport = useMemo(() => {
@@ -384,6 +386,18 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         return !!String(f.problem || '').trim()
             || (f.categories || []).some(c => (c.causes || []).length > 0);
     }, [k?.fishbone]);
+
+    // Antet icin marka: lokasyon verilmezse Sanifoam.
+    const marka = BRANDS[company || 'sanifoam'] || BRANDS.sanifoam;
+    // "dof-uuid-1790088836156" ham hâliyle antete yazilamaz; sondaki
+    // zaman damgasindan kisa ve tekrarlanabilir bir numara turetilir.
+    const dofNo = useMemo(() => {
+        const ham = String(dof.id || '');
+        const rakam = (ham.match(/(\d{6,})/) || [])[1];
+        if (!rakam) return ham.slice(-8).toUpperCase() || '—';
+        const y = dof.start_date ? String(dof.start_date).slice(0, 4) : '';
+        return `DÖF-${y}-${rakam.slice(-5)}`;
+    }, [dof.id, dof.start_date]);
 
     const relevantMonthData = useMemo(() => {
         if (!dof.start_date) return null;
@@ -476,8 +490,34 @@ const DofReportView: React.FC<DofReportViewProps> = ({ isOpen, onClose, dof, kpi
         <Modal isOpen={isOpen} onClose={onClose} title="8D Raporu" size="5xl">
             <div className="max-h-[80vh] overflow-y-auto" data-dof="report">
                 <div ref={reportContentRef} className="p-4 bg-white dark:bg-gray-800">
-                    <div className="text-center mb-6">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">8D PROBLEM ÇÖZME RAPORU</h1>
+                    {/* Kurumsal antet: PDF'e basilinca hangi firmanin hangi
+                        tarihli 8D'si oldugu belli olsun. Logo yuklenemezse
+                        (dosya adi degisirse) yalnizca gizlenir, antet kalir. */}
+                    <div className="mb-6 border-b-2 border-gray-800 dark:border-gray-300 pb-3 no-break">
+                        <div className="flex items-center justify-between gap-4">
+                            {/* Sol ve sag blok ESIT genislikte; yoksa logo genis
+                                oldugu icin ortadaki baslik saga kayiyor. */}
+                            <div className="flex items-center shrink-0" style={{ width: 200 }}>
+                                <img src={marka.logo} alt=""
+                                     style={{ height: 42, maxWidth: '100%', objectFit: 'contain',
+                                              objectPosition: 'left center' }}
+                                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-wide">
+                                    8D PROBLEM ÇÖZME RAPORU
+                                </h1>
+                                {marka.unvan && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{marka.unvan}</p>
+                                )}
+                            </div>
+                            <div className="text-right text-[11px] leading-5 text-gray-600 dark:text-gray-300 shrink-0" style={{ width: 200 }}>
+                                <p><strong>DÖF No:</strong> {dofNo}</p>
+                                <p><strong>Başlangıç:</strong> {dof.start_date
+                                    ? new Date(dof.start_date).toLocaleDateString('tr-TR') : '—'}</p>
+                                <p><strong>Basım:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
+                            </div>
+                        </div>
                     </div>
                     
                     <div className="mb-6 p-4 border rounded-lg dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 no-break">

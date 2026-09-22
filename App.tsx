@@ -1422,6 +1422,7 @@ const App: React.FC = () => {
                     onClose={handleCloseModal}
                     dof={modal.data.dof}
                     kpi={modal.data.kpi}
+                    company={currentLocObj?.company}
                 />
             )}
             {modal.type === 'copy-dof' && (
