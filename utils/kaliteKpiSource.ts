@@ -111,10 +111,35 @@ const tazele = async (yil: number): Promise<string | null> => {
     } catch { tazelenenYillar.delete(yil); return 'ajan yok'; }
 };
 
+// KANIT Excel'i (her sayının satırları: uygunsuzluklar, hata tipleri, üretim, iadeler, satış, yöntem):
+// LeanSys ajanı /kpikanit → D:\Yazılım\16QA\kpi_kalite_kanit.py üretip kaydeder; indir=true ise dosya döner.
+// Yalnız ajanın çalıştığı bilgisayarda olur (LeanSys'e erişim orada); başka yerde her gün 12:00'deki dosya kalır.
+const AJAN_KANIT = 'http://127.0.0.1:17777/kpikanit';
+export const kanitUret = async (location: string, year: number, indir: boolean): Promise<{ ok: boolean; yol?: string; hata?: string }> => {
+    try {
+        const r = await fetch(`${AJAN_KANIT}?yer=${encodeURIComponent(sade(location))}&yil=${year}&indir=${indir ? 1 : 0}`);
+        const j = await r.json();
+        if (!j || !j.ok) return { ok: false, hata: j?.error || 'kanıt üretilemedi' };
+        if (indir && j.b64) {
+            const ikili = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0));
+            const url = URL.createObjectURL(new Blob([ikili], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+            const a = document.createElement('a'); a.href = url; a.download = j.ad || `KPI ${year} kanit.xlsx`; a.click();
+            URL.revokeObjectURL(url);
+        }
+        return { ok: true, yol: j.yol };
+    } catch { return { ok: false, hata: 'LeanSys ajanı bu bilgisayarda çalışmıyor' }; }
+};
+
+// LeanSys çekiminden sonra kanıt dosyası arka planda tazelenir — oturumda lokasyon×yıl başına bir kez
+// (her KPI satırında yeniden üretmek gereksiz; aynı veriden çıkar).
+const kanitTazelenen = new Set<string>();
+
 export const fetchKaliteMetrics = async (
     location: string, year: number, kapsam: KaliteKapsam = 'tum',
 ): Promise<{ [month: number]: AyDeger }> => {
     await tazele(year);
+    const kk = `${sade(location)}|${year}`;
+    if (!kanitTazelenen.has(kk)) { kanitTazelenen.add(kk); kanitUret(location, year, false).then(s => { if (!s.ok) kanitTazelenen.delete(kk); }); }
     const hepsi = await satirlariOku();
     if (!hepsi.some(r => n(r.yil) === year && yerEslesir(r.yer, location))) {
         throw new Error(`${year} / "${location}" için LeanSys kalite verisi yok. LeanSys ajanının çalıştığı bilgisayardan bir kez çekin (/kpikalite).`);

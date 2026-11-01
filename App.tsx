@@ -21,7 +21,7 @@ import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
-import { fetchKaliteMetrics, KaliteKapsam } from './utils/kaliteKpiSource';
+import { fetchKaliteMetrics, KaliteKapsam, kanitUret } from './utils/kaliteKpiSource';
 import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
 import { sonrakiYilaKopya } from './utils/hedefTavsiye';
 import { kpiAnahtari } from './utils/yilKarsilastirma';
@@ -799,11 +799,22 @@ const App: React.FC = () => {
             URL.revokeObjectURL(url);
 
             setNotification({ message: `${currentBrand.docNo} Excel raporu başarıyla oluşturuldu.`, type: 'success' });
+
+            // LeanSys Kalite'ye bağlı satır varsa kanıt Excel'i de üretilip indirilir (aynı veriden, satır satır)
+            const kaliteli = kpiData.kpis.find(k => k.kaynak?.type === 'kalite');
+            if (kaliteli) {
+                const loc = kaliteli.kaynak?.location?.trim() || currentLocObj.name;
+                setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kalite kanıt Excel'i hazırlanıyor (~30 sn)…`, type: 'success' });
+                const s = await kanitUret(loc, kpiData.yil, true);
+                setNotification(s.ok
+                    ? { message: `${currentBrand.docNo} Excel'i ve LeanSys kalite kanıt Excel'i indirildi. Kanıt ayrıca kaydedildi: ${s.yol}`, type: 'success' }
+                    : { message: `${currentBrand.docNo} Excel'i indirildi; kanıt Excel'i üretilemedi: ${s.hata}`, type: 'error' });
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen Excel oluşturma hatası';
             setNotification({ message: `Excel oluşturulamadı: ${errorMessage}`, type: 'error' });
         }
-    }, [filteredData, kpiData.yil, currentBrand, currentLocObj]);
+    }, [filteredData, kpiData.yil, kpiData.kpis, currentBrand, currentLocObj]);
 
     // ── Aksiyon Maddeleri (FR216) ──
     const currentActionData: ActionYearData = useMemo(
