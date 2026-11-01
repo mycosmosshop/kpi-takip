@@ -44,7 +44,12 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Ay = sipariş satırının ilk irsaliye ayı.',
     kalite_qi: 'Kalite Uygunsuzlukları Adedi = o ay açılan tekil uygunsuzluk kaydı (iç + dış + tedarikçi; NC seri + sıra ile tekil).',
     kalite_sikayet: 'Müşteri Şikayeti = uygunsuzluk tipi "Dış Başarısızlık" olan kayıt sayısı (yalnız LeanSys\'e girilenler).',
-    kalite_ic_ppm: 'İç PPM = iç başarısızlık kayıtlarında Σ hatalı miktar / Σ kontrol miktarı × 1.000.000.',
+    kalite_ic_ppm:
+        'İç PPM = (iç başarısızlık hatalı miktarı − ek yeri) / aynı ay ve aynı birimdeki üretim miktarı × 1.000.000.\n'
+        + '  · Payda üretimdir (2025 İç PPM dosyasıyla aynı). Kontrol miktarı yalnız uygunsuzluk açılan partileri içerir, kullanılmaz.\n'
+        + '  · Ek yeri hariç: rulo malzemede bilerek bulunur, ayıklanması planlıdır → fire olarak ayrı izlenir.\n'
+        + '  · Çap kesim, keçe tüylenmesi, selülozsuz kısım, oluk formu gibi ürün hataları dahildir (karar düşük kalite olsa da).',
+    kalite_fire_ppm: 'Ek Yeri Firesi PPM = hata tipi "Ek Yeri" olan iç uygunsuzluk miktarı / üretim miktarı × 1.000.000 (planlı ayıklama; iç PPM\'e girmez).',
     kalite_iade_ppm:
         'Dış İade PPM = müşteri iade miktarı / aynı ay ve aynı birimdeki sevk miktarı × 1.000.000.\n'
         + '  · Müşteri iadesi = mal kabul (evrak tipi 13) "iade" işaretli satırlar; 9xx hammadde/ambalaj (fason malzeme) hariç.\n'

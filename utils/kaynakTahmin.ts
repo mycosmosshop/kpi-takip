@@ -33,6 +33,7 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
     if (!satinalma) {
         if (t.includes('ppm') && (t.includes('dış iade') || t.includes('dis iade') || t.includes('toplam iade') || t.includes('external'))) return { type: 'kalite', metric: 'kalite_iade_ppm' };
         if (t.includes('iç ppm') || t.includes('ic ppm') || t.includes('internal ppm')) return { type: 'kalite', metric: 'kalite_ic_ppm' };
+        if (t.includes('ek yeri') && (t.includes('fire') || t.includes('ppm'))) return { type: 'kalite', metric: 'kalite_fire_ppm' };
         // "Adedi" 'adet' içermez (adeDi) — ikisi de aranır
         if (t.includes('uygunsuzluk') && (t.includes('adet') || t.includes('aded') || t.includes('sayı') || t.includes('sayi') || t.includes('(qi)'))) return { type: 'kalite', metric: 'kalite_qi' };
         if (t.includes('müşteri şikayet') || t.includes('musteri sikayet')) return { type: 'kalite', metric: 'kalite_sikayet' };
