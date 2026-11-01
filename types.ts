@@ -150,19 +150,21 @@ export interface Risk {
     riskSeviyesi: RiskLevel;
 }
 
-export type SourceType = 'cmms' | 'egitim' | 'tedarikci' | 'siparis';
+export type SourceType = 'cmms' | 'egitim' | 'tedarikci' | 'siparis' | 'kalite';
 export type SourceMetric =
     | 'mtbf' | 'mttr' | 'availability' | 'pmr' | 'pmc' | 'unplanned' | 'mttf'
     | 'cost'                                                                   // CMMS (Bakım)
     | 'egitim_sure' | 'egitim_gerceklesme'                                     // Eğitim
     | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin'    // Tedarikçi Değerlendirme
-    | 'siparis_tamamlanma';                                                    // Sipariş tamamlanma (sevk raporu 0157)
+    | 'siparis_tamamlanma'                                                     // Sipariş tamamlanma (sevk raporu 0157)
+    | 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_iade_ppm'
+    | 'kalite_maliyet' | 'kalite_oran';                                         // LeanSys kalite (/kpikalite)
 
 export interface KpiSource {
     type: SourceType;
     metric: SourceMetric;
     location?: string;   // kaynak lokasyonu (boşsa app lokasyon adı kullanılır)
-    scope?: string;      // tedarikçi kapsamı: 'tum'|'onayli'|'otomotiv'|'onayli_otomotiv'|'filtre'
+    scope?: string;      // tedarikçi kapsamı: 'tum'|'onayli'|'otomotiv'|'onayli_otomotiv'|'filtre'; kalite: 'tum'|'vileda'|'diger'
     filterId?: number;   // scope='filtre' iken onaylı sistemdeki kayıtlı filtre id'si
     filterName?: string; // kayıtlı filtre adı (görünüm için)
     formula?: string;    // opsiyonel; 'x' = kaynaktan çekilen değer (ör. x/60)

@@ -21,6 +21,7 @@ import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
+import { fetchKaliteMetrics, KaliteKapsam } from './utils/kaliteKpiSource';
 import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
 import { sonrakiYilaKopya } from './utils/hedefTavsiye';
 import { kpiAnahtari } from './utils/yilKarsilastirma';
@@ -460,6 +461,9 @@ const App: React.FC = () => {
             } else if (source.type === 'siparis') {
                 // Sipariş tamamlanma: LeanSys/Mikro sevk raporu (0157) → siparis_tamamlanma
                 map = await fetchSiparisMetrics(loc, currentYear);
+            } else if (source.type === 'kalite') {
+                // LeanSys kalite: uygunsuzluk / iç PPM / iade PPM / kalite maliyeti (Vileda-Diğer kırılımlı)
+                map = await fetchKaliteMetrics(loc, currentYear, (source.scope as KaliteKapsam) || 'tum');
             } else {
                 map = await fetchCmmsMetrics(loc, currentYear);
             }
@@ -492,7 +496,8 @@ const App: React.FC = () => {
             }));
             const srcLabel = source.type === 'egitim' ? 'Eğitim'
                 : source.type === 'tedarikci' ? 'Tedarikçi Değ.'
-                : source.type === 'siparis' ? 'Sipariş Tamamlanma' : 'CMMS';
+                : source.type === 'siparis' ? 'Sipariş Tamamlanma'
+                : source.type === 'kalite' ? 'LeanSys Kalite' : 'CMMS';
             if (filled === 0) {
                 setNotification({ message: `${srcLabel}: "${loc}" · ${currentYear} için veri bulunamadı (tüm aylar NA). Lokasyon adı kaynaktakiyle aynı mı?`, type: 'error' });
             } else {

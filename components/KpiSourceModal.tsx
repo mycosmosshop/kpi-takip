@@ -4,6 +4,8 @@ import Modal from './Modal';
 import { fetchCmmsLocations } from '../utils/cmmsSource';
 import { fetchEgitimLocations } from '../utils/egitimSource';
 import { fetchSiparisDepolar } from '../utils/siparisSource';
+import { fetchKaliteYerleri } from '../utils/kaliteKpiSource';
+import { KALITE_KAPSAM } from '../utils/kaynakAciklama';
 import { fetchSupplierFilters, SupplierFilter } from '../utils/supplierEval';
 import { kaynakTahmini } from '../utils/kaynakTahmin';
 
@@ -41,6 +43,14 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
     ],
     siparis: [
         { v: 'siparis_tamamlanma', l: 'Sipariş Tamamlanma (%) — sipariş satırı bazında sevk/sipariş' },
+    ],
+    kalite: [
+        { v: 'kalite_qi', l: 'Kalite Uygunsuzlukları Adedi' },
+        { v: 'kalite_ic_ppm', l: 'İç PPM (Σ hatalı / Σ kontrol × 1.000.000)' },
+        { v: 'kalite_iade_ppm', l: 'Dış (Müşteri) İade PPM' },
+        { v: 'kalite_sikayet', l: 'Müşteri Şikayeti (LeanSys dış başarısızlık)' },
+        { v: 'kalite_maliyet', l: 'Kalite Maliyeti (TL — hurda + iade)' },
+        { v: 'kalite_oran', l: 'Kalite Maliyeti / Satış (%)' },
     ],
 };
 
@@ -90,6 +100,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
         // Sipariş kaynağında liste DEPO adlarıdır ("ANKARA ÜRÜN DEPO"); lokasyon
         // adı depo adının içinde geçtiği için önek eşleşmesiyle süzülür.
         const fn = t === 'siparis' ? fetchSiparisDepolar
+            : t === 'kalite' ? fetchKaliteYerleri
             : t === 'egitim' ? fetchEgitimLocations : fetchCmmsLocations;
         fn().then(ls => {
             setLocs(ls);
@@ -108,7 +119,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
             : (kaynakTahmini(kpi) ?? { type: 'cmms' as SourceType, metric: 'mtbf' as SourceMetric });
         setType(g.type);
         setMetric(g.metric);
-        setScope(kpi.kaynak?.scope || 'onayli');
+        setScope(kpi.kaynak?.scope || (g.type === 'kalite' ? 'tum' : 'onayli'));
         setFilterId(kpi.kaynak?.filterId);
         const loc0 = kpi.kaynak?.location || defaultLocation;
         setLocation(loc0);
@@ -122,6 +133,8 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
         setType(t);
         const m = METRICS[t][0].v;
         setMetric(m);
+        if (t === 'kalite') setScope('tum');
+        else if (t === 'tedarikci') setScope('onayli');
         loadLocs(t, location || defaultLocation);
     };
 
@@ -132,7 +145,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
         await onPull(kpi.id, {
             type, metric,
             location: useFilter ? undefined : (location.trim() || undefined),
-            scope: type === 'tedarikci' ? scope : undefined,
+            scope: (type === 'tedarikci' || type === 'kalite') ? scope : undefined,
             filterId: useFilter ? filterId : undefined,
             filterName: useFilter ? sel?.name : undefined,
             formula: formula.trim() || undefined,
@@ -167,6 +180,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                             <option value="egitim">Eğitim &amp; Polivalans</option>
                             <option value="tedarikci">Tedarikçi Değerlendirme</option>
                             <option value="siparis">Sipariş Tamamlanma (sevk raporu)</option>
+                            <option value="kalite">LeanSys Kalite (uygunsuzluk · PPM · kalite maliyeti)</option>
                         </select>
                     </div>
                     <div>
@@ -179,10 +193,20 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
 
                 {!(type === 'tedarikci' && scope === 'filtre') && (
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : type === 'tedarikci' ? 'Teslim yeri' : 'CMMS'})</label>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Lokasyon ({type === 'egitim' ? 'Eğitim' : type === 'tedarikci' ? 'Teslim yeri' : type === 'kalite' ? 'LeanSys şube' : type === 'siparis' ? 'Depo' : 'CMMS'})</label>
                         <input list="srcLocs" value={location} onChange={e => setLocation(e.target.value)} placeholder={defaultLocation} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
                         <datalist id="srcLocs">{locs.map(l => <option key={l} value={l} />)}</datalist>
                         <p className="text-[11px] text-gray-400 mt-1">{type === 'tedarikci' ? 'Tedarikçinin mal verdiği (teslim) lokasyon. Boş = tüm lokasyonlar.' : <>Kaynaktaki lokasyon adıyla birebir eşleşmeli. {locs.length > 0 && `Bulunanlar: ${locs.join(', ')}`}</>}</p>
+                    </div>
+                )}
+
+                {type === 'kalite' && (
+                    <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Kapsam (ürün grubu)</label>
+                        <select value={scope} onChange={e => setScope(e.target.value)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                            {Object.entries(KALITE_KAPSAM).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                        <p className="text-[11px] text-gray-400 mt-1">Vileda ve diğer ürünleri ayrı KPI satırında izlemek için her satırın kapsamını ayrı seçin. Bu bilgisayarda LeanSys ajanı açıksa çekmeden önce LeanSys'ten tazelenir (birkaç dakika sürebilir); değilse son çekim kullanılır.</p>
                     </div>
                 )}
 

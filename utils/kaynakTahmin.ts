@@ -15,6 +15,7 @@ export const KAYNAK_ADI: Record<SourceType, string> = {
     egitim: 'Eğitim',
     tedarikci: 'Tedarikçi Değ.',
     siparis: 'Sipariş Tamamlanma',
+    kalite: 'LeanSys Kalite',
 };
 
 export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: SourceMetric } | null => {
@@ -24,6 +25,19 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
     const kucuk = (x: string) => (x || '').toLowerCase().replace(/̇/g, '');
     const p = kucuk(kpi?.proses || '');
     const t = kucuk(kpi?.kpi_adi || '');
+    // LeanSys kalite KPI'ları — tedarikçi değerlendirmesinden ÖNCE: "Dış İade PPM"
+    // ve "Toplam İade PPM" müşteri iadesidir; aşağıdaki 'iade'+'ppm' kuralı onları
+    // tedarikçi iade PPM'i sanıyordu. Adında tedarikçi geçen ya da Satınalma
+    // prosesindeki KPI'lar tedarikçide kalır.
+    const satinalma = p.includes('satınalma') || p.includes('satinalma') || t.includes('tedarik');
+    if (!satinalma) {
+        if (t.includes('ppm') && (t.includes('dış iade') || t.includes('dis iade') || t.includes('toplam iade') || t.includes('external'))) return { type: 'kalite', metric: 'kalite_iade_ppm' };
+        if (t.includes('iç ppm') || t.includes('ic ppm') || t.includes('internal ppm')) return { type: 'kalite', metric: 'kalite_ic_ppm' };
+        // "Adedi" 'adet' içermez (adeDi) — ikisi de aranır
+        if (t.includes('uygunsuzluk') && (t.includes('adet') || t.includes('aded') || t.includes('sayı') || t.includes('sayi') || t.includes('(qi)'))) return { type: 'kalite', metric: 'kalite_qi' };
+        if (t.includes('müşteri şikayet') || t.includes('musteri sikayet')) return { type: 'kalite', metric: 'kalite_sikayet' };
+        if (t.includes('kalite maliyet')) return { type: 'kalite', metric: (t.includes('oran') || t.includes('bütçe') || t.includes('butce')) ? 'kalite_oran' : 'kalite_maliyet' };
+    }
     // Tedarikçi değerlendirme KPI'ları (Satınalma prosesi)
     if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm')) || (p.includes('satınalma') || p.includes('satinalma'))) {
         if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_terminpuan' };

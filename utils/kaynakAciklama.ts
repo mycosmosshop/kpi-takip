@@ -13,6 +13,7 @@ const KAYNAK: Record<SourceType, string> = {
     egitim: 'Eğitim & Polivalans',
     tedarikci: 'Onaylı Tedarikçi Değerlendirme',
     siparis: 'LeanSys / Mikro Sevkiyat Raporu (0157)',
+    kalite: 'LeanSys Uygunsuzluk Raporu + mal kabul iadeleri + sevk / satış (LeanSys ajanı /kpikalite)',
 };
 
 // Her metriğin hesabı — denetimde "bu sayı nereden geliyor?" sorusunun cevabı.
@@ -41,6 +42,22 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Sadece çıkış hareketleri; depolar arası transferler ve siparişe bağlı olmayan\n'
         + '    sevkiyatlar (sipariş miktarı 0) hariç.\n'
         + '  · Ay = sipariş satırının ilk irsaliye ayı.',
+    kalite_qi: 'Kalite Uygunsuzlukları Adedi = o ay açılan tekil uygunsuzluk kaydı (iç + dış + tedarikçi; NC seri + sıra ile tekil).',
+    kalite_sikayet: 'Müşteri Şikayeti = uygunsuzluk tipi "Dış Başarısızlık" olan kayıt sayısı (yalnız LeanSys\'e girilenler).',
+    kalite_ic_ppm: 'İç PPM = iç başarısızlık kayıtlarında Σ hatalı miktar / Σ kontrol miktarı × 1.000.000.',
+    kalite_iade_ppm:
+        'Dış İade PPM = müşteri iade miktarı / aynı ay ve aynı birimdeki sevk miktarı × 1.000.000.\n'
+        + '  · Müşteri iadesi = mal kabul (evrak tipi 13) "iade" işaretli satırlar; 9xx hammadde/ambalaj (fason malzeme) hariç.\n'
+        + '  · İade yoksa ve sevk varsa 0; o ay sevk yoksa boş (NA).',
+    kalite_maliyet:
+        'Kalite Maliyeti (TL) = yalnız hurdaya ayrılan ve iade edilenler:\n'
+        + '  · Uygunsuzluk kararı Hurda / Tedarikçiye iade → hatalı miktar × birim fiyat\n'
+        + '  · Müşteri iadesi → iade miktarı × iade birim fiyatı\n'
+        + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
+        + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
+    kalite_oran:
+        'Kalite Maliyeti Oranı (%) = kalite maliyeti / lokasyon satış tutarı × 100.\n'
+        + '  · Bütçe LeanSys\'te ve Mikro\'da tutulmadığı için payda satış tutarıdır (SAT003, Saniteks iç satışı dahil).',
 };
 
 const KAPSAM: { [k: string]: string } = {
@@ -49,6 +66,12 @@ const KAPSAM: { [k: string]: string } = {
     otomotiv: 'Sadece otomotiv tedarikçileri',
     onayli_otomotiv: 'Onaylı + otomotiv tedarikçileri',
     filtre: 'Onaylı sistemdeki kayıtlı filtre',
+};
+
+export const KALITE_KAPSAM: { [k: string]: string } = {
+    tum: 'Tüm ürünler',
+    vileda: 'Yalnız Vileda (stok 140./191., VL / Glitzi, FHP malzemesi)',
+    diger: 'Vileda hariç tüm ürünler',
 };
 
 // Çekim sonrası açıklama bloğu
@@ -64,6 +87,9 @@ export const kaynakAciklamasi = (
     if (source.type === 'tedarikci') {
         const kap = KAPSAM[source.scope || 'onayli'] || source.scope || '';
         s.push(`Kapsam: ${kap}${source.filterName ? ` — "${source.filterName}"` : ''}`);
+    }
+    if (source.type === 'kalite') {
+        s.push(`Kapsam: ${KALITE_KAPSAM[source.scope || 'tum'] || source.scope}`);
     }
     s.push(`Lokasyon: ${loc === '__ALL__' ? 'tüm lokasyonlar' : loc} · Yıl: ${year}`);
     // Formül varsa değeri değiştiriyor demektir — açıklamada görünmeli.
