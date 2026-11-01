@@ -86,15 +86,23 @@ const satirlariOku = async (): Promise<KaliteSatir[]> => {
 // Bu bilgisayarda LeanSys ajanı çalışıyorsa önce tazelemeyi dener (LeanSys'e
 // erişimi olan tek yer ajan). Ajan yoksa/başarısızsa Supabase'teki son çekim
 // okunur — başka bilgisayardan açan kullanıcı da çekebilsin.
+// Tazeleme tüm şubeleri baştan hesaplar (ölçüm: ~9 dk). Aynı sayfa oturumunda
+// yıl başına BİR KEZ yapılır; sonraki KPI satırları Supabase'teki taze çekimi
+// okur. Yoksa her satır bağlanırken 9 dk beklenirdi.
+const tazelenenYillar = new Set<number>();
 const tazele = async (yil: number): Promise<string | null> => {
+    if (tazelenenYillar.has(yil)) return null;
+    tazelenenYillar.add(yil);
     try {
         const ctl = new AbortController();
         const zaman = setTimeout(() => ctl.abort(), 600000);
         const r = await fetch(`${AJAN}?from=${yil}-01-01&to=${yil + 1}-01-01`, { signal: ctl.signal });
         clearTimeout(zaman);
         const j = await r.json();
-        return j && j.ok ? null : (j?.error || 'ajan hatası');
-    } catch { return 'ajan yok'; }
+        if (j && j.ok) return null;
+        tazelenenYillar.delete(yil);   // başarısız tazeleme bir sonraki çekimde yeniden denensin
+        return j?.error || 'ajan hatası';
+    } catch { tazelenenYillar.delete(yil); return 'ajan yok'; }
 };
 
 export const fetchKaliteMetrics = async (

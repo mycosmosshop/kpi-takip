@@ -206,7 +206,7 @@ const KpiSourceModal: React.FC<KpiSourceModalProps> = ({ isOpen, onClose, kpi, d
                         <select value={scope} onChange={e => setScope(e.target.value)} className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
                             {Object.entries(KALITE_KAPSAM).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
-                        <p className="text-[11px] text-gray-400 mt-1">Vileda ve diğer ürünleri ayrı KPI satırında izlemek için her satırın kapsamını ayrı seçin. Bu bilgisayarda LeanSys ajanı açıksa çekmeden önce LeanSys'ten tazelenir (birkaç dakika sürebilir); değilse son çekim kullanılır.</p>
+                        <p className="text-[11px] text-gray-400 mt-1">Vileda ve diğer ürünleri ayrı KPI satırında izlemek için her satırın kapsamını ayrı seçin. Bu bilgisayarda LeanSys ajanı açıksa oturumdaki İLK çekimde LeanSys'ten tazelenir (~10 dk sürebilir); sonraki satırlar hazır veriyi kullanır. Ajan yoksa son çekim kullanılır.</p>
                     </div>
                 )}
 
