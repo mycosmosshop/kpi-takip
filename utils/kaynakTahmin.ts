@@ -32,6 +32,9 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
     const satinalma = p.includes('satınalma') || p.includes('satinalma') || t.includes('tedarik');
     if (!satinalma) {
         if (t.includes('ppm') && (t.includes('dış iade') || t.includes('dis iade') || t.includes('toplam iade') || t.includes('external'))) return { type: 'kalite', metric: 'kalite_iade_ppm' };
+        // "İade PPM — Vileda" gibi kısa adlar müşteri iadesidir; "İç iade PPM" belirsiz, tahmin edilmez
+        if (t.includes('iade') && t.includes('ppm') && !t.includes('iç iade') && !t.includes('ic iade')) return { type: 'kalite', metric: 'kalite_iade_ppm' };
+        if (t.startsWith('qi ') || t.startsWith('qi—') || t.startsWith('qi —')) return { type: 'kalite', metric: 'kalite_qi' };
         if (t.includes('iç ppm') || t.includes('ic ppm') || t.includes('internal ppm')) return { type: 'kalite', metric: 'kalite_ic_ppm' };
         if (t.includes('ek yeri') && (t.includes('fire') || t.includes('ppm'))) return { type: 'kalite', metric: 'kalite_fire_ppm' };
         // "Adedi" 'adet' içermez (adeDi) — ikisi de aranır
@@ -40,7 +43,8 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
         if (t.includes('kalite maliyet')) return { type: 'kalite', metric: (t.includes('oran') || t.includes('bütçe') || t.includes('butce')) ? 'kalite_oran' : 'kalite_maliyet' };
     }
     // Tedarikçi değerlendirme KPI'ları (Satınalma prosesi)
-    if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm')) || (p.includes('satınalma') || p.includes('satinalma'))) {
+    const icIade = t.includes('iç iade') || t.includes('ic iade');   // üretim/paketleme iç iadesi — tedarikçi değil, belirsiz
+    if (t.includes('tedarikçi değerlend') || t.includes('tedarikci degerlend') || (t.includes('iade') && t.includes('ppm') && !icIade) || (p.includes('satınalma') || p.includes('satinalma'))) {
         if (t.includes('termin')) return { type: 'tedarikci', metric: 'td_terminpuan' };
         if (t.includes('ppm') && (t.includes('göre') || t.includes('gore') || t.includes('puan'))) return { type: 'tedarikci', metric: 'td_ppmpuan' };
         if (t.includes('ppm') || t.includes('iade')) return { type: 'tedarikci', metric: 'iade_ppm' };

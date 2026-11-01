@@ -62,6 +62,9 @@ const KpiModal: React.FC<KpiModalProps> = ({ isOpen, onClose, onSave, kpiData })
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const fullKpi: Kpi = {
+            // Formda olmayan alanlar (kaynak bağlantısı vb.) korunur: önceden yalnız aşağıda
+            // sayılanlar yazılıyordu, bağlı bir KPI'nın adı değişince LeanSys/CMMS bağlantısı siliniyordu.
+            ...(kpi as Kpi),
             id: kpi.id || `kpi-uuid-${Date.now()}`,
             proses: kpi.proses || '',
             kpi_adi: kpi.kpi_adi || '',

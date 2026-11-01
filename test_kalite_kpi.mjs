@@ -53,6 +53,9 @@ assert.deepStrictEqual(k('Kalite', 'Toplam İade PPM Total Return PPM'), { type:
 assert.deepStrictEqual(k('Paketleme Prosesi', 'Dış İade PPM External Returns PPM'), { type: 'kalite', metric: 'kalite_iade_ppm' });
 assert.deepStrictEqual(k('Kalite', 'İç PPM internal PPM'), { type: 'kalite', metric: 'kalite_ic_ppm' });
 assert.deepStrictEqual(k('Kalite', 'Ek Yeri Firesi PPM'), { type: 'kalite', metric: 'kalite_fire_ppm' });
+assert.deepStrictEqual(k('Kalite', 'İade PPM — Vileda'), { type: 'kalite', metric: 'kalite_iade_ppm' });
+assert.deepStrictEqual(k('Kalite', 'QI — Diğer (Vileda hariç)'), { type: 'kalite', metric: 'kalite_qi' });
+assert.strictEqual(k('Üretim Prosesi', 'İç iade PPM Internal return PPM'), null);   // belirsiz, tahmin edilmez
 assert.deepStrictEqual(k('Kalite', 'Kalite Uygunsuzlukları Adedi (QI)'), { type: 'kalite', metric: 'kalite_qi' });
 assert.deepStrictEqual(k('Kalite', 'Müşteri Şikayetleri Miktarı'), { type: 'kalite', metric: 'kalite_sikayet' });
 assert.deepStrictEqual(k('Kalite', 'Kalite Maliyetlerinin Aylık Bütçeye Oranı'), { type: 'kalite', metric: 'kalite_oran' });
