@@ -66,6 +66,11 @@ const HESAP: Record<SourceMetric, string> = {
         + '    dış başarısızlık uygunsuzluğu var. Diğer iadeler (ör. sevkiyat fazlası) iade PPM\'e girer, maliyete girmez.\n'
         + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
+    finans_ebitda:
+        'EBITDA (%) = Veliköy tesisi EBITDA ÷ konsolide satış × 100, yılbaşından o aya kümülatif (Mikro muhasebe).\n'
+        + '  · Sanifoam Veliköy (sorumluluk merkezi 1xxx): satış − hammadde alımı − işçilik − genel üretim − pazarlama − genel yönetim; amortisman hariç.\n'
+        + '  · Genel merkez (SM 5xxx/8xxx/9xxx ve SM\'siz) giderleri satış payıyla, SM\'siz hammadde alımı alım payıyla dağıtılır; dönem maliyet fişleri hariç.\n'
+        + '  · Saniteks eklenir (SMM = satış × yıllık 621 oranı); Saniteks\'e iç satış satıştan düşülür. Sayım ayında stok farkı, Aralık\'ta Saniteks stoğundaki gerçekleşmemiş kâr düşülür.',
     kalite_oee_uretim:
         'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
         + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy 12 saat (12/24), diğer lokasyonlar 8 saat).\n'

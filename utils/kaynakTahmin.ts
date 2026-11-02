@@ -39,6 +39,7 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
             if (p.includes('paketleme')) return { type: 'kalite', metric: 'kalite_ic_ppm_paket' };
             if (p.includes('üretim') || p.includes('uretim')) return { type: 'kalite', metric: 'kalite_ic_ppm_uretim' };
         }
+        if (t.includes('ebidta') || t.includes('ebitda')) return { type: 'kalite', metric: 'finans_ebitda' };
         if (t.includes('oee') || t.includes('ekipman etkinli')) {
             if (p.includes('paketleme')) return { type: 'kalite', metric: 'kalite_oee_paket' };
             if (p.includes('üretim') || p.includes('uretim')) return { type: 'kalite', metric: 'kalite_oee_uretim' };
