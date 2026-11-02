@@ -53,11 +53,13 @@ const HESAP: Record<SourceMetric, string> = {
     kalite_iade_ppm:
         'Dış İade PPM = müşteri iade miktarı / aynı ay ve aynı birimdeki sevk miktarı × 1.000.000.\n'
         + '  · Müşteri iadesi = mal kabul (evrak tipi 13) "iade" işaretli satırlar; 9xx hammadde/ambalaj (fason malzeme) hariç.\n'
+        + '  · Her iade girer (kalite dışı nedenli olanlar da — sevkiyat fazlası vb.); nedeni kanıt Excel\'inde.\n'
         + '  · İade yoksa ve sevk varsa 0; o ay sevk yoksa boş (NA).',
     kalite_maliyet:
         'Kalite Maliyeti (TL) = yalnız hurdaya ayrılan ve iade edilenler:\n'
         + '  · Uygunsuzluk kararı Hurda / Tedarikçiye iade → hatalı miktar × birim fiyat\n'
-        + '  · Müşteri iadesi → iade miktarı × iade birim fiyatı\n'
+        + '  · Kalite kaynaklı müşteri iadesi → iade miktarı × iade birim fiyatı. Kalite kaynaklı = aynı stokta iadeden önceki 30 gün içinde\n'
+        + '    dış başarısızlık uygunsuzluğu var. Diğer iadeler (ör. sevkiyat fazlası) iade PPM\'e girer, maliyete girmez.\n'
         + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
     kalite_oran:
