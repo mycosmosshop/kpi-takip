@@ -26,10 +26,14 @@ const TR: { [k: string]: string } = { 'Ç': 'C', 'Ö': 'O', 'Ü': 'U', 'İ': 'I'
 export const sade = (x: string): string =>
     String(x || '').toLocaleUpperCase('tr').trim().replace(/[ÇÖÜİIŞĞ]/g, c => TR[c]);
 
-// tespitYeri lokasyona ait mi? "ANKARA SUBESI" → "Ankara"
+// KPI Takip lokasyon adı ≠ LeanSys / Mikro şube adı: Adapazarı tesisi kaynaklarda HENDEK (Sakarya / Hendek; kullanıcı 02.11.2026)
+const KAYNAK_ADI: { [lokasyon: string]: string } = { ADAPAZARI: 'HENDEK' };
+export const kaynakYeri = (lokasyon: string): string => KAYNAK_ADI[sade(lokasyon)] || sade(lokasyon);
+
+// tespitYeri lokasyona ait mi? "ANKARA SUBESI" → "Ankara"; "HENDEK ..." → "Adapazarı"
 export const yerEslesir = (tespitYeri: string, lokasyon: string): boolean => {
-    const y = sade(tespitYeri), l = sade(lokasyon);
-    return !!l && y.indexOf(l) === 0;
+    const y = sade(tespitYeri), l = sade(lokasyon), k = KAYNAK_ADI[l];
+    return !!l && (y.indexOf(l) === 0 || (!!k && y.indexOf(k) === 0));
 };
 
 // "GG.AA.YYYY" → {yil, ay}. Başka biçim gelirse null — tarihi tahmin etme.

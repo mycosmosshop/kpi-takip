@@ -79,7 +79,7 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Çerkezköy: Sanifoam GmbH\'ye satış transfer fiyatıyla sayılır (GmbH muhasebesi Mikro\'da yok); sayım olmadığı için malzeme maliyeti alım bazlıdır.',
     kalite_oee_uretim:
         'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
-        + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy 12 saat (12/24), diğer lokasyonlar 8 saat).\n'
+        + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy ve Çerkezköy 12 saat, Ankara 10 saat, diğer 8 saat; planlı molalar düşülür: Çerkezköy 60 dk, Ankara 75 dk / vardiya).\n'
         + '  · Performans = Σ (miktar / ideal hız) / çalışma süresi; ideal hız = makine × ürünün düzgün kayıtlarındaki %90 dilim hızı.\n'
         + '  · Başlama/bitişi hatalı kayıtta süre = miktar / olağan hız. Kalite = 1 − iç uygunsuzluk (ek yeri hariç) / adet üretim.\n'
         + '  · Üretim prosesi = adında PAKETLEME geçmeyen makineler. LeanSys RAP005_OEE raporu rastgele sayı ürettiği için kullanılmaz.',

@@ -83,6 +83,9 @@ assert.strictEqual(iadeSevksiz[3].kalite_iade_ppm, null);
 
 // Kaynak tahmini: müşteri iade PPM'i artık tedarikçi değil
 const k = (proses, kpi_adi) => kaynakTahmini({ proses, kpi_adi });
+// Adapazarı lokasyonu = kaynaklarda HENDEK (aynı tesis)
+assert.strictEqual(aylikKalite([{ ...S(4, 'diger', { qi: 2 }), yer: 'HENDEK' }], 'Adapazarı', 2026, 'tum')[4].kalite_qi, 2);
+assert.strictEqual(aylikKalite([{ ...S(4, 'diger', { qi: 2 }), yer: 'HENDEK' }], 'Veliköy', 2026, 'tum')[4].kalite_qi, null);
 assert.deepStrictEqual(k('Satınalma', 'Tedarikçi Uygunsuzluk Adedi'), { type: 'kalite', metric: 'kalite_td_nc' });
 assert.deepStrictEqual(k('Kalite', 'İç Uygunsuzluk Adedi'), { type: 'kalite', metric: 'kalite_ic_nc' });
 assert.deepStrictEqual(k('Kalite', 'İç Başarısızlık Maliyeti (TL)'), { type: 'kalite', metric: 'kalite_maliyet_ic' });

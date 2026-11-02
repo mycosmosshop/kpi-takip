@@ -13,7 +13,7 @@
 // edilen (karar Hurda / Tedarikçiye iade + müşteri iadesi). Kullanılan, düşük
 // kalite, şartlı, tamir ve değerlendirmedeki kayıtlar girmez. Uygunsuzluk
 // Analizi'ndeki "Kalite Maliyeti Pareto" her kaydı fiyatlar — o başka bir soru.
-import { sade, yerEslesir } from './aylikKalite.ts';   // .ts: testte esbuild/strip-types cozebilsin
+import { sade, yerEslesir, kaynakYeri } from './aylikKalite.ts';   // .ts: testte esbuild/strip-types cozebilsin
 
 const KK_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const KK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
@@ -155,7 +155,7 @@ const tazele = async (yil: number): Promise<string | null> => {
 const AJAN_KANIT = 'http://127.0.0.1:17777/kpikanit';
 export const kanitUret = async (location: string, year: number, indir: boolean): Promise<{ ok: boolean; yol?: string; hata?: string }> => {
     try {
-        const r = await fetch(`${AJAN_KANIT}?yer=${encodeURIComponent(sade(location))}&yil=${year}&indir=${indir ? 1 : 0}`);
+        const r = await fetch(`${AJAN_KANIT}?yer=${encodeURIComponent(kaynakYeri(location))}&yil=${year}&indir=${indir ? 1 : 0}`);
         const j = await r.json();
         if (!j || !j.ok) return { ok: false, hata: j?.error || 'kanıt üretilemedi' };
         if (indir && j.b64) {
