@@ -19,6 +19,7 @@ import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
 import KpiSetModal, { KpiSetKalem } from './components/KpiSetModal';
+import KanitIlerleme from './components/KanitIlerleme';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
@@ -188,6 +189,7 @@ const App: React.FC = () => {
     const [recentlyUpdatedKpi, setRecentlyUpdatedKpi] = useState<string | null>(null);
     const updateTimeoutRef = useRef<number | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [kanitIlerleme, setKanitIlerleme] = useState<{ baslangic: number; lokasyon: string } | null>(null);
     // Yayında yeni sürüm var mı? (açık sekme eski paketle çalışmaya devam eder)
     const [yeniSurum, setYeniSurum] = useState(false);
     // Yeni sürüm görülünce KENDİLİĞİNDEN yenilenir: uyarı gösterip elle
@@ -844,8 +846,9 @@ const App: React.FC = () => {
             const loc = kaliteli?.kaynak?.location?.trim()
                 || ((await fetchKaliteYerleri()).some(y => sade(currentLocObj.name).startsWith(y) || yerEslesir(y, currentLocObj.name)) ? currentLocObj.name : '');
             if (loc) {
-                setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kanıt Excel'i (kalite, planlama, OEE, stok sayımı, paretolar) hazırlanıyor (~1–2 dk)…`, type: 'success' });
-                const s = await kanitUret(loc, kpiData.yil, true);
+                setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kanıt Excel'i (kalite, planlama, OEE, EBITDA, eğitim, bakım, paretolar) hazırlanıyor — sol altta ilerleme.`, type: 'success' });
+                setKanitIlerleme({ baslangic: Date.now(), lokasyon: loc });
+                const s = await kanitUret(loc, kpiData.yil, true).finally(() => setKanitIlerleme(null));
                 setNotification(s.ok
                     ? { message: `${currentBrand.docNo} Excel'i ve LeanSys kalite kanıt Excel'i indirildi. Kanıt ayrıca kaydedildi: ${s.yol}`, type: 'success' }
                     : { message: `${currentBrand.docNo} Excel'i indirildi; kanıt Excel'i üretilemedi: ${s.hata}`, type: 'error' });
@@ -1331,6 +1334,7 @@ const App: React.FC = () => {
                     onClose={() => setNotification(null)}
                 />
             )}
+            {kanitIlerleme && <KanitIlerleme baslangic={kanitIlerleme.baslangic} lokasyon={kanitIlerleme.lokasyon} />}
             <Header
                 year={kpiData.yil}
                 allKpis={processedKpis}
