@@ -114,10 +114,20 @@ const satirlariOku = async (): Promise<KaliteSatir[]> => {
 // Tazeleme tüm şubeleri baştan hesaplar (ölçüm: ~9 dk). Aynı sayfa oturumunda
 // yıl başına BİR KEZ yapılır; sonraki KPI satırları Supabase'teki taze çekimi
 // okur. Yoksa her satır bağlanırken 9 dk beklenirdi.
+// Veri 6 saatten yeniyse (her gün 12:00 görevi tazeliyor) ajan hiç beklenmez: tazeleme OEE / EBITDA / iki DB
+// siparişiyle 10–15 dk sürüyor ve ilk "Çek" o kadar takılı görünüyordu (kullanıcı 02.11.2026).
+const tazeMi = async (): Promise<boolean> => {
+    try {
+        const { data } = await istemci().from('egt_ayar').select('updated_at').eq('anahtar', 'kpi_kalite').limit(1);
+        const t = data && data.length ? Date.parse((data[0] as any).updated_at) : NaN;
+        return !isNaN(t) && Date.now() - t < 6 * 3600 * 1000;
+    } catch { return false; }
+};
 const tazelenenYillar = new Set<number>();
 const tazele = async (yil: number): Promise<string | null> => {
     if (tazelenenYillar.has(yil)) return null;
-    tazelenenYillar.add(yil);
+    tazelenenYillar.add(yil);   // başarısız olsa da oturumda yeniden denenmez — her satır 10 dk beklemesin
+    if (await tazeMi()) return null;
     try {
         const ctl = new AbortController();
         const zaman = setTimeout(() => ctl.abort(), 600000);
@@ -125,9 +135,8 @@ const tazele = async (yil: number): Promise<string | null> => {
         clearTimeout(zaman);
         const j = await r.json();
         if (j && j.ok) return null;
-        tazelenenYillar.delete(yil);   // başarısız tazeleme bir sonraki çekimde yeniden denensin
         return j?.error || 'ajan hatası';
-    } catch { tazelenenYillar.delete(yil); return 'ajan yok'; }
+    } catch { return 'ajan yok'; }
 };
 
 // KANIT Excel'i (her sayının satırları: uygunsuzluklar, hata tipleri, üretim, iadeler, satış, yöntem):
