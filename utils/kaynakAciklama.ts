@@ -68,7 +68,7 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
     kalite_oee_uretim:
         'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
-        + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı 8 saatlik vardiya bloklarına yuvarlanır).\n'
+        + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy 12 saat (12/24), diğer lokasyonlar 8 saat).\n'
         + '  · Performans = Σ (miktar / ideal hız) / çalışma süresi; ideal hız = makine × ürünün düzgün kayıtlarındaki %90 dilim hızı.\n'
         + '  · Başlama/bitişi hatalı kayıtta süre = miktar / olağan hız. Kalite = 1 − iç uygunsuzluk (ek yeri hariç) / adet üretim.\n'
         + '  · Üretim prosesi = adında PAKETLEME geçmeyen makineler. LeanSys RAP005_OEE raporu rastgele sayı ürettiği için kullanılmaz.',
