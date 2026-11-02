@@ -18,6 +18,7 @@ import AylikKaliteModal from './components/AylikKaliteModal';
 import LocationsModal from './components/LocationsModal';
 import ProcessOrderModal from './components/ProcessOrderModal';
 import KpiSourceModal from './components/KpiSourceModal';
+import KpiSetModal, { KpiSetKalem } from './components/KpiSetModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
@@ -516,6 +517,42 @@ const App: React.FC = () => {
             setNotification({ message: `Kaynak verisi çekilemedi: ${msg}`, type: 'error' });
         }
     }, [kpiData.kpis, currentYear, currentLocObj]);
+
+    // KPI setinden satır ekle: LeanSys'e bağlı açılır ve hemen doldurulur (kapsam başına tek çekim).
+    // Veri yoksa hiçbir satır eklenmez — boş bağlı satır bırakmamak için.
+    const handleSetEkle = async (kalemler: KpiSetKalem[]) => {
+        const loc = currentLocObj.name;
+        const now = new Date();
+        const maxMonth = (currentYear === now.getFullYear()) ? (now.getMonth() + 1) : 12;
+        const haritalar: { [scope: string]: { [m: number]: any } } = {};
+        try {
+            for (const sc of [...new Set(kalemler.map(s => s.scope))]) {
+                haritalar[sc] = await fetchKaliteMetrics(loc, currentYear, sc as KaliteKapsam);
+            }
+        } catch (e: any) {
+            setNotification({ message: `KPI seti eklenemedi: ${e?.message || e}`, type: 'error' });
+            return;
+        }
+        const yeni: Kpi[] = kalemler.map(s => {
+            const source: KpiSource = { type: 'kalite', metric: s.metric, scope: s.scope };
+            const map = haritalar[s.scope];
+            return {
+                id: `kpi-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                proses: s.proses, kpi_adi: s.kpi_adi, birim: s.birim, karsilastirma: s.karsilastirma,
+                yeni_yil_hedef: s.hedef ?? 0, onceki_yil_gerceklesen: null, hesap_metodu: 'ortalama',
+                kaynak: source, aciklama: kaynakAciklamasi(source, loc, currentYear),
+                kanit_dosyalari: [], dof: [],
+                aylik: Object.fromEntries(AYLAR.map((ay, i) => {
+                    const v = i + 1 <= maxMonth ? map[i + 1]?.[s.metric] : null;
+                    return [ay, v === null || v === undefined ? null : Number(v)];
+                })),
+                risk: { S: 1, O: 1, D: 1, RPN: 1, esik: 40, riskSeviyesi: 'Düşük' },
+                son_guncelleme: new Date().toLocaleString('tr-TR'), ortalama: null, durum: 'n/a',
+            };
+        });
+        updateCurrentYearData(prev => ({ ...prev, kpis: [...prev.kpis, ...yeni] }));
+        setNotification({ message: `${yeni.length} KPI setten eklendi ve LeanSys'ten dolduruldu (${loc} · ${currentYear}).`, type: 'success' });
+    };
 
     // KPI kaynak bağlantısını kaldır (aylık değerlere dokunmaz)
     const handleClearSource = (kpiId: string) => {
@@ -1526,6 +1563,17 @@ const App: React.FC = () => {
                     kpis={processedKpis}
                     multiYearData={allKpiData}
                     initialKpiId={modal.data?.kpiId}
+                />
+            )}
+            {modal.type === 'kpi-set' && (
+                <KpiSetModal
+                    isOpen={modal.type === 'kpi-set'}
+                    onClose={handleCloseModal}
+                    kpis={kpiData.kpis}
+                    lokasyon={currentLocObj?.name || currentLocation}
+                    yil={currentYear}
+                    onEkle={handleSetEkle}
+                    onCikar={handleDeleteKpi}
                 />
             )}
             {modal.type === 'aylik-kalite' && (

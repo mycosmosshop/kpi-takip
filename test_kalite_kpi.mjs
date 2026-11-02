@@ -35,6 +35,13 @@ assert.strictEqual(tum[1].kalite_iade_ppm, 0);                  // iade yok, sev
 assert.strictEqual(tum[7].kalite_iade_ppm, 3277.55);            // 1800 / 549190 × 1e6
 assert.strictEqual(tum[2].kalite_qi, null);                     // satırı olmayan ay NA, 0 değil
 assert.strictEqual(tum[2].kalite_iade_ppm, null);
+// İç / dış başarısızlık maliyeti ve iç / tedarikçi uygunsuzluk adedi: eski çekimde alan yok → NA (0 değil)
+assert.strictEqual(tum[1].kalite_maliyet_dis, null);
+assert.strictEqual(tum[1].kalite_td_nc, null);
+const yeniRows = [S(3, 'diger', { qi: 5, icNc: 3, tdNc: 2, maliyet: 1000, maliyetDis: 250 }), S(3, 'vileda', { qi: 1, icNc: 1, tdNc: 0, maliyet: 100, maliyetDis: 0 })];
+const yn = aylikKalite(yeniRows, 'Veliköy', 2026, 'tum')[3];
+assert.deepStrictEqual([yn.kalite_ic_nc, yn.kalite_td_nc, yn.kalite_maliyet_ic, yn.kalite_maliyet_dis], [4, 2, 850, 250]);
+assert.strictEqual(yn.kalite_maliyet_ic + yn.kalite_maliyet_dis, yn.kalite_maliyet);
 
 const vil = aylikKalite(rows, 'Veliköy', 2026, 'vileda');
 assert.strictEqual(vil[1].kalite_qi, 13);
@@ -76,6 +83,11 @@ assert.strictEqual(iadeSevksiz[3].kalite_iade_ppm, null);
 
 // Kaynak tahmini: müşteri iade PPM'i artık tedarikçi değil
 const k = (proses, kpi_adi) => kaynakTahmini({ proses, kpi_adi });
+assert.deepStrictEqual(k('Satınalma', 'Tedarikçi Uygunsuzluk Adedi'), { type: 'kalite', metric: 'kalite_td_nc' });
+assert.deepStrictEqual(k('Kalite', 'İç Uygunsuzluk Adedi'), { type: 'kalite', metric: 'kalite_ic_nc' });
+assert.deepStrictEqual(k('Kalite', 'İç Başarısızlık Maliyeti (TL)'), { type: 'kalite', metric: 'kalite_maliyet_ic' });
+assert.deepStrictEqual(k('Kalite', 'Dış Başarısızlık Maliyeti (TL)'), { type: 'kalite', metric: 'kalite_maliyet_dis' });
+assert.deepStrictEqual(k('Kalite', 'Kalite Uygunsuzlukları Adedi (QI)'), { type: 'kalite', metric: 'kalite_qi' });
 assert.deepStrictEqual(k('Kalite', 'Toplam İade PPM Total Return PPM'), { type: 'kalite', metric: 'kalite_iade_ppm' });
 assert.deepStrictEqual(k('Paketleme Prosesi', 'Dış İade PPM External Returns PPM'), { type: 'kalite', metric: 'kalite_iade_ppm' });
 assert.deepStrictEqual(k('Kalite', 'İç PPM internal PPM'), { type: 'kalite', metric: 'kalite_ic_ppm' });

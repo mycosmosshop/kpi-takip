@@ -158,7 +158,8 @@ export type SourceMetric =
     | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin'    // Tedarikçi Değerlendirme
     | 'siparis_tamamlanma'                                                     // Sipariş tamamlanma (sevk raporu 0157)
     | 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm'
-    | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket' | 'finans_ebitda';                                         // LeanSys kalite (/kpikalite)
+    | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket' | 'finans_ebitda'
+    | 'kalite_ic_nc' | 'kalite_td_nc' | 'kalite_maliyet_ic' | 'kalite_maliyet_dis';                                         // LeanSys kalite (/kpikalite)
 
 export interface KpiSource {
     type: SourceType;
@@ -236,7 +237,7 @@ export interface ActionYearData {
     nextMeeting: string;  // Next Meeting (tarih/saat metni)
 }
 
-export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | 'process-order' | 'kpi-source' | 'year-comparison' | 'ygg' | 'aylik-kalite' | null;
+export type ModalType = 'kpi' | 'dof' | 'risk' | 'detail' | 'month-detail' | 'all-dofs' | 'dof-report' | 'change-year' | 'copy-dof' | 'delete-process' | 'appearance-settings' | 'evidence' | 'bulk-kpi' | 'doe-tool' | 'action-items' | 'trend-chart' | 'locations' | 'process-order' | 'kpi-source' | 'year-comparison' | 'ygg' | 'aylik-kalite' | 'kpi-set' | null;
 
 export interface ModalState {
     type: ModalType;

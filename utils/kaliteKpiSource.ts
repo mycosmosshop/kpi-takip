@@ -19,12 +19,14 @@ const KK_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const KK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
 const AJAN = 'http://127.0.0.1:17777/kpikalite';
 
-export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket' | 'finans_ebitda';
+export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket' | 'finans_ebitda'
+    | 'kalite_ic_nc' | 'kalite_td_nc' | 'kalite_maliyet_ic' | 'kalite_maliyet_dis';
 export type KaliteKapsam = 'tum' | 'vileda' | 'diger' | 'otomotiv' | 'otomotiv_disi';
 
 export interface KaliteSatir {
     yer: string; yil: number; ay: number; seg: 'vileda' | 'otomotiv' | 'diger';
     qi: number; sikayet: number; icHatali: number; icKontrol: number;
+    icNc?: number; tdNc?: number; maliyetDis?: number;   // iç / tedarikçi uygunsuzluk adedi; maliyetin kalite kaynaklı müşteri iadesi kısmı (02.11.2026)
     icPay?: number; icPayda?: number; ekYeri?: number;   // iç PPM: (hatalı − ek yeri) / üretim
     icPayU?: number; icPaydaU?: number; icPayP?: number; icPaydaP?: number;   // aynısı proses bazında: Üretim / Paketleme makineleri
     iadeMiktar: number; iadeSevk: number; sevkSatir: number;
@@ -52,7 +54,7 @@ export const aylikKalite = (
         const s = (rows || []).filter(r => n(r.yil) === yil && n(r.ay) === m && yerEslesir(r.yer, lokasyon)
             && kapsamda(r.seg, kapsam));
         if (!s.length) {
-            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null, plan_termin: null, plan_gecikme: null, kalite_oee_uretim: null, kalite_oee_paket: null, finans_ebitda: null };
+            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null, plan_termin: null, plan_gecikme: null, kalite_oee_uretim: null, kalite_oee_paket: null, finans_ebitda: null, kalite_ic_nc: null, kalite_td_nc: null, kalite_maliyet_ic: null, kalite_maliyet_dis: null };
             continue;
         }
         const t = (f: keyof KaliteSatir) => s.reduce((a, r) => a + n(r[f]), 0);
@@ -61,6 +63,9 @@ export const aylikKalite = (
         // Payda ÜRETİM (2025 İç PPM dosyasıyla aynı). Kontrol miktarı yalnız uygunsuzluk
         // açılan partileri içerdiği için oranı şişiriyordu (Mart 103.884'e karşı 35.448).
         const payda = t('icPayda');
+        // 02.11.2026'dan önceki çekimde bu alanlar yok → 0 değil NA
+        const yeni = (f: keyof KaliteSatir) => s.some(r => r[f] !== undefined && r[f] !== null);
+        const disM = yeni('maliyetDis') ? t('maliyetDis') : null;
         out[m] = {
             kalite_qi: t('qi'),
             kalite_sikayet: t('sikayet'),
@@ -84,6 +89,11 @@ export const aylikKalite = (
             kalite_oee_paket: t('oeePlanP') > 0 ? parseFloat((t('oeeWP') / t('oeePlanP') * 100).toFixed(1)) : null,
             // EBITDA %: yılbaşından o aya kümülatif (aylık oran iç satış zamanlaması / yıl sonu düzeltmeleriyle çok oynuyor)
             finans_ebitda: t('satisKum') > 0 ? parseFloat((t('ebitdaKum') / t('satisKum') * 100).toFixed(1)) : null,
+            kalite_ic_nc: yeni('icNc') ? t('icNc') : null,
+            kalite_td_nc: yeni('tdNc') ? t('tdNc') : null,
+            // İç başarısızlık maliyeti = hurda + tedarikçiye iade kararlı uygunsuzluklar; dış = kalite kaynaklı müşteri iadesi
+            kalite_maliyet_ic: disM === null ? null : Math.round(maliyet - disM),
+            kalite_maliyet_dis: disM === null ? null : Math.round(disM),
         };
     }
     return out;

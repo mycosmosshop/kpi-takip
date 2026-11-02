@@ -54,6 +54,10 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'kalite_sikayet', l: 'Müşteri Şikayeti (LeanSys dış başarısızlık)' },
         { v: 'kalite_maliyet', l: 'Kalite Maliyeti (TL — hurda + iade)' },
         { v: 'kalite_oran', l: 'Kalite Maliyeti / Satış (%)' },
+        { v: 'kalite_maliyet_ic', l: 'İç Başarısızlık Maliyeti (TL — hurda + tedarikçiye iade)' },
+        { v: 'kalite_maliyet_dis', l: 'Dış Başarısızlık Maliyeti (TL — kalite kaynaklı müşteri iadesi)' },
+        { v: 'kalite_ic_nc', l: 'İç Uygunsuzluk Adedi (tip İç Başarısızlık)' },
+        { v: 'kalite_td_nc', l: 'Tedarikçi Uygunsuzluk Adedi (tip Tedarikçi)' },
         { v: 'finans_ebitda', l: 'EBITDA % — Veliköy tesisi, yılbaşından kümülatif (Mikro muhasebe)' },
         { v: 'kalite_oee_uretim', l: 'OEE — Üretim prosesi (%)' },
         { v: 'kalite_oee_paket', l: 'OEE — Paketleme prosesi (%)' },
@@ -61,6 +65,8 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'plan_gecikme', l: 'Ortalama Gecikme Gün Sayısı — sipariş satırı başına' },
     ],
 };
+
+export const KALITE_METRIKLER = METRICS.kalite;
 
 const SCOPES: { v: string; l: string }[] = [
     { v: 'tum', l: 'Tüm tedarikçiler (lokasyon)' },

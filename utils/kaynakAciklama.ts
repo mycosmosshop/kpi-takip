@@ -43,6 +43,11 @@ const HESAP: Record<SourceMetric, string> = {
         + '    sevkiyatlar (sipariş miktarı 0) hariç.\n'
         + '  · Ay = sipariş satırının ilk irsaliye ayı.',
     kalite_qi: 'Kalite Uygunsuzlukları Adedi = o ay açılan tekil uygunsuzluk kaydı (iç + dış + tedarikçi; NC seri + sıra ile tekil).',
+    kalite_ic_nc: 'İç Uygunsuzluk Adedi = o ay açılan, tipi "İç Başarısızlık" olan tekil uygunsuzluk kaydı (tespit yeri = lokasyon).',
+    kalite_td_nc: 'Tedarikçi Uygunsuzluk Adedi = o ay açılan, tipi "Tedarikçi" olan tekil uygunsuzluk kaydı (giriş kontrol / üretimde tespit edilen malzeme hatası; tespit yeri = lokasyon).',
+    kalite_maliyet_ic: 'İç Başarısızlık Maliyeti (TL) = kararı Hurda ya da Tedarikçiye iade olan uygunsuzluklarda hatalı miktar × birim fiyat (son Mikro faturası; yoksa son stok hareketi fiyatı).\n'
+        + '  · Kalite Maliyeti = İç + Dış başarısızlık maliyeti. Kullanılan, düşük kalite, şartlı, tamir, değerlendirme girmez.',
+    kalite_maliyet_dis: 'Dış Başarısızlık Maliyeti (TL) = kalite kaynaklı müşteri iadesi × iade birim fiyatı. Kalite kaynaklı = aynı stokta iadeden önceki 30 gün içinde dış başarısızlık uygunsuzluğu var; diğer iadeler (sevkiyat fazlası vb.) girmez.',
     kalite_sikayet: 'Müşteri Şikayeti = uygunsuzluk tipi "Dış Başarısızlık" olan kayıt sayısı (yalnız LeanSys\'e girilenler).',
     kalite_ic_ppm:
         'İç PPM = (iç başarısızlık hatalı miktarı − ek yeri) / aynı ay ve aynı birimdeki üretim miktarı × 1.000.000.\n'
