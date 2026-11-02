@@ -81,7 +81,8 @@ const HESAP: Record<SourceMetric, string> = {
         'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
         + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy ve Çerkezköy 12 saat, Ankara 10 saat, diğer 8 saat; planlı molalar düşülür: Çerkezköy 60 dk, Ankara 75 dk / vardiya).\n'
         + '  · Performans = Σ (miktar / ideal hız) / çalışma süresi; ideal hız = makine × ürünün düzgün kayıtlarındaki %90 dilim hızı.\n'
-        + '  · Başlama/bitişi hatalı kayıtta süre = miktar / olağan hız. Kalite = 1 − iç uygunsuzluk (ek yeri hariç) / adet üretim.\n'
+        + '  · Başlama/bitişi hatalı kayıt (iş bitince girilmiş: başlama = bitiş, geç başlama, toplu giriş): başlangıç = aynı makinedeki önceki kaydın bitişi (hız olağanın 0,2–5 katıysa); olmazsa süre = miktar / olağan hız.\n'
+        + '  · Kalite = 1 − iç uygunsuzluk (ek yeri hariç) / adet üretim.\n'
         + '  · Üretim prosesi = adında PAKETLEME geçmeyen makineler. LeanSys RAP005_OEE raporu rastgele sayı ürettiği için kullanılmaz.',
     kalite_oee_paket: 'OEE (%) — Paketleme prosesi (MP4, MP5, MP7, MP8, OKP-2). Hesap Üretim OEE ile aynı; makine dökümü kanıt Excel\'inde.',
     plan_termin:
