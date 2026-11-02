@@ -21,7 +21,8 @@ import KpiSourceModal from './components/KpiSourceModal';
 import { fetchCmmsMetrics, applySourceFormula } from './utils/cmmsSource';
 import { fetchEgitimMetrics } from './utils/egitimSource';
 import { fetchSiparisMetrics } from './utils/siparisSource';
-import { fetchKaliteMetrics, KaliteKapsam, kanitUret } from './utils/kaliteKpiSource';
+import { fetchKaliteMetrics, KaliteKapsam, kanitUret, fetchKaliteYerleri } from './utils/kaliteKpiSource';
+import { sade } from './utils/aylikKalite';
 import { kaynakAciklamasi, aciklamaGuncelle } from './utils/kaynakAciklama';
 import { sonrakiYilaKopya } from './utils/hedefTavsiye';
 import { kpiAnahtari } from './utils/yilKarsilastirma';
@@ -800,10 +801,12 @@ const App: React.FC = () => {
 
             setNotification({ message: `${currentBrand.docNo} Excel raporu başarıyla oluşturuldu.`, type: 'success' });
 
-            // LeanSys Kalite'ye bağlı satır varsa kanıt Excel'i de üretilip indirilir (aynı veriden, satır satır)
+            // LeanSys kanıt Excel'i de üretilip indirilir: LeanSys'e bağlı satır varsa onun lokasyonu; yoksa lokasyonun LeanSys
+            // verisi varsa (Çerkezköy'de bağlı satır yokken kanıt inmiyordu — kullanıcı 02.11.2026) o lokasyon.
             const kaliteli = kpiData.kpis.find(k => k.kaynak?.type === 'kalite');
-            if (kaliteli) {
-                const loc = kaliteli.kaynak?.location?.trim() || currentLocObj.name;
+            const loc = kaliteli?.kaynak?.location?.trim()
+                || ((await fetchKaliteYerleri()).some(y => sade(currentLocObj.name).startsWith(y)) ? currentLocObj.name : '');
+            if (loc) {
                 setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kanıt Excel'i (kalite, planlama, OEE, stok sayımı, paretolar) hazırlanıyor (~1–2 dk)…`, type: 'success' });
                 const s = await kanitUret(loc, kpiData.yil, true);
                 setNotification(s.ok
