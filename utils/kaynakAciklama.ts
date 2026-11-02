@@ -66,6 +66,12 @@ const HESAP: Record<SourceMetric, string> = {
         + '    dış başarısızlık uygunsuzluğu var. Diğer iadeler (ör. sevkiyat fazlası) iade PPM\'e girer, maliyete girmez.\n'
         + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
+    plan_termin:
+        'Terminlere Uygunluk (%) = teslim tarihine kadar tam (≥ %98) sevk edilen müşteri sipariş satırı / teslim tarihi o ay olan satır × 100.\n'
+        + '  · Müşteri siparişi = LeanSys sipariş tipi 0 (tip 1 satınalma siparişi). Teslim tarihi: satırın verilen teslimi, yoksa istenen, yoksa sipariş başlığı.\n'
+        + '  · Sevk = irsaliye satırının bağlı olduğu sipariş satırı (RAP005 tip 1). Teslim tarihi gelmemiş satırlar ölçülmez; sipariş deposunun şubesi = lokasyon.',
+    plan_gecikme:
+        'Ortalama Gecikme (gün) = Σ max(0, tam sevk tarihi − teslim tarihi) / teslim tarihi o ay olan satır sayısı. Zamanında satır 0 gün; hâlâ tam sevk edilmemiş satır bugüne kadar gecikmiş sayılır.',
     kalite_oran:
         'Kalite Maliyeti Oranı (%) = kalite maliyeti / lokasyon satış tutarı × 100.\n'
         + '  · Bütçe LeanSys\'te ve Mikro\'da tutulmadığı için payda satış tutarıdır (SAT003, Saniteks iç satışı dahil).',

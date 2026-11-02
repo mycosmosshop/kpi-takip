@@ -50,6 +50,12 @@ assert.strictEqual(pr[2].kalite_ic_ppm_uretim, 2000);
 assert.strictEqual(pr[2].kalite_ic_ppm_paket, 10000);   // (900+100)/(60000+40000), ortalama değil
 assert.strictEqual(aylikKalite([S(2, 'vileda', { icPayP: 1, icPaydaP: 10 })], 'Veliköy', 2026)[2].kalite_ic_ppm_uretim, null);
 
+// Planlama: terminlere uygunluk ve ortalama gecikme — Vileda + Diğer havuzlanır
+const pl = aylikKalite([S(5, 'diger', { sipSatir: 80, sipZamaninda: 72, sipGecikmeGun: 40 }), S(5, 'vileda', { sipSatir: 20, sipZamaninda: 20 })], 'Veliköy', 2026);
+assert.strictEqual(pl[5].plan_termin, 92);
+assert.strictEqual(pl[5].plan_gecikme, 0.4);
+assert.strictEqual(aylikKalite([S(5, 'diger', {})], 'Veliköy', 2026)[5].plan_termin, null);   // satır yok → NA, %0 değil
+
 // İade var ama aynı birimde sevk yok → oran uydurulmaz
 const iadeSevksiz = aylikKalite([S(3, 'diger', { iadeMiktar: 10, sevkSatir: 5 })], 'Veliköy', 2026);
 assert.strictEqual(iadeSevksiz[3].kalite_iade_ppm, null);
@@ -71,5 +77,7 @@ assert.deepStrictEqual(k('Kalite', 'Kalite Maliyetlerinin Aylık Bütçeye Oran�
 // Tedarikçi KPI'ları yerinde kalmalı
 assert.deepStrictEqual(k('Satınalma', 'Tedarikçi Değerlendirme (iade ppm göre)'), { type: 'tedarikci', metric: 'td_ppmpuan' });
 assert.strictEqual(k('Yönetim', 'Ebidta'), null);
+assert.deepStrictEqual(k('Planlama Prosesi', 'Terminlere Uygunluk'), { type: 'kalite', metric: 'plan_termin' });
+assert.deepStrictEqual(k('Planlama Prosesi', 'Ortalama Gecikme Gün Sayısı'), { type: 'kalite', metric: 'plan_gecikme' });
 
 console.log('test_kalite_kpi: tamam');

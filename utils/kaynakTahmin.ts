@@ -39,6 +39,8 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
             if (p.includes('paketleme')) return { type: 'kalite', metric: 'kalite_ic_ppm_paket' };
             if (p.includes('üretim') || p.includes('uretim')) return { type: 'kalite', metric: 'kalite_ic_ppm_uretim' };
         }
+        if (t.includes('terminlere uygun') || t.includes('termine uygun')) return { type: 'kalite', metric: 'plan_termin' };
+        if (t.includes('gecikme') && (t.includes('gün') || t.includes('gun'))) return { type: 'kalite', metric: 'plan_gecikme' };
         if (t.startsWith('qi ') || t.startsWith('qi—') || t.startsWith('qi —')) return { type: 'kalite', metric: 'kalite_qi' };
         if (t.includes('iç ppm') || t.includes('ic ppm') || t.includes('internal ppm')) return { type: 'kalite', metric: 'kalite_ic_ppm' };
         if (t.includes('ek yeri') && (t.includes('fire') || t.includes('ppm'))) return { type: 'kalite', metric: 'kalite_fire_ppm' };
