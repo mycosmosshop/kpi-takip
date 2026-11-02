@@ -58,7 +58,7 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'kalite_maliyet_dis', l: 'Dış Başarısızlık Maliyeti (TL — kalite kaynaklı müşteri iadesi)' },
         { v: 'kalite_ic_nc', l: 'İç Uygunsuzluk Adedi (tip İç Başarısızlık)' },
         { v: 'kalite_td_nc', l: 'Tedarikçi Uygunsuzluk Adedi (tip Tedarikçi)' },
-        { v: 'finans_ebitda', l: 'EBITDA % — Veliköy tesisi, yılbaşından kümülatif (Mikro muhasebe)' },
+        { v: 'finans_ebitda', l: 'EBITDA % — tesis (Veliköy, Çerkezköy), yılbaşından kümülatif (Mikro muhasebe)' },
         { v: 'kalite_oee_uretim', l: 'OEE — Üretim prosesi (%)' },
         { v: 'kalite_oee_paket', l: 'OEE — Paketleme prosesi (%)' },
         { v: 'plan_termin', l: 'Terminlere Uygunluk (%) — müşteri sipariş satırı, teslim tarihine kadar tam sevk' },

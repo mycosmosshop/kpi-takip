@@ -72,10 +72,11 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
     finans_ebitda:
-        'EBITDA (%) = Veliköy tesisi EBITDA ÷ konsolide satış × 100, yılbaşından o aya kümülatif (Mikro muhasebe).\n'
-        + '  · Sanifoam Veliköy (sorumluluk merkezi 1xxx): satış − hammadde alımı − işçilik − genel üretim − pazarlama − genel yönetim; amortisman hariç.\n'
-        + '  · Genel merkez (SM 5xxx/8xxx/9xxx ve SM\'siz) giderleri satış payıyla, SM\'siz hammadde alımı alım payıyla dağıtılır; dönem maliyet fişleri hariç.\n'
-        + '  · Saniteks eklenir (SMM = satış × yıllık 621 oranı); Saniteks\'e iç satış satıştan düşülür. Sayım ayında stok farkı, Aralık\'ta Saniteks stoğundaki gerçekleşmemiş kâr düşülür.',
+        'EBITDA (%) = tesis EBITDA ÷ satış × 100, yılbaşından o aya kümülatif (Mikro muhasebe). Yalnız Veliköy ve Çerkezköy hesaplanır.\n'
+        + '  · Tesis = Mikro\'da adı o tesisi taşıyan sorumluluk merkezleri: satış − hammadde alımı − işçilik − genel üretim − pazarlama − genel yönetim; amortisman hariç.\n'
+        + '  · Genel merkez (İstanbul, genel personel dağılımı ve SM\'siz) giderleri satış payıyla, SM\'siz hammadde alımı alım payıyla dağıtılır; dönem maliyet fişleri hariç.\n'
+        + '  · Veliköy: Saniteks eklenir (SMM = satış × yıllık 621 oranı); Saniteks\'e iç satış satıştan düşülür. Sayım ayında stok farkı, Aralık\'ta Saniteks stoğundaki gerçekleşmemiş kâr düşülür.\n'
+        + '  · Çerkezköy: Sanifoam GmbH\'ye satış transfer fiyatıyla sayılır (GmbH muhasebesi Mikro\'da yok); sayım olmadığı için malzeme maliyeti alım bazlıdır.',
     kalite_oee_uretim:
         'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
         + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı vardiya bloklarına yuvarlanır: Veliköy 12 saat (12/24), diğer lokasyonlar 8 saat).\n'

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Kpi, SourceMetric } from '../types';
+import { Kpi, KpiSource, SourceMetric } from '../types';
 import Modal from './Modal';
 import { KALITE_METRIKLER } from './KpiSourceModal';
 import { KALITE_KAPSAM } from '../utils/kaynakAciklama';
 import { cloudFetchMeta, cloudSaveMeta } from '../utils/cloudSync';
+import { kaynakTahmini } from '../utils/kaynakTahmin';
 
 // LeanSys / Mikro'dan otomatik çekilen KPI seti — tüm lokasyonlar için ortak (kpi_meta 'kpi_set_leansys').
 // Lokasyon tablosuna "Ekle" ile LeanSys'e bağlı satır eklenir ve hemen doldurulur; "Tablodan çıkar" satırı siler.
@@ -52,6 +53,17 @@ export const SET_ANAHTARI = 'kpi_set_leansys';
 export const setteMi = (kpi: Kpi, s: KpiSetKalem) =>
     kpi.kaynak?.type === 'kalite' && kpi.kaynak.metric === s.metric && (kpi.kaynak.scope || 'tum') === s.scope;
 
+// Elle girilmiş (kaynağa bağlı olmayan) satır: adından aynı metrik tahmin ediliyorsa bağlanmaya aday.
+// Kapsam adından okunur; adı kapsamla uyuşan aday önce gelir (Çerkezköy "İç PPM" otomotivdir — kullanıcı seçer).
+const adKapsami = (ad: string) => {
+    const t = (ad || '').toLocaleLowerCase('tr');
+    return /otomotiv (dışı|hariç)/.test(t) ? 'otomotiv_disi' : t.includes('otomotiv') ? 'otomotiv'
+        : /vileda hariç|diğer/.test(t) ? 'diger' : t.includes('vileda') ? 'vileda' : 'tum';
+};
+export const adaylar = (kpis: Kpi[], s: KpiSetKalem) =>
+    kpis.filter(kp => !kp.kaynak && kaynakTahmini(kp)?.type === 'kalite' && kaynakTahmini(kp)?.metric === s.metric)
+        .sort((a, b) => Number(adKapsami(b.kpi_adi) === s.scope) - Number(adKapsami(a.kpi_adi) === s.scope));
+
 interface Props {
     isOpen: boolean;
     onClose: () => void;
@@ -60,16 +72,18 @@ interface Props {
     yil: number;
     onEkle: (kalemler: KpiSetKalem[]) => Promise<void>;
     onCikar: (kpiId: string) => void;
+    onBagla: (kpiId: string, source: KpiSource) => void;
 }
 
 const bos: Omit<KpiSetKalem, 'id'> = { proses: 'Kalite', kpi_adi: '', birim: 'ppm', karsilastirma: '<=', hedef: null, metric: 'kalite_qi', scope: 'tum' };
 
-const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, onEkle, onCikar }) => {
+const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, onEkle, onCikar, onBagla }) => {
     const [set, setSet] = useState<KpiSetKalem[]>(VARSAYILAN_SET);
     const [secili, setSecili] = useState<Set<string>>(new Set());
     const [yeni, setYeni] = useState(bos);
     const [mesgul, setMesgul] = useState(false);
     const [hata, setHata] = useState('');
+    const [bagSec, setBagSec] = useState<{ [setId: string]: string }>({});
 
     useEffect(() => {
         if (!isOpen) return;
@@ -82,7 +96,7 @@ const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, on
         try { await cloudSaveMeta(SET_ANAHTARI, s); } catch (e: any) { setHata(`Set kaydedilemedi: ${e?.message || e}`); }
     };
 
-    const satirlar = useMemo(() => set.map(s => ({ s, kpi: kpis.find(kp => setteMi(kp, s)) })), [set, kpis]);
+    const satirlar = useMemo(() => set.map(s => ({ s, kpi: kpis.find(kp => setteMi(kp, s)), aday: adaylar(kpis, s) })), [set, kpis]);
     const metrikAd = (m: string) => KALITE_METRIKLER.find(x => x.v === m)?.l.split(' (')[0].split(' — ')[0] || m;
 
     const ekle = async (kalemler: KpiSetKalem[]) => {
@@ -98,7 +112,7 @@ const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, on
         setHata(''); kaydet([...set, { ...yeni, kpi_adi: yeni.kpi_adi.trim(), id }]); setYeni(bos);
     };
 
-    const eksikler = satirlar.filter(r => !r.kpi).map(r => r.s);
+    const eksikler = satirlar.filter(r => !r.kpi && !r.aday.length).map(r => r.s);
     const inp = 'px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700';
 
     return (
@@ -110,8 +124,9 @@ const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, on
             </>}>
             <p className="text-xs text-gray-500 mb-3">
                 LeanSys'ten (Mikro muhasebe dahil) otomatik çekilen göstergeler. Set tüm lokasyonlarda ortaktır. "Ekle" bu lokasyonun {yil} tablosuna
-                kaynağa bağlı satır ekler ve hemen doldurur; kanıt Excel'i FR100 dışa aktarmada bu satırlarla birlikte iner. Kapsamı Vileda / Otomotiv
-                olan satırlar yalnız o ürün grubunu sayar. EBITDA şimdilik yalnız Veliköy için hesaplanır.
+                kaynağa bağlı satır ekler ve hemen doldurur. Tabloda aynı adlı ama bağlı olmayan (elle girilmiş) satır varsa "Bağla" yalnız kaynağı
+                bağlar, değerlere dokunmaz — LeanSys değerini istediğinde satırdaki "Çek" ile çekersin; kanıt Excel'i FR100 dışa aktarmada bu satırlarla birlikte iner. Kapsamı Vileda / Otomotiv
+                olan satırlar yalnız o ürün grubunu sayar. EBITDA yalnız Veliköy ve Çerkezköy için hesaplanır.
             </p>
             {hata && <p className="text-sm text-red-600 mb-2">{hata}</p>}
             <div className="overflow-x-auto max-h-[55vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded">
@@ -125,20 +140,30 @@ const KpiSetModal: React.FC<Props> = ({ isOpen, onClose, kpis, lokasyon, yil, on
                         </tr>
                     </thead>
                     <tbody>
-                        {satirlar.map(({ s, kpi }) => (
+                        {satirlar.map(({ s, kpi, aday }) => (
                             <tr key={s.id} className="border-t border-gray-100 dark:border-gray-700">
-                                <td className="px-2 py-1">{!kpi && <input type="checkbox" checked={secili.has(s.id)}
+                                <td className="px-2 py-1">{!kpi && !aday.length && <input type="checkbox" checked={secili.has(s.id)}
                                     onChange={e => { const n = new Set(secili); e.target.checked ? n.add(s.id) : n.delete(s.id); setSecili(n); }} />}</td>
                                 <td className="px-2 py-1 whitespace-nowrap">{s.proses}</td>
                                 <td className="px-2 py-1">{s.kpi_adi}</td>
                                 <td className="px-2 py-1 text-gray-500">{metrikAd(s.metric)}</td>
                                 <td className="px-2 py-1 text-gray-500">{s.scope === 'tum' ? 'Tümü' : (KALITE_KAPSAM[s.scope] || s.scope).split(' (')[0]}</td>
                                 <td className="px-2 py-1">{s.birim}</td>
-                                <td className="px-2 py-1">{kpi ? <span className="text-green-700">✓ var</span> : <span className="text-gray-400">yok</span>}</td>
+                                <td className="px-2 py-1">{kpi ? <span className="text-green-700">✓ bağlı</span>
+                                    : aday.length ? <span className="text-amber-700">var, bağlı değil:{' '}
+                                        {aday.length === 1 ? <i>{aday[0].kpi_adi}</i>
+                                            : <select className="text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 max-w-[14rem]"
+                                                value={bagSec[s.id] || aday[0].id} onChange={e => setBagSec({ ...bagSec, [s.id]: e.target.value })}>
+                                                {aday.map(a => <option key={a.id} value={a.id}>{a.proses} — {a.kpi_adi}</option>)}
+                                            </select>}</span>
+                                    : <span className="text-gray-400">yok</span>}</td>
                                 <td className="px-2 py-1 text-right whitespace-nowrap">
                                     {kpi
                                         ? <button onClick={() => onCikar(kpi.id)} className="px-2 py-0.5 text-xs text-red-700 border border-red-300 rounded">Tablodan çıkar</button>
-                                        : <button disabled={mesgul} onClick={() => ekle([s])} className="px-2 py-0.5 text-xs text-white bg-blue-600 rounded disabled:opacity-50">Ekle</button>}
+                                        : aday.length
+                                            ? <button onClick={() => onBagla(bagSec[s.id] || aday[0].id, { type: 'kalite', metric: s.metric, scope: s.scope })}
+                                                title="Tablodaki satırı bu kaynağa bağlar; değerler değişmez" className="px-2 py-0.5 text-xs text-white bg-amber-600 rounded">Bağla</button>
+                                            : <button disabled={mesgul} onClick={() => ekle([s])} className="px-2 py-0.5 text-xs text-white bg-blue-600 rounded disabled:opacity-50">Ekle</button>}
                                     <button onClick={() => { if (window.confirm(`"${s.kpi_adi}" setten silinsin mi? (Tablolardaki satırlar kalır.)`)) kaydet(set.filter(x => x.id !== s.id)); }}
                                         title="Setten sil (tüm lokasyonlar)" className="ml-2 px-2 py-0.5 text-xs text-gray-500 border border-gray-300 rounded">Setten sil</button>
                                 </td>

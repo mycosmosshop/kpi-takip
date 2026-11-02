@@ -1574,6 +1574,11 @@ const App: React.FC = () => {
                     yil={currentYear}
                     onEkle={handleSetEkle}
                     onCikar={handleDeleteKpi}
+                    onBagla={(kpiId, source) => {
+                        // Yalnız bağlantı: elle girilmiş değerler korunur, LeanSys değeri satırdaki "Çek" ile gelir
+                        updateCurrentYearData(prev => ({ ...prev, kpis: prev.kpis.map(k => k.id === kpiId ? { ...k, kaynak: source } : k) }));
+                        setNotification({ message: 'Satır LeanSys kaynağına bağlandı (değerler değişmedi). Değerleri çekmek için satırdaki "Çek"i kullanın.', type: 'success' });
+                    }}
                 />
             )}
             {modal.type === 'aylik-kalite' && (
