@@ -20,10 +20,10 @@ const KK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const AJAN = 'http://127.0.0.1:17777/kpikalite';
 
 export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket';
-export type KaliteKapsam = 'tum' | 'vileda' | 'diger';
+export type KaliteKapsam = 'tum' | 'vileda' | 'diger' | 'otomotiv' | 'otomotiv_disi';
 
 export interface KaliteSatir {
-    yer: string; yil: number; ay: number; seg: 'vileda' | 'diger';
+    yer: string; yil: number; ay: number; seg: 'vileda' | 'otomotiv' | 'diger';
     qi: number; sikayet: number; icHatali: number; icKontrol: number;
     icPay?: number; icPayda?: number; ekYeri?: number;   // iç PPM: (hatalı − ek yeri) / üretim
     icPayU?: number; icPaydaU?: number; icPayP?: number; icPaydaP?: number;   // aynısı proses bazında: Üretim / Paketleme makineleri
@@ -39,13 +39,17 @@ const n = (v: any): number => { const x = Number(v); return isNaN(x) ? 0 : x; };
 
 // Lokasyon + kapsam + yıl için 12 ayın değerleri. Kaynakta hiç satırı olmayan
 // ay = null (NA), 0 değil: "kayıt yok" ile "o ay hiç veri gelmedi" ayrı şey.
+// 'diger' = Vileda dışı (Veliköy satırları otomotiv ayrımından etkilenmez); 'otomotiv_disi' = otomotiv dışı (Çerkezköy 'Diğer')
+const kapsamda = (seg: string, k: KaliteKapsam): boolean =>
+    k === 'tum' || (k === 'vileda' ? seg === 'vileda' : k === 'diger' ? seg !== 'vileda' : k === 'otomotiv' ? seg === 'otomotiv' : seg !== 'otomotiv');
+
 export const aylikKalite = (
     rows: KaliteSatir[], lokasyon: string, yil: number, kapsam: KaliteKapsam = 'tum',
 ): { [month: number]: AyDeger } => {
     const out: { [month: number]: AyDeger } = {};
     for (let m = 1; m <= 12; m++) {
         const s = (rows || []).filter(r => n(r.yil) === yil && n(r.ay) === m && yerEslesir(r.yer, lokasyon)
-            && (kapsam === 'tum' || r.seg === kapsam));
+            && kapsamda(r.seg, kapsam));
         if (!s.length) {
             out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null, plan_termin: null, plan_gecikme: null, kalite_oee_uretim: null, kalite_oee_paket: null };
             continue;

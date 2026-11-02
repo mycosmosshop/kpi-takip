@@ -56,6 +56,12 @@ assert.strictEqual(pl[5].plan_termin, 92);
 assert.strictEqual(pl[5].plan_gecikme, 0.4);
 assert.strictEqual(aylikKalite([S(5, 'diger', {})], 'Veliköy', 2026)[5].plan_termin, null);   // satır yok → NA, %0 değil
 
+// Otomotiv kapsamı (Çerkezköy): otomotiv / otomotiv dışı; 'diger' = Vileda dışı (otomotiv dahil) — Veliköy değişmez
+const ot = [S(3, 'otomotiv', { qi: 5 }), S(3, 'diger', { qi: 2 }), S(3, 'vileda', { qi: 1 })];
+assert.strictEqual(aylikKalite(ot, 'Veliköy', 2026, 'otomotiv')[3].kalite_qi, 5);
+assert.strictEqual(aylikKalite(ot, 'Veliköy', 2026, 'otomotiv_disi')[3].kalite_qi, 3);
+assert.strictEqual(aylikKalite(ot, 'Veliköy', 2026, 'diger')[3].kalite_qi, 7);
+
 // OEE: planlı süre ağırlıklı, yalnız 'diger' satırında
 const oe = aylikKalite([S(4, 'diger', { oeePlanU: 1000, oeeWU: 450, oeePlanP: 3000, oeeWP: 1650 }), S(4, 'vileda', {})], 'Veliköy', 2026);
 assert.strictEqual(oe[4].kalite_oee_uretim, 45);

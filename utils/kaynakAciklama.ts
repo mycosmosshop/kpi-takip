@@ -96,6 +96,8 @@ export const KALITE_KAPSAM: { [k: string]: string } = {
     tum: 'Tüm ürünler',
     vileda: 'Yalnız Vileda (stok 140./191., VL / Glitzi, FHP malzemesi)',
     diger: 'Vileda hariç tüm ürünler',
+    otomotiv: 'Yalnız otomotiv (satışının en az yarısı otomotiv müşterisine — Sanifoam GmbH dahil)',
+    otomotiv_disi: 'Otomotiv hariç tüm ürünler',
 };
 
 // Çekim sonrası açıklama bloğu
