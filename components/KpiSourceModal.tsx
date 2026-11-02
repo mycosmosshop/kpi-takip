@@ -47,6 +47,8 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
     kalite: [
         { v: 'kalite_qi', l: 'Kalite Uygunsuzlukları Adedi' },
         { v: 'kalite_ic_ppm', l: 'İç PPM ((hatalı − ek yeri) / üretim × 1.000.000)' },
+        { v: 'kalite_ic_ppm_uretim', l: 'İç PPM — Üretim prosesi (paketleme dışı makineler)' },
+        { v: 'kalite_ic_ppm_paket', l: 'İç PPM — Paketleme prosesi (paketleme makineleri)' },
         { v: 'kalite_fire_ppm', l: 'Ek Yeri Firesi PPM (ek yeri / üretim × 1.000.000)' },
         { v: 'kalite_iade_ppm', l: 'Dış (Müşteri) İade PPM' },
         { v: 'kalite_sikayet', l: 'Müşteri Şikayeti (LeanSys dış başarısızlık)' },

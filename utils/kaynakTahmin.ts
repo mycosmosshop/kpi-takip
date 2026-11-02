@@ -34,6 +34,11 @@ export const kaynakTahmini = (kpi: Kpi | null): { type: SourceType; metric: Sour
         if (t.includes('ppm') && (t.includes('dış iade') || t.includes('dis iade') || t.includes('toplam iade') || t.includes('external'))) return { type: 'kalite', metric: 'kalite_iade_ppm' };
         // "İade PPM — Vileda" gibi kısa adlar müşteri iadesidir; "İç iade PPM" belirsiz, tahmin edilmez
         if (t.includes('iade') && t.includes('ppm') && !t.includes('iç iade') && !t.includes('ic iade')) return { type: 'kalite', metric: 'kalite_iade_ppm' };
+        // "İç iade PPM" Üretim / Paketleme prosesinde = o prosesin iç PPM'i (makine bazında ayrılır)
+        if ((t.includes('iç iade') || t.includes('ic iade')) && t.includes('ppm')) {
+            if (p.includes('paketleme')) return { type: 'kalite', metric: 'kalite_ic_ppm_paket' };
+            if (p.includes('üretim') || p.includes('uretim')) return { type: 'kalite', metric: 'kalite_ic_ppm_uretim' };
+        }
         if (t.startsWith('qi ') || t.startsWith('qi—') || t.startsWith('qi —')) return { type: 'kalite', metric: 'kalite_qi' };
         if (t.includes('iç ppm') || t.includes('ic ppm') || t.includes('internal ppm')) return { type: 'kalite', metric: 'kalite_ic_ppm' };
         if (t.includes('ek yeri') && (t.includes('fire') || t.includes('ppm'))) return { type: 'kalite', metric: 'kalite_fire_ppm' };

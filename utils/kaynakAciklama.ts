@@ -49,6 +49,10 @@ const HESAP: Record<SourceMetric, string> = {
         + '  · Payda üretimdir (2025 İç PPM dosyasıyla aynı). Kontrol miktarı yalnız uygunsuzluk açılan partileri içerir, kullanılmaz.\n'
         + '  · Ek yeri hariç: rulo malzemede bilerek bulunur, ayıklanması planlıdır → fire olarak ayrı izlenir.\n'
         + '  · Çap kesim, keçe tüylenmesi, selülozsuz kısım, oluk formu gibi ürün hataları dahildir (karar düşük kalite olsa da).',
+    kalite_ic_ppm_uretim: 'Üretim prosesi İç PPM = paketleme dışı makinelerde açılan iç uygunsuzluk hatalı miktarı (ek yeri hariç) / aynı makinelerin aynı ay ve birimdeki üretimi × 1.000.000.\n'
+        + '  · Üretim makineleri: laminasyon, keçe fırını, kesim (yatay/dikey/pres), bez kesme-katlama, el işçiliği vb. — adında PAKETLEME geçmeyen tüm makineler.',
+    kalite_ic_ppm_paket: 'Paketleme prosesi İç PPM = paketleme makinelerinde (MP4, MP5, MP7, MP8, OKP-2 — adında PAKETLEME geçen) açılan iç uygunsuzluk hatalı miktarı (ek yeri hariç) / aynı makinelerin üretimi × 1.000.000.\n'
+        + '  · Hata tipi pareto ve makine bazında döküm kanıt Excel\'inde.',
     kalite_fire_ppm: 'Ek Yeri Firesi PPM = hata tipi "Ek Yeri" olan iç uygunsuzluk miktarı / üretim miktarı × 1.000.000 (planlı ayıklama; iç PPM\'e girmez).',
     kalite_iade_ppm:
         'Dış İade PPM = müşteri iade miktarı / aynı ay ve aynı birimdeki sevk miktarı × 1.000.000.\n'

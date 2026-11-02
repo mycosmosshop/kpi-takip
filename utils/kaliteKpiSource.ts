@@ -19,13 +19,14 @@ const KK_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const KK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
 const AJAN = 'http://127.0.0.1:17777/kpikalite';
 
-export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran';
+export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran';
 export type KaliteKapsam = 'tum' | 'vileda' | 'diger';
 
 export interface KaliteSatir {
     yer: string; yil: number; ay: number; seg: 'vileda' | 'diger';
     qi: number; sikayet: number; icHatali: number; icKontrol: number;
     icPay?: number; icPayda?: number; ekYeri?: number;   // iç PPM: (hatalı − ek yeri) / üretim
+    icPayU?: number; icPaydaU?: number; icPayP?: number; icPaydaP?: number;   // aynısı proses bazında: Üretim / Paketleme makineleri
     iadeMiktar: number; iadeSevk: number; sevkSatir: number;
     maliyet: number; maliyetKayit: number; fiyatsiz: number; iadeTutar: number; ciro: number;
 }
@@ -44,7 +45,7 @@ export const aylikKalite = (
         const s = (rows || []).filter(r => n(r.yil) === yil && n(r.ay) === m && yerEslesir(r.yer, lokasyon)
             && (kapsam === 'tum' || r.seg === kapsam));
         if (!s.length) {
-            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null };
+            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null };
             continue;
         }
         const t = (f: keyof KaliteSatir) => s.reduce((a, r) => a + n(r[f]), 0);
@@ -57,6 +58,9 @@ export const aylikKalite = (
             kalite_qi: t('qi'),
             kalite_sikayet: t('sikayet'),
             kalite_ic_ppm: payda > 0 ? Math.round(t('icPay') / payda * 1e6) : null,
+            // Proses: makine adında PAKETLEME geçen makineler Paketleme, diğerleri Üretim — pay ve payda aynı prosesten
+            kalite_ic_ppm_uretim: t('icPaydaU') > 0 ? Math.round(t('icPayU') / t('icPaydaU') * 1e6) : null,
+            kalite_ic_ppm_paket: t('icPaydaP') > 0 ? Math.round(t('icPayP') / t('icPaydaP') * 1e6) : null,
             // Ek yeri: rulo malzemede bilerek bulunur, ayıklanması planlı → PPM değil fire
             kalite_fire_ppm: payda > 0 ? Math.round(t('ekYeri') / payda * 1e6) : null,
             // İade yoksa ve o ay sevk varsa 0; sevk de yoksa NA. İade var ama aynı

@@ -43,6 +43,13 @@ const dig = aylikKalite(rows, 'Veliköy', 2026, 'diger');
 assert.strictEqual(dig[1].kalite_qi, 26);
 assert.strictEqual(vil[1].kalite_qi + dig[1].kalite_qi, tum[1].kalite_qi);
 
+// Proses iç PPM: Üretim / Paketleme ayrı havuzlanır; o prosesin üretimi yoksa NA
+const pr = aylikKalite([S(2, 'diger', { icPayU: 100, icPaydaU: 50000, icPayP: 900, icPaydaP: 60000 }),
+                        S(2, 'vileda', { icPayP: 100, icPaydaP: 40000 })], 'Veliköy', 2026);
+assert.strictEqual(pr[2].kalite_ic_ppm_uretim, 2000);
+assert.strictEqual(pr[2].kalite_ic_ppm_paket, 10000);   // (900+100)/(60000+40000), ortalama değil
+assert.strictEqual(aylikKalite([S(2, 'vileda', { icPayP: 1, icPaydaP: 10 })], 'Veliköy', 2026)[2].kalite_ic_ppm_uretim, null);
+
 // İade var ama aynı birimde sevk yok → oran uydurulmaz
 const iadeSevksiz = aylikKalite([S(3, 'diger', { iadeMiktar: 10, sevkSatir: 5 })], 'Veliköy', 2026);
 assert.strictEqual(iadeSevksiz[3].kalite_iade_ppm, null);
@@ -55,7 +62,9 @@ assert.deepStrictEqual(k('Kalite', 'İç PPM internal PPM'), { type: 'kalite', m
 assert.deepStrictEqual(k('Kalite', 'Ek Yeri Firesi PPM'), { type: 'kalite', metric: 'kalite_fire_ppm' });
 assert.deepStrictEqual(k('Kalite', 'İade PPM — Vileda'), { type: 'kalite', metric: 'kalite_iade_ppm' });
 assert.deepStrictEqual(k('Kalite', 'QI — Diğer (Vileda hariç)'), { type: 'kalite', metric: 'kalite_qi' });
-assert.strictEqual(k('Üretim Prosesi', 'İç iade PPM Internal return PPM'), null);   // belirsiz, tahmin edilmez
+assert.deepStrictEqual(k('Üretim Prosesi', 'İç iade PPM Internal return PPM'), { type: 'kalite', metric: 'kalite_ic_ppm_uretim' });
+assert.deepStrictEqual(k('Paketleme Prosesi', 'İç iade PPM'), { type: 'kalite', metric: 'kalite_ic_ppm_paket' });
+assert.strictEqual(k('Kalite', 'İç iade PPM'), null);   // proses belli değil → tahmin edilmez
 assert.deepStrictEqual(k('Kalite', 'Kalite Uygunsuzlukları Adedi (QI)'), { type: 'kalite', metric: 'kalite_qi' });
 assert.deepStrictEqual(k('Kalite', 'Müşteri Şikayetleri Miktarı'), { type: 'kalite', metric: 'kalite_sikayet' });
 assert.deepStrictEqual(k('Kalite', 'Kalite Maliyetlerinin Aylık Bütçeye Oranı'), { type: 'kalite', metric: 'kalite_oran' });
