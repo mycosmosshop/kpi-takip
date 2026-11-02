@@ -54,6 +54,8 @@ const METRICS: Record<SourceType, { v: SourceMetric; l: string }[]> = {
         { v: 'kalite_sikayet', l: 'Müşteri Şikayeti (LeanSys dış başarısızlık)' },
         { v: 'kalite_maliyet', l: 'Kalite Maliyeti (TL — hurda + iade)' },
         { v: 'kalite_oran', l: 'Kalite Maliyeti / Satış (%)' },
+        { v: 'kalite_oee_uretim', l: 'OEE — Üretim prosesi (%)' },
+        { v: 'kalite_oee_paket', l: 'OEE — Paketleme prosesi (%)' },
         { v: 'plan_termin', l: 'Terminlere Uygunluk (%) — müşteri sipariş satırı, teslim tarihine kadar tam sevk' },
         { v: 'plan_gecikme', l: 'Ortalama Gecikme Gün Sayısı — sipariş satırı başına' },
     ],

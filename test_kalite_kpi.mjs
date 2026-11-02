@@ -56,6 +56,11 @@ assert.strictEqual(pl[5].plan_termin, 92);
 assert.strictEqual(pl[5].plan_gecikme, 0.4);
 assert.strictEqual(aylikKalite([S(5, 'diger', {})], 'Veliköy', 2026)[5].plan_termin, null);   // satır yok → NA, %0 değil
 
+// OEE: planlı süre ağırlıklı, yalnız 'diger' satırında
+const oe = aylikKalite([S(4, 'diger', { oeePlanU: 1000, oeeWU: 450, oeePlanP: 3000, oeeWP: 1650 }), S(4, 'vileda', {})], 'Veliköy', 2026);
+assert.strictEqual(oe[4].kalite_oee_uretim, 45);
+assert.strictEqual(oe[4].kalite_oee_paket, 55);
+
 // İade var ama aynı birimde sevk yok → oran uydurulmaz
 const iadeSevksiz = aylikKalite([S(3, 'diger', { iadeMiktar: 10, sevkSatir: 5 })], 'Veliköy', 2026);
 assert.strictEqual(iadeSevksiz[3].kalite_iade_ppm, null);
@@ -77,6 +82,8 @@ assert.deepStrictEqual(k('Kalite', 'Kalite Maliyetlerinin Aylık Bütçeye Oran�
 // Tedarikçi KPI'ları yerinde kalmalı
 assert.deepStrictEqual(k('Satınalma', 'Tedarikçi Değerlendirme (iade ppm göre)'), { type: 'tedarikci', metric: 'td_ppmpuan' });
 assert.strictEqual(k('Yönetim', 'Ebidta'), null);
+assert.deepStrictEqual(k('Paketleme Prosesi', 'OEE (Toplam Ekipman Etkinliği)'), { type: 'kalite', metric: 'kalite_oee_paket' });
+assert.deepStrictEqual(k('Üretim Prosesi', 'OEE (Toplam Ekipman Etkinliği)'), { type: 'kalite', metric: 'kalite_oee_uretim' });
 assert.deepStrictEqual(k('Planlama Prosesi', 'Terminlere Uygunluk'), { type: 'kalite', metric: 'plan_termin' });
 assert.deepStrictEqual(k('Planlama Prosesi', 'Ortalama Gecikme Gün Sayısı'), { type: 'kalite', metric: 'plan_gecikme' });
 

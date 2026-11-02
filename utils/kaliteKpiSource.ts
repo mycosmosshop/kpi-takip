@@ -19,7 +19,7 @@ const KK_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
 const KK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
 const AJAN = 'http://127.0.0.1:17777/kpikalite';
 
-export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme';
+export type KaliteMetric = 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm' | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket';
 export type KaliteKapsam = 'tum' | 'vileda' | 'diger';
 
 export interface KaliteSatir {
@@ -29,7 +29,8 @@ export interface KaliteSatir {
     icPayU?: number; icPaydaU?: number; icPayP?: number; icPaydaP?: number;   // aynısı proses bazında: Üretim / Paketleme makineleri
     iadeMiktar: number; iadeSevk: number; sevkSatir: number;
     maliyet: number; maliyetKayit: number; fiyatsiz: number; iadeTutar: number; ciro: number;
-    sipSatir?: number; sipZamaninda?: number; sipGecikmeGun?: number;   // müşteri sipariş satırı: teslim tarihi o ay ve geçmiş
+    sipSatir?: number; sipZamaninda?: number; sipGecikmeGun?: number;
+    oeePlanU?: number; oeeWU?: number; oeePlanP?: number; oeeWP?: number;   // OEE: Σ planlı süre, Σ OEE × planlı süre (yalnız 'diger' satırında)   // müşteri sipariş satırı: teslim tarihi o ay ve geçmiş
 }
 
 type AyDeger = { [m in KaliteMetric]: number | null };
@@ -46,7 +47,7 @@ export const aylikKalite = (
         const s = (rows || []).filter(r => n(r.yil) === yil && n(r.ay) === m && yerEslesir(r.yer, lokasyon)
             && (kapsam === 'tum' || r.seg === kapsam));
         if (!s.length) {
-            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null, plan_termin: null, plan_gecikme: null };
+            out[m] = { kalite_qi: null, kalite_sikayet: null, kalite_ic_ppm: null, kalite_ic_ppm_uretim: null, kalite_ic_ppm_paket: null, kalite_fire_ppm: null, kalite_iade_ppm: null, kalite_maliyet: null, kalite_oran: null, plan_termin: null, plan_gecikme: null, kalite_oee_uretim: null, kalite_oee_paket: null };
             continue;
         }
         const t = (f: keyof KaliteSatir) => s.reduce((a, r) => a + n(r[f]), 0);
@@ -73,6 +74,9 @@ export const aylikKalite = (
             // Planlama: teslim tarihine kadar ≥%98 sevk edilen satır oranı; gecikme günü tüm satırlara bölünür (zamanında = 0)
             plan_termin: t('sipSatir') > 0 ? parseFloat((t('sipZamaninda') / t('sipSatir') * 100).toFixed(2)) : null,
             plan_gecikme: t('sipSatir') > 0 ? parseFloat((t('sipGecikmeGun') / t('sipSatir')).toFixed(2)) : null,
+            // OEE: makine OEE'lerinin planlı süreyle ağırlıklı ortalaması (%); Vileda/Diğer kırılımı yok → kapsam 'diger'de kalır
+            kalite_oee_uretim: t('oeePlanU') > 0 ? parseFloat((t('oeeWU') / t('oeePlanU') * 100).toFixed(1)) : null,
+            kalite_oee_paket: t('oeePlanP') > 0 ? parseFloat((t('oeeWP') / t('oeePlanP') * 100).toFixed(1)) : null,
         };
     }
     return out;

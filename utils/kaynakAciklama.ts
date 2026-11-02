@@ -66,6 +66,13 @@ const HESAP: Record<SourceMetric, string> = {
         + '    dış başarısızlık uygunsuzluğu var. Diğer iadeler (ör. sevkiyat fazlası) iade PPM\'e girer, maliyete girmez.\n'
         + '  · Kullanılan, düşük kalite, şartlı kullanım, tamir, değerlendirme maliyete girmez.\n'
         + '  · Birim fiyat: son Mikro faturası (Fiyat Listesi Son Fatura); yoksa son stok hareketi fiyatı.',
+    kalite_oee_uretim:
+        'OEE (%) = Kullanılabilirlik × Performans × Kalite, makine × ay; proses değeri makinelerin planlı süreyle ağırlıklı ortalaması.\n'
+        + '  · Kullanılabilirlik = çalışma süresi / planlı süre (makinenin o gün ilk başlama–son bitiş aralığı 8 saatlik vardiya bloklarına yuvarlanır).\n'
+        + '  · Performans = Σ (miktar / ideal hız) / çalışma süresi; ideal hız = makine × ürünün düzgün kayıtlarındaki %90 dilim hızı.\n'
+        + '  · Başlama/bitişi hatalı kayıtta süre = miktar / olağan hız. Kalite = 1 − iç uygunsuzluk (ek yeri hariç) / adet üretim.\n'
+        + '  · Üretim prosesi = adında PAKETLEME geçmeyen makineler. LeanSys RAP005_OEE raporu rastgele sayı ürettiği için kullanılmaz.',
+    kalite_oee_paket: 'OEE (%) — Paketleme prosesi (MP4, MP5, MP7, MP8, OKP-2). Hesap Üretim OEE ile aynı; makine dökümü kanıt Excel\'inde.',
     plan_termin:
         'Terminlere Uygunluk (%) = teslim tarihine kadar tam (≥ %98) sevk edilen müşteri sipariş satırı / teslim tarihi o ay olan satır × 100.\n'
         + '  · Müşteri siparişi = LeanSys sipariş tipi 0 (tip 1 satınalma siparişi). Teslim tarihi: satırın verilen teslimi, yoksa istenen, yoksa sipariş başlığı.\n'

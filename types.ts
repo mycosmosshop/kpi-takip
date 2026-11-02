@@ -158,7 +158,7 @@ export type SourceMetric =
     | 'iade_ppm' | 'td_puan' | 'td_terminpuan' | 'td_ppmpuan' | 'td_termin'    // Tedarikçi Değerlendirme
     | 'siparis_tamamlanma'                                                     // Sipariş tamamlanma (sevk raporu 0157)
     | 'kalite_qi' | 'kalite_sikayet' | 'kalite_ic_ppm' | 'kalite_ic_ppm_uretim' | 'kalite_ic_ppm_paket' | 'kalite_fire_ppm' | 'kalite_iade_ppm'
-    | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme';                                         // LeanSys kalite (/kpikalite)
+    | 'kalite_maliyet' | 'kalite_oran' | 'plan_termin' | 'plan_gecikme' | 'kalite_oee_uretim' | 'kalite_oee_paket';                                         // LeanSys kalite (/kpikalite)
 
 export interface KpiSource {
     type: SourceType;
