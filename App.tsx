@@ -804,7 +804,7 @@ const App: React.FC = () => {
             const kaliteli = kpiData.kpis.find(k => k.kaynak?.type === 'kalite');
             if (kaliteli) {
                 const loc = kaliteli.kaynak?.location?.trim() || currentLocObj.name;
-                setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kalite kanıt Excel'i hazırlanıyor (~30 sn)…`, type: 'success' });
+                setNotification({ message: `${currentBrand.docNo} Excel'i indirildi. LeanSys kanıt Excel'i (kalite, planlama, OEE, stok sayımı, paretolar) hazırlanıyor (~1–2 dk)…`, type: 'success' });
                 const s = await kanitUret(loc, kpiData.yil, true);
                 setNotification(s.ok
                     ? { message: `${currentBrand.docNo} Excel'i ve LeanSys kalite kanıt Excel'i indirildi. Kanıt ayrıca kaydedildi: ${s.yol}`, type: 'success' }
